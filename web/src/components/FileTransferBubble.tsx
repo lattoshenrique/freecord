@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useI18n } from '../i18n';
 import { formatBytes, isImageTransfer, type FileTransfer } from '../lib/file-transfer';
 import ImageLightbox from './ImageLightbox';
@@ -31,18 +31,22 @@ export default function FileTransferBubble({
   const [previewOpen, setPreviewOpen] = useState(false);
   const percent = transfer.size === 0 ? 100 : Math.floor((transfer.bytes / transfer.size) * 100);
 
-  // The blob URL lives exactly as long as the bubble that offers it.
-  const href = useMemo(
-    () => (transfer.blob ? URL.createObjectURL(transfer.blob) : null),
-    [transfer.blob],
-  );
+  // The blob URL is created and revoked in the same effect, so a re-run
+  // (StrictMode mounts twice in dev) makes a fresh URL instead of keeping a
+  // memoized one that the cleanup already revoked — the sender's own image
+  // used to show up broken for exactly that reason.
+  const [href, setHref] = useState<string | null>(null);
   useEffect(() => {
+    if (!transfer.blob) {
+      setHref(null);
+      return;
+    }
+    const url = URL.createObjectURL(transfer.blob);
+    setHref(url);
     return () => {
-      if (href) {
-        URL.revokeObjectURL(href);
-      }
+      URL.revokeObjectURL(url);
     };
-  }, [href]);
+  }, [transfer.blob]);
 
   let status: string;
   switch (transfer.status) {

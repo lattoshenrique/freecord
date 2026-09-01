@@ -5,8 +5,8 @@ import { CloseIcon } from './icons';
 
 /**
  * Full-size view of an image from the chat. The picture is shown at its
- * natural size — panning by scroll when it is larger than the viewport —
- * because "see it for real" is the point; the bubble already had the fit.
+ * natural size when it fits, and scaled down to the viewport when it does
+ * not — the whole picture, always on screen, never a crop or a scroll.
  *
  * Rendered through a portal: the chat panel animates in with a transform,
  * which would turn a fixed overlay into a panel-local one.

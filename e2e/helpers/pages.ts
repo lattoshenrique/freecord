@@ -31,11 +31,13 @@ export async function joinRoomPage(browser: Browser, slug: string, name: string)
   const page = await context.newPage();
   await page.goto(`${baseUrl()}/r/${slug}`);
 
-  // Prejoin: the only textbox is the guest name; the submit joins.
-  const nameInput = page.getByRole('textbox').first();
+  // Prejoin: the guest-name field by its label — the room title is a
+  // textbox too now (click-to-rename), so "first textbox" would rename the
+  // room instead of naming the guest. The join button likewise by name.
+  const nameInput = page.getByRole('textbox', { name: /your name/i });
   await nameInput.waitFor({ state: 'visible', timeout: 15_000 });
   await nameInput.fill(name);
-  await page.locator('form button[type="submit"]').click();
+  await page.getByRole('button', { name: /join the room/i }).click();
 
   // In the room once the seat counter renders.
   await page.locator('.seat-count').waitFor({ state: 'visible', timeout: 20_000 });

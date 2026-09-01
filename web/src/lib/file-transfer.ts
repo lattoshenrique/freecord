@@ -25,6 +25,12 @@ const HIGH_WATER_BYTES = 1024 * 1024;
 const LOW_WATER_BYTES = 256 * 1024;
 /** Receiver memory is the limit: the whole file is held until saved. */
 export const MAX_FILE_BYTES = 1024 * 1024 * 1024;
+/**
+ * Images up to this size are taken without asking: they are what people
+ * paste into a chat, and a picture that waits for a click is not a chat.
+ * Anything else — or a huge image — still needs the receiver's yes.
+ */
+export const AUTO_ACCEPT_IMAGE_BYTES = 32 * 1024 * 1024;
 /** Progress notifications are throttled to this many chunks (~1 MiB). */
 const NOTIFY_EVERY_CHUNKS = 64;
 const ID_HEADER_BYTES = 4;
@@ -395,6 +401,11 @@ export class FileTransfers {
           ts: Date.now(),
           blob: null,
         });
+        if (isImageTransfer(frame) && frame.size <= AUTO_ACCEPT_IMAGE_BYTES) {
+          // accept() notifies; the pending state is never observed.
+          this.accept(key);
+          return;
+        }
         this.notify();
         return;
       }

@@ -125,10 +125,11 @@ test.describe('peer-to-peer file transfer', () => {
 
     await alice.page.locator('button[data-key="C"]').click();
     await bob.page.locator('button[data-key="C"]').click();
+    // Wider than the 1280px viewport: the viewer must scale it to fit.
     await alice.page.locator('.chat-panel input[type="file"]').setInputFiles({
       name: 'gradient.png',
       mimeType: 'image/png',
-      buffer: pngOf(640, 480),
+      buffer: pngOf(2000, 1400),
     });
 
     // The sender already holds the bytes: a thumbnail before anyone accepts.
@@ -136,24 +137,37 @@ test.describe('peer-to-peer file transfer', () => {
     await expect(sent.locator('.chat-file-thumb img')).toBeVisible();
     await expect(sent.getByRole('link', { name: /save/i })).toHaveCount(0);
 
+    // Images are taken without asking: no Accept step, straight to Received.
     const received = bob.page.locator('.chat-file');
-    await expect(received).toContainText('gradient.png', { timeout: 20_000 });
-    await expect(received.locator('.chat-file-thumb')).toHaveCount(0);
-    await received.getByRole('button', { name: 'Accept' }).click();
     await expect(received).toContainText('Received', { timeout: 30_000 });
+    await expect(received.getByRole('button', { name: 'Accept' })).toHaveCount(0);
 
     const thumb = received.locator('.chat-file-thumb img');
     await expect(thumb).toBeVisible();
     await expect
       .poll(() => thumb.evaluate((img) => (img as HTMLImageElement).naturalWidth))
-      .toBe(640);
+      .toBe(2000);
 
     await received.locator('.chat-file-thumb').click();
     const viewer = bob.page.getByRole('dialog', { name: 'gradient.png' });
     await expect(viewer).toBeVisible();
     const full = viewer.locator('img.lightbox-image');
-    // Natural size, not the bubble's fit.
-    await expect.poll(() => full.evaluate((img) => img.getBoundingClientRect().width)).toBe(640);
+    // Real size capped by the screen: larger than the bubble's thumbnail,
+    // never wider or taller than the viewport, aspect ratio kept.
+    const box = await expect
+      .poll(async () => full.evaluate((img) => {
+        const r = img.getBoundingClientRect();
+        return { w: Math.round(r.width), h: Math.round(r.height), vw: innerWidth, vh: innerHeight };
+      }))
+      .toMatchObject({ vw: expect.any(Number) })
+      .then(() => full.evaluate((img) => {
+        const r = img.getBoundingClientRect();
+        return { w: Math.round(r.width), h: Math.round(r.height), vw: innerWidth, vh: innerHeight };
+      }));
+    expect(box.w).toBeLessThanOrEqual(box.vw);
+    expect(box.h).toBeLessThanOrEqual(box.vh);
+    expect(box.w).toBeGreaterThan(await thumb.evaluate((img) => img.getBoundingClientRect().width));
+    expect(Math.abs(box.w / box.h - 2000 / 1400)).toBeLessThan(0.02);
     await bob.page.screenshot({ path: 'test-results/file-transfer-image-viewer.png' });
 
     // The viewer owns the keyboard: "m" must not reach the room's mic shortcut.
@@ -162,6 +176,50 @@ test.describe('peer-to-peer file transfer', () => {
 
     await bob.page.keyboard.press('Escape');
     await expect(viewer).toHaveCount(0);
+  });
+
+  test('an incoming offer counts on the unread badge and rings the chime', async ({ browser }) => {
+    const { slug } = await createRoom('files-unread');
+    handles = await joinMany(browser, slug, 2);
+    const [sender, watcher] = handles;
+
+    // Spy on the oscillator so the chime is observable without audio output.
+    await watcher.page.evaluate(() => {
+      const spied = window as unknown as Window & { __tones: number[] };
+      spied.__tones = [];
+      const create = AudioContext.prototype.createOscillator;
+      AudioContext.prototype.createOscillator = function patched(this: AudioContext) {
+        const oscillator = create.call(this);
+        const setValue = oscillator.frequency.setValueAtTime.bind(oscillator.frequency);
+        oscillator.frequency.setValueAtTime = (value: number, when: number) => {
+          spied.__tones.push(value);
+          return setValue(value, when);
+        };
+        return oscillator;
+      };
+    });
+
+    // The watcher keeps the panel shut; only the sender opens it to attach.
+    await sender.page.locator('button[data-key="C"]').click();
+    await sender.page.locator('.chat-panel input[type="file"]').setInputFiles({
+      name: 'notes.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('hello'),
+    });
+
+    const badge = watcher.page.locator('.chat-unread-badge');
+    await expect(badge).toHaveText('1', { timeout: 20_000 });
+    await expect(watcher.page.locator('button[data-key="C"]')).toHaveAttribute(
+      'aria-label',
+      /1 new message/i,
+    );
+    await expect
+      .poll(() => watcher.page.evaluate(() => (window as unknown as { __tones: number[] }).__tones.length))
+      .toBeGreaterThan(0);
+
+    await watcher.page.locator('button[data-key="C"]').click();
+    await expect(badge).toHaveCount(0);
+    await expect(watcher.page.locator('.chat-file')).toContainText('notes.txt');
   });
 
   test('a declined offer settles on both sides', async ({ browser }) => {

@@ -448,6 +448,28 @@ export default function RoomView({
     }
   }, [chatCount, chatOpen]);
 
+  // A file offered to us is a message too: it counts on the badge while the
+  // panel is shut and rings the same chime. Keyed by transfer, not by list
+  // length — dismissing a settled transfer must not turn into a phantom.
+  const { transfers } = session;
+  const noticedOffersRef = useRef(new Set<string>());
+  useEffect(() => {
+    let arrived = 0;
+    for (const transfer of transfers) {
+      if (transfer.direction === 'in' && !noticedOffersRef.current.has(transfer.key)) {
+        noticedOffersRef.current.add(transfer.key);
+        arrived++;
+      }
+    }
+    if (arrived === 0) {
+      return;
+    }
+    if (!chatOpen) {
+      setUnread((n) => n + arrived);
+    }
+    playMessageChime();
+  }, [transfers, chatOpen]);
+
   // Sound alert: only for someone else's message, chat open or not.
   const soundedCountRef = useRef(0);
   const { chat, selfId } = session;

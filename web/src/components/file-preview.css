@@ -31,7 +31,6 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: auto;
   padding: 2rem;
   background: rgba(0, 0, 0, 0.88);
   backdrop-filter: blur(6px);
@@ -47,10 +46,17 @@
   gap: 0.6rem;
 }
 
-/* Natural size: the bubble already showed the fit, this shows the real thing. */
+/*
+ * Natural size, but never past the screen: a picture larger than the
+ * viewport is scaled down to fit (aspect kept), a smaller one is shown 1:1.
+ */
 .lightbox-image {
   display: block;
-  max-width: none;
+  width: auto;
+  height: auto;
+  max-width: calc(100vw - 4rem);
+  max-height: calc(100vh - 6rem);
+  object-fit: contain;
   cursor: default;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
   border-radius: 4px;

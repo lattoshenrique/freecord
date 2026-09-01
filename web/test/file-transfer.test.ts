@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  AUTO_ACCEPT_IMAGE_BYTES,
   CHUNK_BYTES,
   FileTransfers,
   MAX_FILE_BYTES,
@@ -78,12 +79,12 @@ async function settle(rounds = 50): Promise<void> {
   }
 }
 
-function makeFile(bytes: number, name = 'photo.png'): File {
+function makeFile(bytes: number, name = 'archive.bin', type = 'application/octet-stream'): File {
   const content = new Uint8Array(bytes);
   for (let i = 0; i < bytes; i++) {
     content[i] = i % 251;
   }
-  return new File([content], name, { type: 'image/png' });
+  return new File([content], name, { type });
 }
 
 describe('chunk framing', () => {
@@ -116,9 +117,9 @@ describe('FileTransfers', () => {
     expect(incoming[0]).toMatchObject({
       direction: 'in',
       peerId: 'alice',
-      name: 'photo.png',
+      name: 'archive.bin',
       size,
-      mime: 'image/png',
+      mime: 'application/octet-stream',
       status: 'pending',
     });
     expect(alice.get(key)?.status).toBe('pending');
@@ -270,18 +271,29 @@ describe('image previews', () => {
     alice.attach('bob', a);
     bob.attach('alice', b);
 
-    const image = alice.offer('bob', makeFile(10, 'photo.png'))!;
-    const other = alice.offer('bob', new File([new Uint8Array(10)], 'notes.txt', { type: 'text/plain' }))!;
+    const image = alice.offer('bob', makeFile(10, 'photo.png', 'image/png'))!;
+    const other = alice.offer('bob', makeFile(10, 'notes.txt', 'text/plain'))!;
     expect(alice.get(image)?.blob).not.toBeNull();
     expect(alice.get(other)?.blob).toBeNull();
 
-    await settle(2);
-    for (const incoming of bob.list()) {
-      expect(incoming.blob).toBeNull();
-      bob.accept(incoming.key);
-    }
     await settle();
-    expect(bob.list().every((incoming) => incoming.status === 'done' && incoming.blob !== null)).toBe(true);
+    const incoming = bob.list();
+    // The image was taken without a click; the text file still waits.
+    expect(incoming.find((t) => t.name === 'photo.png')).toMatchObject({ status: 'done' });
+    expect(incoming.find((t) => t.name === 'notes.txt')).toMatchObject({ status: 'pending', blob: null });
+    bob.accept(incoming.find((t) => t.name === 'notes.txt')!.key);
+    await settle();
+    expect(bob.list().every((t) => t.status === 'done' && t.blob !== null)).toBe(true);
+  });
+
+  it('an image above the auto-accept cap still asks', async () => {
+    const [a, b] = pair();
+    const bob = new FileTransfers();
+    bob.attach('alice', b);
+    a.send(JSON.stringify({ k: 'offer', id: 3, name: 'huge.png', size: AUTO_ACCEPT_IMAGE_BYTES + 1, mime: 'image/png' }));
+    await settle(2);
+    expect(bob.list()[0]).toMatchObject({ status: 'pending' });
+    expect(b.sent).toHaveLength(0);
   });
 });
 
