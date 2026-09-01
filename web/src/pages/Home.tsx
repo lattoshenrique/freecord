@@ -5,6 +5,7 @@ import { generateRoomKey } from '../lib/chat-crypto';
 import DownloadCard from '../components/DownloadCard';
 import LanguagePicker from '../components/LanguagePicker';
 import Logo from '../components/Logo';
+import MeshBackground from '../components/MeshBackground';
 import { useI18n } from '../i18n';
 import './home.css';
 
@@ -73,6 +74,9 @@ export default function HomePage() {
   return (
     <main className="home">
       <section className="start">
+        {/* The topology the product is, drawn live behind the field. */}
+        <MeshBackground />
+
         <div className="start-center">
           <Link to="/" className="start-brand">
             <Logo size={30} />
@@ -108,6 +112,7 @@ export default function HomePage() {
         </div>
 
         <footer className="start-foot">
+          <Link to="/how-it-works">{t('how.link')}</Link>
           <Link to="/community">{t('home.community')}</Link>
           <a href="#download">{t('home.footer.downloads')}</a>
           <a href={REPO} target="_blank" rel="noreferrer">
