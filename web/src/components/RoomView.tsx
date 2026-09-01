@@ -487,12 +487,11 @@ export default function RoomView({
         : null;
 
   const participantCount = session.peers.length + 1;
-  // The grid lays out all 12 seats, occupied or not: capacity is something
-  // you can see, not a number to look up. Ghost seats cost tile size in a
-  // near-empty room — the deliberate trade. With a screen on stage the tiles
-  // collapse to the strip and only real faces ride it.
-  const grid = useTileGrid(screenStream ? 0 : MAX_PARTICIPANTS);
-  const openSeats = screenStream ? 0 : Math.max(0, MAX_PARTICIPANTS - participantCount);
+  // Only real faces get grid area. Ghost seat tiles were tried and retired:
+  // sizing the grid by all 12 seats shrank one person to a twelfth of the
+  // screen in an empty room. Capacity lives in the header's seat counter.
+  // With a screen on stage the tiles collapse to the strip.
+  const grid = useTileGrid(screenStream ? 0 : participantCount);
 
   if (status.kind === 'ended' && status.reason !== 'left') {
     const message =
@@ -682,15 +681,6 @@ export default function RoomView({
                 />
               );
             })}
-            {Array.from({ length: openSeats }, (_, i) => (
-              <div
-                key={`seat-${i}`}
-                className="tile-seat"
-                style={tileStyle}
-                title={t('room.seatOpen')}
-                aria-hidden="true"
-              />
-            ))}
           </div>
         </div>
 
