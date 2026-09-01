@@ -331,6 +331,7 @@ button {
   border-radius: 999px;
   padding: 0.45rem 1rem;
   box-shadow: var(--glass-highlight);
+  animation: rise-in 0.35s var(--ease) both;
 }
 
 .room-header h1 {
@@ -363,6 +364,7 @@ button {
   font-weight: 500;
   cursor: pointer;
   box-shadow: var(--glass-highlight);
+  animation: rise-in 0.35s var(--ease) 0.05s both;
   transition:
     background 0.15s ease,
     border-color 0.15s ease,
@@ -400,6 +402,7 @@ button {
   flex: 1;
   min-height: 0;
   background: black;
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
   box-shadow: var(--shadow);
@@ -486,7 +489,8 @@ button {
   align-items: center;
   gap: 0.35rem;
   color: var(--muted);
-  font-size: 0.78rem;
+  font-family: var(--mono);
+  font-size: 0.72rem;
   font-variant-numeric: tabular-nums;
 }
 
@@ -681,6 +685,14 @@ button {
   border-bottom-left-radius: 4px;
   padding: 0.45rem 0.75rem;
   animation: bubble-in 0.25s var(--ease) both;
+}
+
+/* A sealed message this client has no key for. */
+.chat-locked {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-style: italic;
 }
 
 .chat-bubble.mine {
@@ -1245,4 +1257,13 @@ button {
 :lang(zh-CN) .chat-md li,
 :lang(ja) .chat-md li {
   overflow-wrap: break-word;
+}
+
+/* Room key missing: the composer explains instead of pretending to work. */
+.chat-nokey {
+  margin: 0;
+  padding: 0.75rem 0.9rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
 }

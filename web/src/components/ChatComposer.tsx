@@ -47,11 +47,14 @@ const SHORTCUTS: Record<string, MarkdownAction> = {
 export default function ChatComposer({
   value,
   maxLength,
+  locked = false,
   onChange,
   onSend,
 }: {
   value: string;
   maxLength: number;
+  /** No key for an encrypted room: sending would silently downgrade to plaintext. */
+  locked?: boolean;
   onChange: (text: string) => void;
   onSend: () => void;
 }) {
@@ -121,6 +124,16 @@ export default function ChatComposer({
         run(action);
       }
     }
+  }
+
+  if (locked) {
+    // Not a disabled field: a disabled input reads as a glitch, and the person
+    // needs the remedy (ask for the original link), not just the refusal.
+    return (
+      <div className="chat-composer">
+        <p className="chat-nokey">{t('chat.noKey')}</p>
+      </div>
+    );
   }
 
   return (

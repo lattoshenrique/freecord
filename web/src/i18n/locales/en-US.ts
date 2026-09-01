@@ -116,6 +116,8 @@ export const enUS = {
 
   'chat.title': 'Room chat',
   'chat.empty': 'No messages yet. Say hi 👋',
+  'chat.noKey':
+    'You don’t have this room’s key, so messages can’t be sent. Ask for the original invite link — the key is part of it.',
   'chat.locked':
     'Encrypted — you don’t have this room’s key',
   'chat.messageLabel': 'Chat message',

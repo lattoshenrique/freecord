@@ -112,6 +112,8 @@ export const ptBR: Catalog = {
 
   'chat.title': 'Chat da sala',
   'chat.empty': 'Nenhuma mensagem ainda. Diga um oi 👋',
+  'chat.noKey':
+    'Você não tem a chave desta sala, então não dá para enviar mensagens. Peça o link de convite original — a chave faz parte dele.',
   'chat.locked':
     'Criptografada — você não tem a chave desta sala',
   'chat.messageLabel': 'Mensagem do chat',
