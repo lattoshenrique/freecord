@@ -22,7 +22,8 @@
     "dist": "npm run build && electron-builder",
     "dist:mac": "npm run build && electron-builder --mac --arm64 --x64",
     "dist:win": "npm run build && electron-builder --win --x64",
-    "dist:linux": "npm run build && electron-builder --linux --x64"
+    "dist:linux": "npm run build && electron-builder --linux --x64",
+    "icons": "electron build/make-icons.cjs"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",
@@ -80,6 +81,7 @@
           ]
         }
       ],
+      "icon": "build/icon-win.png",
       "artifactName": "freecord-win-x64.exe"
     },
     "nsis": {
@@ -90,6 +92,7 @@
     },
     "linux": {
       "executableName": "freecord",
+      "icon": "build/icon-win.png",
       "target": [
         {
           "target": "AppImage",
