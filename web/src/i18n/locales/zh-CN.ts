@@ -2,7 +2,8 @@ import type { Catalog } from '..';
 
 export const zhCN: Catalog = {
   'app.name': 'Freecord',
-  'app.tagline': '语音、视频、聊天和屏幕共享，跑在 P2P 网状网络上。媒体从不经过服务器。',
+  'app.tagline':
+    '语音、视频、聊天和屏幕共享，跑在 P2P 网状网络上。中间没有媒体服务器。',
 
   'home.roomName': '房间名称',
   'home.roomNamePlaceholder': '房间名称（可选）',

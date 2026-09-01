@@ -2,7 +2,8 @@ import type { Catalog } from '..';
 
 export const ptBR: Catalog = {
   'app.name': 'Freecord',
-  'app.tagline': 'Voz, vídeo, chat e tela numa malha P2P. A mídia nunca toca um servidor.',
+  'app.tagline':
+    'Voz, vídeo, chat e tela numa malha P2P. Sem servidor de mídia no meio.',
 
   'home.roomName': 'Nome da sala',
   'home.roomNamePlaceholder': 'Nome da sala (opcional)',

@@ -2,7 +2,8 @@ import type { Catalog } from '..';
 
 export const jaJP: Catalog = {
   'app.name': 'Freecord',
-  'app.tagline': '音声・ビデオ・チャット・画面共有を P2P メッシュで。メディアはサーバーを通りません。',
+  'app.tagline':
+    '音声・ビデオ・チャット・画面共有を P2P メッシュで。あいだにメディアサーバーはありません。',
 
   'home.roomName': 'ルーム名',
   'home.roomNamePlaceholder': 'ルーム名（任意）',
