@@ -1,10 +1,10 @@
 /**
- * Borda Cloudflare do servidor de salas.
+ * Cloudflare edge of the room server.
  *
- * Mesma API HTTP e mesmo protocolo WS do servidor Node (server/src) — muda só
- * o transporte e onde o estado vive: em vez de um Map por processo, uma
- * Durable Object por slug. É o passo 3 do caminho de escala descrito em
- * docs/architecture.md (sharding por sala), sem mudança na UI.
+ * Same HTTP API and same WS protocol as the Node server (server/src) — only
+ * the transport and where state lives change: instead of one Map per
+ * process, one Durable Object per slug. This is step 3 of the scaling path
+ * described in docs/architecture.md (per-room sharding), with no UI change.
  */
 import {
   ROOM_LIMITS,
@@ -25,16 +25,16 @@ import { fetchDesktopCatalog } from '../../server/src/app/desktop-catalog.js';
 export interface Env {
   ROOMS: DurableObjectNamespace;
   ASSETS: Fetcher;
-  /** Origem permitida no CORS (ex.: https://app.exemplo.com). */
+  /** Origin allowed by CORS (e.g. https://app.example.com). */
   CORS_ORIGIN?: string;
   RATE_LIMITER: { limit(options: { key: string }): Promise<{ success: boolean }> };
 }
 
-/** Anexo de cada WebSocket: sobrevive à hibernação da Durable Object. */
+/** Each WebSocket's attachment: survives Durable Object hibernation. */
 interface PeerAttachment {
   peerId: string;
   name: string;
-  /** Último ping — base para expulsar conexões zumbis (ver alarm). */
+  /** Last ping — the basis for kicking zombie connections (see alarm). */
   lastSeen: number;
 }
 
@@ -44,13 +44,13 @@ interface RoomMeta {
 }
 
 type ScreenLock = { id: string; streamId: string; quality: ScreenQuality } | null;
-/** Relays da árvore de tela: peerId → streamId de reencaminhamento. */
+/** Screen-tree relays: relay peerId → forwarding streamId. */
 type ScreenRelays = Record<string, string>;
 
-/** Cadência da varredura de zumbis enquanto há gente na sala. */
+/** Zombie-sweep cadence while the room has people in it. */
 const SWEEP_INTERVAL_MS = Math.floor(ROOM_LIMITS.peerTimeoutMs / 2);
 
-/** Id não adivinhável: o link É a credencial de descoberta da sala. */
+/** Unguessable id: the link IS the room's discovery credential. */
 function randomId(bytes: number): string {
   const buffer = new Uint8Array(bytes);
   crypto.getRandomValues(buffer);
@@ -76,9 +76,10 @@ function json(body: unknown, status: number, env: Env): Response {
 }
 
 /**
- * Uma sala viva: dona dos participantes, do relay de sinalização, do chat e
- * do lock de tela. Usa WebSocket Hibernation — o estado reconstruível vem dos
- * anexos dos sockets, o resto (metadados, lock, `emptyAt`) do storage.
+ * One live room: owner of the participants, the signaling relay, the chat
+ * and the screen lock. Uses WebSocket Hibernation — reconstructible state
+ * comes from the sockets' attachments, the rest (metadata, lock, `emptyAt`)
+ * from storage.
  */
 export class RoomDurableObject {
   private readonly ctx: DurableObjectState;
@@ -104,7 +105,7 @@ export class RoomDurableObject {
   private async create(request: Request): Promise<Response> {
     const { slug, displayName } = (await request.json()) as RoomMeta;
     await this.ctx.storage.put('meta', { slug, displayName } satisfies RoomMeta);
-    // Sala nasce vazia: o relógio de expiração já começa a correr.
+    // A room is born empty: the expiration clock starts immediately.
     await this.markEmptyFrom(Date.now());
     return Response.json({ slug, displayName, participantCount: 0 });
   }
@@ -135,7 +136,7 @@ export class RoomDurableObject {
         : null;
 
     if (rejection) {
-      // Sem status HTTP útil do outro lado: a recusa vai no protocolo, como no Node.
+      // No useful HTTP status on the other side: the refusal travels in the protocol, as in Node.
       server.accept();
       server.send(JSON.stringify({ t: 'error', code: rejection }));
       server.close();
@@ -145,7 +146,7 @@ export class RoomDurableObject {
     const peerId = randomId(8);
     this.ctx.acceptWebSocket(server);
     server.serializeAttachment({ peerId, name, lastSeen: Date.now() } satisfies PeerAttachment);
-    // Com gente dentro, o relógio de expiração para e a varredura de zumbis começa.
+    // With people inside, the expiration clock stops and the zombie sweep begins.
     await this.ctx.storage.delete('emptyAt');
     await this.ctx.storage.setAlarm(Date.now() + SWEEP_INTERVAL_MS);
 
@@ -158,7 +159,7 @@ export class RoomDurableObject {
       screen: screen ? { id: screen.id, streamId: screen.streamId } : null,
     });
     this.broadcast({ t: 'peer-joined', peer: { id: peerId, name } }, peerId);
-    // Tela em andamento: quem chega precisa de rota, e a árvore muda.
+    // Screen share in progress: the newcomer needs a route, and the tree changes.
     await this.broadcastScreenRoutes();
 
     return new Response(null, { status: 101, webSocket: client });
@@ -177,7 +178,7 @@ export class RoomDurableObject {
 
     switch (message.t) {
       case 'ping': {
-        // Prova de vida + medida de latência: o cliente cronometra o eco.
+        // Proof of life + latency measure: the client times the echo.
         ws.serializeAttachment({ ...attachment, lastSeen: Date.now() } satisfies PeerAttachment);
         this.send(ws, { t: 'pong', ts: message.ts });
         return;
@@ -199,13 +200,13 @@ export class RoomDurableObject {
         return;
       }
       case 'screen-request': {
-        // Regra de produto garantida no servidor: uma tela por vez.
+        // Product rule enforced on the server: one screen at a time.
         const screen = (await this.ctx.storage.get<ScreenLock>('screen')) ?? null;
         if (screen && screen.id !== peerId) {
           this.send(ws, { t: 'screen-denied' });
           return;
         }
-        // Reenvio do próprio sharer = troca de qualidade ao vivo.
+        // A re-send by the sharer itself = live quality change.
         if (screen?.streamId !== message.streamId) {
           await this.ctx.storage.delete('screenRelays');
         }
@@ -219,7 +220,7 @@ export class RoomDurableObject {
         return;
       }
       case 'screen-relay': {
-        // Só relays da árvore atual podem anunciar stream de reencaminhamento.
+        // Only relays in the current tree may announce a forwarding stream.
         const screen = (await this.ctx.storage.get<ScreenLock>('screen')) ?? null;
         if (!screen || screen.id === peerId) {
           return;
@@ -256,12 +257,12 @@ export class RoomDurableObject {
   }
 
   /**
-   * Varredura periódica: derruba quem parou de dar sinal de vida e mata a
-   * sala que ficou vazia além do timeout.
+   * Periodic sweep: drops whoever stopped showing signs of life and kills
+   * a room that stayed empty past the timeout.
    *
-   * Sem a parte dos zumbis a sala nunca esvazia — queda de rede sem FIN
-   * (tampa do notebook, wi-fi que some) não gera evento de close, e o socket
-   * fantasma seguraria a sala viva para sempre.
+   * Without the zombie part the room never empties — a network drop with
+   * no FIN (laptop lid closed, wi-fi vanishing) fires no close event, and
+   * the ghost socket would hold the room alive forever.
    */
   async alarm(): Promise<void> {
     const now = Date.now();
@@ -273,9 +274,9 @@ export class RoomDurableObject {
       await this.leave(zombies);
       for (const ws of zombies) {
         try {
-          ws.close(1001, 'sem sinal de vida');
+          ws.close(1001, 'no sign of life');
         } catch {
-          // socket já foi embora
+          // the socket is already gone
         }
       }
       return;
@@ -284,17 +285,17 @@ export class RoomDurableObject {
     await this.rescheduleSweep([]);
   }
 
-  /** Saída de um ou mais pares: avisa quem ficou e reavalia o fim da sala. */
+  /** One or more peers leaving: tells the rest and re-evaluates the room's end. */
   private async leave(leaving: WebSocket[]): Promise<void> {
     const gone = new Set(leaving.map((ws) => this.attachment(ws).peerId));
     const screen = (await this.ctx.storage.get<ScreenLock>('screen')) ?? null;
-    // O lock de tela é liberado até em queda de conexão.
+    // The screen lock is released even on a dropped connection.
     if (screen && gone.has(screen.id)) {
       await this.ctx.storage.delete('screen');
       await this.ctx.storage.delete('screenRelays');
       this.broadcast({ t: 'screen-stopped' }, undefined, leaving);
     } else if (screen) {
-      // Saiu um relay ou uma folha: a árvore de tela muda de forma.
+      // A relay or a leaf left: the screen tree changes shape.
       const relays = (await this.ctx.storage.get<ScreenRelays>('screenRelays')) ?? {};
       for (const peerId of gone) {
         delete relays[peerId];
@@ -309,8 +310,8 @@ export class RoomDurableObject {
   }
 
   /**
-   * (Re)distribui os papéis da árvore de retransmissão da tela — espelho da
-   * lógica do server Node (broadcastScreenRoutes em app/signaling.ts).
+   * (Re)distributes the screen-forwarding tree roles — mirror of the Node
+   * server's logic (broadcastScreenRoutes in app/signaling.ts).
    */
   private async broadcastScreenRoutes(excluded: WebSocket[] = []): Promise<void> {
     const screen = (await this.ctx.storage.get<ScreenLock>('screen')) ?? null;
@@ -348,7 +349,7 @@ export class RoomDurableObject {
     }
     const emptyAt = (await this.ctx.storage.get<number>('emptyAt')) ?? now;
     if (now - emptyAt >= ROOM_LIMITS.emptyTimeoutMs) {
-      // Sala sem ninguém além do timeout: deixa de existir.
+      // A room with nobody past the timeout: it ceases to exist.
       await this.ctx.storage.deleteAll();
       return;
     }
@@ -377,7 +378,7 @@ export class RoomDurableObject {
     try {
       ws.send(JSON.stringify(message));
     } catch {
-      // socket já fechado: o close handler cuida da saída
+      // socket already closed: the close handler deals with the exit
     }
   }
 
@@ -417,14 +418,23 @@ async function desktopCatalog(env: Env): Promise<DesktopCatalog> {
   }
 
   const body = JSON.stringify(catalog);
+  // "No release yet" is a state that flips the moment a release lands, so it
+  // is held for a minute, not half an hour — otherwise the download button
+  // would stay missing in this colo long after the binaries existed.
+  const ttl = catalog.builds.length > 0 ? 1800 : 60;
   await cache.put(
     CATALOG_FRESH,
-    new Response(body, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'max-age=1800' } }),
+    new Response(body, {
+      headers: { 'Content-Type': 'application/json', 'Cache-Control': `max-age=${ttl}` },
+    }),
   );
-  await cache.put(
-    CATALOG_STALE,
-    new Response(body, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'max-age=86400' } }),
-  );
+  if (catalog.builds.length > 0) {
+    // Only a catalog with builds is worth falling back to.
+    await cache.put(
+      CATALOG_STALE,
+      new Response(body, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'max-age=86400' } }),
+    );
+  }
   return catalog;
 }
 
@@ -437,8 +447,8 @@ async function handleApi(request: Request, env: Env, url: URL): Promise<Response
   }
 
   if (url.pathname === '/api/rooms' && request.method === 'POST') {
-    // Convidados não autenticados criam salas: rate limit é a primeira
-    // linha de defesa contra abuso.
+    // Unauthenticated guests create rooms: rate limiting is the first
+    // line of defense against abuse.
     const ip = request.headers.get('CF-Connecting-IP') ?? 'unknown';
     const { success } = await env.RATE_LIMITER.limit({ key: ip });
     if (!success) {
@@ -461,7 +471,8 @@ async function handleApi(request: Request, env: Env, url: URL): Promise<Response
     const room = env.ROOMS.get(env.ROOMS.idFromName(slug));
     const created = await room.fetch('https://room/create', {
       method: 'POST',
-      body: JSON.stringify({ slug, displayName: displayName?.trim() || 'Sala sem nome' }),
+      // Empty default on purpose: the client renders the localized label.
+      body: JSON.stringify({ slug, displayName: displayName?.trim() ?? '' }),
     });
     return json(await created.json(), 201, env);
   }
@@ -533,7 +544,7 @@ export default {
       return json({ error: 'not_found' }, 404, env);
     }
 
-    // SPA fallback: /r/:slug cai no index.html.
+    // SPA fallback: /r/:slug lands on index.html.
     if (request.method === 'GET') {
       return env.ASSETS.fetch(new Request(new URL('/', url), request));
     }

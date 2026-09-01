@@ -9,7 +9,7 @@ describe('RoomRegistry', () => {
     const registry = new RoomRegistry();
     const room = registry.createRoom();
     expect(room.slug.length).toBeGreaterThanOrEqual(10);
-    expect(room.displayName).toBe('Sala sem nome');
+    expect(room.displayName).toBe('');
     expect(registry.summarize(room.slug).participantCount).toBe(0);
   });
 

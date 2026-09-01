@@ -50,7 +50,7 @@ describe('HTTP routes', () => {
     expect(fetched.statusCode).toBe(200);
     expect(fetched.json()).toEqual({
       slug,
-      displayName: 'Sala sem nome',
+      displayName: '',
       participantCount: 0,
     });
   });

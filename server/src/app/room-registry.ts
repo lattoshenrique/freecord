@@ -34,7 +34,9 @@ export class RoomRegistry {
   }
 
   createRoom(displayNameRaw?: string): RoomSummary {
-    const displayName = displayNameRaw?.trim() || 'Sala sem nome';
+    // Empty default on purpose: the localized "unnamed room" label is the
+    // client's to render — locale has no business in the protocol.
+    const displayName = displayNameRaw?.trim() ?? '';
     const slug = generateRoomSlug();
     this.rooms.set(slug, {
       slug,
