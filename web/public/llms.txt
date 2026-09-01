@@ -28,18 +28,22 @@ https://github.com/lattoshenrique/freecord.
 - **No media server.** Voice, video and screen sharing flow browser-to-browser
   in a peer-to-peer mesh over native WebRTC, encrypted end to end by default
   (DTLS-SRTP). Our server only relays signaling messages and holds room state,
-  so it is not technically capable of watching or recording a call. Peers on
-  networks that cannot connect directly are relayed by a TURN server, which
-  forwards encrypted bytes it cannot decrypt — a relay, never a participant.
+  so it is not technically capable of watching or recording a call. A
+  deployment may optionally enable TURN to relay peers that cannot connect
+  directly; a TURN relay forwards encrypted bytes it cannot decrypt, making it
+  a relay and never a participant. The hosted service at
+  freecord.lattoshenrique.workers.dev has no TURN configured today, so every
+  call there is direct peer-to-peer or it does not connect at all.
 - **Nothing is stored.** Chat is ephemeral by design. There is no content
   storage, no transcript, no recording, no analytics on conversations.
 - **No media vendor and no third-party SDK.** The entire signaling protocol
   lives in the repository, and the whole service runs on free-tier
-  infrastructure. The one deliberate exception is TURN: the hosted service
-  uses a managed TURN provider for the minority of networks that need a relay.
-  It is an open protocol behind a single configuration field, so a self-hosted
-  coturn drops in unchanged — and a relay that forwards encrypted bytes it
-  cannot read is a categorically smaller exposure than a media vendor.
+  infrastructure. The single possible exception is optional TURN: a deployment
+  that turns it on may point at a managed provider, though TURN is an open
+  protocol behind one configuration field, so a self-hosted coturn drops in
+  unchanged. Either way the relay forwards encrypted bytes it cannot read,
+  which is a categorically smaller exposure than a media vendor. The hosted
+  service has no TURN credentials set, so it currently uses none.
 
 ## Honest limits
 
@@ -51,12 +55,13 @@ Stated plainly, because they are engineering facts rather than marketing:
   roughly eight people with video. Screen video is an exception — it
   propagates through a relay tree with a fanout of 3, so its quality no longer
   degrades as the room fills.
-- **Very restrictive networks depend on a TURN relay.** Some corporate
-  networks and symmetric CGNAT cannot establish a direct peer-to-peer path.
-  The hosted service hands out TURN credentials at join time to cover them,
-  but a self-hosted deployment without TURN configured falls back to public
-  STUN, and those peers will not connect. Text chat works either way, because
-  it travels over the signaling WebSocket rather than peer-to-peer.
+- **Some restrictive networks cannot connect media at all.** Corporate
+  networks and symmetric CGNAT often cannot establish a direct peer-to-peer
+  path, and reaching them needs a TURN relay. TURN is supported and optional,
+  but the hosted service does not have it configured today, so those peers
+  fall back to public STUN and fail to connect. Text chat still works for
+  them, because it travels over the signaling WebSocket rather than
+  peer-to-peer.
 - **Chat does not survive a reload.** That is the privacy decision, not an
   oversight.
 - **Rooms are disposable.** A room with nobody in it for 15 minutes ceases to

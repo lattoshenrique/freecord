@@ -106,11 +106,11 @@ usually about the network path, not the code path. Please include:
 - How many people were in the room, and whether anyone was sharing a screen.
 - Whether the two peers were on the same network, and whether either was on a
   corporate VPN or a mobile carrier. Restrictive networks and symmetric CGNAT
-  need a TURN relay to establish a path; TURN credentials are handed out at
-  join time, but a deployment without them configured falls back to public
-  STUN and those peers will not connect. Chat still works either way, because
-  it travels over the signaling WebSocket rather than peer-to-peer — that
-  asymmetry is a useful clue.
+  need a TURN relay to establish a path. TURN is supported and optional, and a
+  deployment without `TURN_KEY_ID`/`TURN_API_TOKEN` set — which includes the
+  hosted service today — falls back to public STUN, so those peers will not
+  connect. Chat still works either way, because it travels over the signaling
+  WebSocket rather than peer-to-peer — that asymmetry is a useful clue.
 - Anything in the browser console.
 
 For a feature request, describe the situation you were in rather than the
