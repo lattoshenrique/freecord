@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
-import LiquidGlass from 'liquid-glass-react';
 import { Link } from 'react-router-dom';
 import type { RoomSummary } from '../api';
 import { renderMarkdown } from '../lib/markdown';
@@ -1058,16 +1057,7 @@ export default function RoomView({
             onClose={() => setSettingsOpen(false)}
           />
         )}
-        <LiquidGlass
-          cornerRadius={999}
-          padding="8px 12px"
-          displacementScale={44}
-          blurAmount={0.06}
-          saturation={160}
-          aberrationIntensity={2}
-          elasticity={0}
-          className="dock-glass"
-        >
+        <div className="dock-glass">
           <div className="controls">
           {/* The link is the invite, so it sits with the other keys rather
               than as a chip in the corner: the first thing a host looks for. */}
@@ -1179,7 +1169,7 @@ export default function RoomView({
             <LeaveIcon />
           </button>
           </div>
-        </LiquidGlass>
+        </div>
       </footer>
     </div>
   );

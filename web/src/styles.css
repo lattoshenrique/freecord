@@ -1119,30 +1119,25 @@ button {
 }
 
 /*
- * liquid-glass-react renders its four effect layers as *siblings* of the
- * dock with position: relative, so this flex row laid them out side by
- * side — two invisible slabs pushing from the left, two ghost pills
- * hanging past the right edge, and the page gained a horizontal scroll.
- * The dock's look never depended on them (it comes from the svg inside
- * .dock-glass), so drop the strays instead of stacking them.
+ * The pill itself. This used to be liquid-glass-react, whose refraction is a
+ * displacement filter over a filter region 70% wider than the pill: at 2x the
+ * spill painted a bright square of smeared backdrop around the dock, and the
+ * library's own rounding never reached it. A blur and a hairline say "glass"
+ * just as well and stay inside their corners at any pixel ratio.
  */
-.room-footer > div[class*='bg-black'],
-.room-footer > .dock-glass ~ span:not([class]) {
-  display: none;
-}
-
 .dock-glass {
-  animation: rise-in 0.4s var(--ease) both;
-}
-
-/*
- * The library's warp layer carries the backdrop-filter but no radius of its
- * own, and a backdrop-filter is clipped to the element's OWN border box — the
- * rounded parent never gets to trim it. Unrounded, it lit a bright rectangle
- * behind the pill. 999px is the cornerRadius the dock is built with.
- */
-.dock-glass .glass__warp {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--hud-border);
   border-radius: 999px;
+  background: var(--hud-bg);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  box-shadow:
+    var(--glass-highlight),
+    0 10px 30px rgba(0, 0, 0, 0.35);
+  animation: rise-in 0.4s var(--ease) both;
 }
 
 .controls {
