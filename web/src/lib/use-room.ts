@@ -29,6 +29,7 @@ import {
   type ScreenQualityId,
 } from './screen-quality';
 import { ScreenRelayController, extractRelayNote, makeRelayNote } from './screen-relay';
+import { advanceStall, initialStallState, type StallState } from './stall-watch';
 import {
   allowHiFiOpus,
   cameraConstraints,
@@ -173,11 +174,8 @@ export function useRoomSession(options: JoinOptions) {
   const reportedRelayStreamRef = useRef<string | null>(null);
   /** Encoded passthrough at the relay position; null = re-encode only. */
   const relayControllerRef = useRef<ScreenRelayController | null>(null);
-  /** Viewer-side stall watch: flat framesDecoded turns into a note upstream. */
-  const screenStallRef = useRef<{ frames: number | null; strikes: number }>({
-    frames: null,
-    strikes: 0,
-  });
+  /** Viewer-side stall watch: flat framesDecoded escalates (stall-watch.ts). */
+  const screenStallRef = useRef<StallState>(initialStallState());
   /** AV1-first when hardware-encodable at the current preset; null = browser default. */
   const screenCodecsRef = useRef<RTCRtpCodec[] | null>(null);
   /** Imported once per session from options.roomKey; survives resumes. */
@@ -767,7 +765,7 @@ export function useRoomSession(options: JoinOptions) {
     let stopped = false;
     // New sampler, possibly a new screen source: stale frame counts would
     // compare across different receivers.
-    screenStallRef.current = { frames: null, strikes: 0 };
+    screenStallRef.current = initialStallState();
 
     const sample = async () => {
       const mesh = meshRef.current;
@@ -801,30 +799,28 @@ export function useRoomSession(options: JoinOptions) {
       if (stats?.direction === 'receiving') {
         stats.relayMode = relayControllerRef.current?.modeSummary() ?? null;
       }
-      // Self-healing for encoded passthrough: a parent forwards bytes it
-      // cannot see are dead. framesDecoded flat with no bytes arriving for
-      // two samples (~4 s) while the tree says we should be receiving —
-      // tell the parent, which demotes this child to re-encode. A static
-      // screen can trip this too; the cost is falling back to today's
-      // path, never worse.
+      // Self-healing for a screen that froze while the tree says we should
+      // be receiving (stall-watch.ts): first tell the parent — a relay
+      // forwarding bytes it cannot see are dead demotes this child to
+      // re-encode — and if the freeze survives that, restart ICE toward
+      // the source: after hours of watching, the transport itself can go
+      // zombie (NAT rebinding) without ever reporting 'failed'. A static
+      // screen trips the note too (harmless outside passthrough); the
+      // restart fires once per episode, so it never loops on one.
       const stall = screenStallRef.current;
       if (stats?.direction === 'receiving' && screenSource) {
-        const frames = stats.framesDecoded;
-        const stalled =
-          frames !== null && stall.frames === frames && (stats.kbps ?? 0) <= 1;
-        stall.strikes = stalled ? stall.strikes + 1 : 0;
-        stall.frames = frames;
-        if (stall.strikes >= 2) {
-          stall.strikes = 0;
+        const action = advanceStall(stall, stats.framesDecoded, stats.kbps);
+        if (action === 'notify-parent') {
           signalingRef.current?.send({
             t: 'signal',
             to: screenSource.id,
             data: makeRelayNote(),
           });
+        } else if (action === 'restart-ice') {
+          mesh.restartIce(screenSource.id);
         }
       } else {
-        stall.frames = null;
-        stall.strikes = 0;
+        screenStallRef.current = initialStallState();
       }
       setScreenStats(stats);
 
