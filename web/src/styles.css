@@ -372,10 +372,15 @@ button {
   box-shadow: none;
 }
 
-.screen-fullscreen {
+.screen-actions {
   position: absolute;
   top: 0.75rem;
   right: 0.75rem;
+  display: flex;
+  gap: 0.4rem;
+}
+
+.screen-action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -392,16 +397,16 @@ button {
   transition: opacity 0.15s ease, background 0.15s ease;
 }
 
-.screen-stage:hover .screen-fullscreen,
-.screen-fullscreen:hover,
-.screen-fullscreen:focus-visible {
+.screen-stage:hover .screen-action,
+.screen-action:hover,
+.screen-action:focus-visible {
   opacity: 1;
   background: rgba(0, 0, 0, 0.75);
 }
 
 /* Sem hover (toque) o botão precisa estar sempre visível. */
 @media (hover: none) {
-  .screen-fullscreen {
+  .screen-action {
     opacity: 1;
   }
 }

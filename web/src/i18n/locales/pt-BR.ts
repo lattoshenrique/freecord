@@ -113,6 +113,8 @@ export const ptBR: Catalog = {
   'screen.receiving': 'Recebendo',
   'screen.enterFullscreen': 'Ver em tela cheia',
   'screen.exitFullscreen': 'Sair da tela cheia',
+  'screen.enterPip': 'Ver em janela flutuante',
+  'screen.exitPip': 'Fechar a janela flutuante',
 
   'quality.title': 'Qualidade da tela',
   'quality.sharp.label': 'Nítida',

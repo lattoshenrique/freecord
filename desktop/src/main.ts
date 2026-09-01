@@ -217,7 +217,16 @@ function configureSession(): void {
     { useSystemPicker: false },
   );
 
-  const MEDIA = new Set(['media', 'display-capture', 'clipboard-sanitized-write', 'notifications']);
+  // 'fullscreen' is here because Chromium asks for it on every
+  // requestFullscreen(): without it the stage's fullscreen button does nothing
+  // inside the app, while working in the browser.
+  const MEDIA = new Set([
+    'media',
+    'display-capture',
+    'clipboard-sanitized-write',
+    'notifications',
+    'fullscreen',
+  ]);
 
   appSession.setPermissionRequestHandler((contents, permission, callback, details) => {
     if (!MEDIA.has(permission) || !isAppUrl(details.requestingUrl || contents.getURL())) {

@@ -114,6 +114,8 @@ export const esES: Catalog = {
   'screen.receiving': 'Recibiendo',
   'screen.enterFullscreen': 'Ver en pantalla completa',
   'screen.exitFullscreen': 'Salir de pantalla completa',
+  'screen.enterPip': 'Ver en una ventana flotante',
+  'screen.exitPip': 'Cerrar la ventana flotante',
 
   'quality.title': 'Calidad de la pantalla',
   'quality.sharp.label': 'Nítida',

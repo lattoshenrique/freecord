@@ -61,6 +61,29 @@ test.describe('screen share', () => {
         .toBe(true);
     }
 
+    // Picture-in-picture on a viewer: the button drives the floating window and
+    // reads its state back from the video's own events (Firefox/WebKit and
+    // headless builds without PiP hide the button — nothing to assert there).
+    const viewer = handles[1].page;
+    if (await viewer.evaluate(() => document.pictureInPictureEnabled)) {
+      await viewer.getByRole('button', { name: 'View in a floating window' }).click();
+      await expect
+        .poll(() => viewer.evaluate(() => document.pictureInPictureElement !== null), {
+          timeout: 10_000,
+        })
+        .toBe(true);
+      // The button now offers the way out — its label and pressed state
+      // follow the floating window, not the click.
+      const leave = viewer.getByRole('button', { name: 'Close the floating window' });
+      await expect(leave).toHaveAttribute('aria-pressed', 'true');
+      await leave.click();
+      await expect
+        .poll(() => viewer.evaluate(() => document.pictureInPictureElement === null), {
+          timeout: 10_000,
+        })
+        .toBe(true);
+    }
+
     // Stop: the stage leaves every screen.
     await screenShareButton(sharer).click();
     for (const { page } of handles) {

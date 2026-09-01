@@ -112,6 +112,8 @@ export const zhCN: Catalog = {
   'screen.receiving': '接收中',
   'screen.enterFullscreen': '全屏查看',
   'screen.exitFullscreen': '退出全屏',
+  'screen.enterPip': '在悬浮窗中查看',
+  'screen.exitPip': '关闭悬浮窗',
 
   'quality.title': '屏幕画质',
   'quality.sharp.label': '清晰',

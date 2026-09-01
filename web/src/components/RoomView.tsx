@@ -26,7 +26,9 @@ import {
   ChatIcon,
   CloseIcon,
   ExitFullscreenIcon,
+  ExitPictureInPictureIcon,
   FullscreenIcon,
+  PictureInPictureIcon,
   LeaveIcon,
   MicIcon,
   MicOffIcon,
@@ -270,6 +272,58 @@ function useFullscreen(
   }, [containerRef, videoRef]);
 
   return { active, toggle };
+}
+
+/**
+ * Picture-in-picture for the sharing stage.
+ *
+ * Unlike fullscreen this one takes the <video>, not the container: the floating
+ * window is a browser (and Electron) player, so it carries only the picture —
+ * the labels stay on the page. Safari on iPhone has no PiP for a
+ * MediaStream-backed video, so the button hides itself where it cannot work.
+ */
+function usePictureInPicture(
+  videoRef: RefObject<HTMLVideoElement | null>,
+  /** The stage's stream: the <video> only exists while someone is sharing. */
+  stream: MediaStream | null,
+) {
+  const supported = typeof document !== 'undefined' && document.pictureInPictureEnabled === true;
+  const [active, setActive] = useState(false);
+
+  // Leaving happens via the floating window's own close button too, so the
+  // state comes from the element's events, never from the click alone. The
+  // stream is a dependency because the element it listens on is mounted with
+  // the stage, after this component.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!supported || !video) {
+      setActive(false);
+      return;
+    }
+    const enter = () => setActive(true);
+    const leave = () => setActive(false);
+    setActive(document.pictureInPictureElement === video);
+    video.addEventListener('enterpictureinpicture', enter);
+    video.addEventListener('leavepictureinpicture', leave);
+    return () => {
+      video.removeEventListener('enterpictureinpicture', enter);
+      video.removeEventListener('leavepictureinpicture', leave);
+    };
+  }, [supported, stream, videoRef]);
+
+  const toggle = useCallback(() => {
+    const video = videoRef.current;
+    if (!supported || !video) {
+      return;
+    }
+    if (document.pictureInPictureElement) {
+      void document.exitPictureInPicture().catch(() => undefined);
+      return;
+    }
+    void video.requestPictureInPicture().catch(() => undefined);
+  }, [supported, videoRef]);
+
+  return { supported, active, toggle };
 }
 
 const TILE_GAP = 12;
@@ -646,6 +700,8 @@ export default function RoomView({
             .find((stream) => stream.id === session.screenSource?.streamId) ?? null)
         : null;
 
+  const pip = usePictureInPicture(screenVideoRef, screenStream);
+
   const participantCount = session.peers.length + 1;
   // Only real faces get grid area. Ghost seat tiles were tried and retired:
   // sizing the grid by all 12 seats shrank one person to a twelfth of the
@@ -783,18 +839,34 @@ export default function RoomView({
                 className="screen-video"
                 videoRef={screenVideoRef}
               />
-              <button
-                type="button"
-                className="screen-fullscreen"
-                aria-pressed={fullscreen.active}
-                title={fullscreen.active ? t('screen.exitFullscreen') : t('screen.enterFullscreen')}
-                aria-label={
-                  fullscreen.active ? t('screen.exitFullscreen') : t('screen.enterFullscreen')
-                }
-                onClick={fullscreen.toggle}
-              >
-                {fullscreen.active ? <ExitFullscreenIcon /> : <FullscreenIcon />}
-              </button>
+              <div className="screen-actions">
+                {pip.supported && (
+                  <button
+                    type="button"
+                    className="screen-action"
+                    aria-pressed={pip.active}
+                    title={pip.active ? t('screen.exitPip') : t('screen.enterPip')}
+                    aria-label={pip.active ? t('screen.exitPip') : t('screen.enterPip')}
+                    onClick={pip.toggle}
+                  >
+                    {pip.active ? <ExitPictureInPictureIcon /> : <PictureInPictureIcon />}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="screen-action screen-fullscreen"
+                  aria-pressed={fullscreen.active}
+                  title={
+                    fullscreen.active ? t('screen.exitFullscreen') : t('screen.enterFullscreen')
+                  }
+                  aria-label={
+                    fullscreen.active ? t('screen.exitFullscreen') : t('screen.enterFullscreen')
+                  }
+                  onClick={fullscreen.toggle}
+                >
+                  {fullscreen.active ? <ExitFullscreenIcon /> : <FullscreenIcon />}
+                </button>
+              </div>
               <div className="screen-overlay">
                 <span className="screen-label">
                   {sharerName ? t('screen.of', { name: sharerName }) : t('screen.yours')}

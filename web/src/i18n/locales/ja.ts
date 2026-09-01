@@ -114,6 +114,8 @@ export const jaJP: Catalog = {
   'screen.receiving': '受信中',
   'screen.enterFullscreen': '全画面で表示',
   'screen.exitFullscreen': '全画面を終了',
+  'screen.enterPip': 'フローティングウィンドウで表示',
+  'screen.exitPip': 'フローティングウィンドウを閉じる',
 
   'quality.title': '画面の品質',
   'quality.sharp.label': '鮮明',

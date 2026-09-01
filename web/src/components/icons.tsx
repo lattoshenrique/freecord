@@ -129,6 +129,24 @@ export function ExitFullscreenIcon() {
   );
 }
 
+export function PictureInPictureIcon() {
+  return (
+    <svg {...base} width={18} height={18}>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <rect x="12" y="12" width="7" height="5" rx="1" />
+    </svg>
+  );
+}
+
+export function ExitPictureInPictureIcon() {
+  return (
+    <svg {...base} width={18} height={18}>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="M18 16l-5-5M13 11h4M13 11v4" />
+    </svg>
+  );
+}
+
 export function SlidersIcon() {
   return (
     <svg {...base}>

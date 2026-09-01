@@ -117,6 +117,8 @@ export const enUS = {
   'screen.receiving': 'Receiving',
   'screen.enterFullscreen': 'View fullscreen',
   'screen.exitFullscreen': 'Exit fullscreen',
+  'screen.enterPip': 'View in a floating window',
+  'screen.exitPip': 'Close the floating window',
 
   'quality.title': 'Screen quality',
   'quality.sharp.label': 'Sharp',
