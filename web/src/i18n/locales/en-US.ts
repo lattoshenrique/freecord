@@ -16,37 +16,11 @@ export const enUS = {
   'home.createFailed': "Couldn't create the room. Please try again.",
   'home.community': 'Community',
 
-  'home.chip.opensource': 'Open source · MIT',
-  'home.chip.p2p': 'Native WebRTC P2P',
-  'home.chip.nosignup': 'No signup',
-
   'home.hero.titleA': 'A room is',
   'home.hero.titleB': 'just a link.',
-  'home.footer.product': 'Product',
   'home.footer.downloads': 'Downloads',
 
-  'home.card.title': 'Start a room',
   'home.card.hint': 'The link is the invite.',
-
-  'home.dev.title': 'For devs',
-  'home.dev.lead': 'No vendor, no SDK, no external credentials. Clone it, run it, fork it.',
-  'home.dev.copy': 'Copy commands',
-  'home.dev.copied': 'Copied!',
-  'home.dev.p2p.title': 'Media never touches the server',
-  'home.dev.p2p.body':
-    'Voice, video and screen sharing flow browser to browser over native WebRTC in a P2P mesh. The server only carries signaling and room state. Direct connection works on most networks; we run no TURN relay, so a few restrictive ones — corporate Wi-Fi, some mobile carriers — will not connect media.',
-  'home.dev.selfhost.title': 'Self-host in one process',
-  'home.dev.selfhost.body':
-    'A single Node process serves the API, the WebSocket and the built frontend. Or deploy the same protocol to Cloudflare Workers, entirely on free plans.',
-  'home.dev.protocol.title': 'The protocol is yours',
-  'home.dev.protocol.body':
-    'Our own WebSocket signaling — rooms, SDP/ICE relay, chat and the screen lock in one place. Fork it and change the rules.',
-  'home.dev.light.title': 'Absurdly light',
-  'home.dev.light.body':
-    'The room bundle is ~14 kB. React + Vite on the outside, hand-rolled everything else — even the i18n.',
-  'home.dev.github': 'Star on GitHub',
-  'home.dev.architecture': 'Read the architecture',
-  'home.dev.contribute': 'Contributing guide',
 
   'invite.copy': 'Invite',
   'invite.copied': 'Link copied!',
@@ -55,8 +29,9 @@ export const enUS = {
   'prejoin.title': 'Join {room}',
   'prejoin.yourName': 'Your name',
   'prejoin.yourNamePlaceholder': 'How should we call you?',
-  'prejoin.micOn': 'Join with the microphone on',
-  'prejoin.camOn': 'Join with the camera on',
+  'prejoin.mic': 'Microphone',
+  'prejoin.cam': 'Camera',
+  'prejoin.shuffle': 'Another name',
   'prejoin.join': 'Join',
   'prejoin.notFound': 'This room no longer exists.',
   'prejoin.loadFailed': "Couldn't load the room.",

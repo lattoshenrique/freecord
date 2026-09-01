@@ -12,37 +12,11 @@ export const esES: Catalog = {
   'home.createFailed': 'No se pudo crear la sala. Inténtalo de nuevo.',
   'home.community': 'Comunidad',
 
-  'home.chip.opensource': 'Open source · MIT',
-  'home.chip.p2p': 'WebRTC P2P nativo',
-  'home.chip.nosignup': 'Sin registro',
-
   'home.hero.titleA': 'Una sala es',
   'home.hero.titleB': 'solo un enlace.',
-  'home.footer.product': 'Producto',
   'home.footer.downloads': 'Descargas',
 
-  'home.card.title': 'Empieza una sala',
   'home.card.hint': 'El enlace es la invitación.',
-
-  'home.dev.title': 'Para devs',
-  'home.dev.lead': 'Sin proveedor, sin SDK, sin credenciales externas. Clónalo, ejecútalo, haz un fork.',
-  'home.dev.copy': 'Copiar comandos',
-  'home.dev.copied': '¡Copiado!',
-  'home.dev.p2p.title': 'Los medios nunca tocan el servidor',
-  'home.dev.p2p.body':
-    'Voz, vídeo y pantalla fluyen de navegador a navegador por WebRTC nativo, en una malla P2P. El servidor solo lleva la señalización y el estado de la sala. La conexión directa funciona en la mayoría de las redes; no usamos relay TURN, así que algunas más restrictivas — wifi corporativo, ciertas operadoras móviles — no conectan el medio.',
-  'home.dev.selfhost.title': 'Self-host en un solo proceso',
-  'home.dev.selfhost.body':
-    'Un único proceso de Node sirve la API, el WebSocket y el frontend compilado. O despliega el mismo protocolo en Cloudflare Workers, todo en planes gratuitos.',
-  'home.dev.protocol.title': 'El protocolo es tuyo',
-  'home.dev.protocol.body':
-    'Señalización WebSocket propia — salas, relé de SDP/ICE, chat y el bloqueo de pantalla en un solo lugar. Haz un fork y cambia las reglas.',
-  'home.dev.light.title': 'Absurdamente ligero',
-  'home.dev.light.body':
-    'El bundle de la sala pesa ~14 kB. React + Vite por fuera, todo lo demás hecho a mano — hasta el i18n.',
-  'home.dev.github': 'Estrella en GitHub',
-  'home.dev.architecture': 'Leer la arquitectura',
-  'home.dev.contribute': 'Guía de contribución',
 
   'invite.copy': 'Invitar',
   'invite.copied': '¡Enlace copiado!',
@@ -51,8 +25,9 @@ export const esES: Catalog = {
   'prejoin.title': 'Entrar en {room}',
   'prejoin.yourName': 'Tu nombre',
   'prejoin.yourNamePlaceholder': '¿Cómo te llamamos?',
-  'prejoin.micOn': 'Entrar con el micrófono activado',
-  'prejoin.camOn': 'Entrar con la cámara activada',
+  'prejoin.mic': 'Micrófono',
+  'prejoin.cam': 'Cámara',
+  'prejoin.shuffle': 'Otro nombre',
   'prejoin.join': 'Entrar',
   'prejoin.notFound': 'Esta sala ya no existe.',
   'prejoin.loadFailed': 'No se pudo cargar la sala.',

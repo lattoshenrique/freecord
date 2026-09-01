@@ -12,37 +12,11 @@ export const zhCN: Catalog = {
   'home.createFailed': '无法创建房间，请重试。',
   'home.community': '社区',
 
-  'home.chip.opensource': '开源 · MIT',
-  'home.chip.p2p': '原生 WebRTC P2P',
-  'home.chip.nosignup': '无需注册',
-
   'home.hero.titleA': '一个房间，',
   'home.hero.titleB': '就是一个链接。',
-  'home.footer.product': '产品',
   'home.footer.downloads': '下载',
 
-  'home.card.title': '开个房间',
   'home.card.hint': '链接就是邀请。',
-
-  'home.dev.title': '写给开发者',
-  'home.dev.lead': '没有服务商、没有 SDK、没有外部凭证。克隆、运行、fork。',
-  'home.dev.copy': '复制命令',
-  'home.dev.copied': '已复制！',
-  'home.dev.p2p.title': '媒体从不经过服务器',
-  'home.dev.p2p.body':
-    '语音、视频和屏幕共享通过原生 WebRTC 的 P2P 网状网络在浏览器之间直接传输。服务器只负责信令和房间状态。直连在大多数网络下都能建立；我们没有启用 TURN 中继，因此在少数受限网络（企业 Wi-Fi、部分移动运营商）中媒体无法连通。',
-  'home.dev.selfhost.title': '单进程自托管',
-  'home.dev.selfhost.body':
-    '一个 Node 进程同时提供 API、WebSocket 和构建好的前端。也可以把同一协议部署到 Cloudflare Workers，全程免费方案。',
-  'home.dev.protocol.title': '协议归你所有',
-  'home.dev.protocol.body':
-    '自研 WebSocket 信令——房间、SDP/ICE 转发、聊天和屏幕锁都在一处。Fork 之后规则由你定。',
-  'home.dev.light.title': '极致轻量',
-  'home.dev.light.body':
-    '房间包只有约 14 kB。外层是 React + Vite，其余全部手写——连 i18n 也是。',
-  'home.dev.github': '去 GitHub 点星',
-  'home.dev.architecture': '阅读架构文档',
-  'home.dev.contribute': '贡献指南',
 
   'invite.copy': '邀请',
   'invite.copied': '链接已复制！',
@@ -51,8 +25,9 @@ export const zhCN: Catalog = {
   'prejoin.title': '加入 {room}',
   'prejoin.yourName': '你的名字',
   'prejoin.yourNamePlaceholder': '我们怎么称呼你？',
-  'prejoin.micOn': '开启麦克风加入',
-  'prejoin.camOn': '开启摄像头加入',
+  'prejoin.mic': '麦克风',
+  'prejoin.cam': '摄像头',
+  'prejoin.shuffle': '换个名字',
   'prejoin.join': '加入',
   'prejoin.notFound': '该房间已不存在。',
   'prejoin.loadFailed': '无法加载房间。',

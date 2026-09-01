@@ -143,12 +143,12 @@ button {
   }
 }
 
-/* ---- home / pré-join ---- */
+/* ---- shared state cards ---- */
 
-/* A home virou uma landing que rola e mora em pages/home.css;
-   aqui ficam só os blocos que o pré-join também usa (.home-card). */
-.centered,
-.prejoin {
+/* The home page lives in pages/home.css and the pre-join card in
+   pages/prejoin.css; what is left here is the card the loading, not-found and
+   error states share. */
+.centered {
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
@@ -192,73 +192,6 @@ button {
   margin-top: 1.25rem;
 }
 
-/* The mark links back home from the pre-join card. */
-.prejoin-brand {
-  display: inline-flex;
-  margin-bottom: 0.75rem;
-  transition: transform 0.2s var(--ease);
-}
-
-.prejoin-brand:hover {
-  transform: scale(1.08);
-}
-
-/* The pre-join card is the room's doorstep: bigger type, row-style
-   toggles and the brand-gradient CTA, choreographed on entry. */
-.prejoin .home-card {
-  padding: 2.5rem 2.25rem;
-}
-
-.prejoin .home-card h1 {
-  font-size: 1.65rem;
-  letter-spacing: -0.02em;
-}
-
-.prejoin .toggle {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 0.8rem 1rem;
-  transition: border-color 0.15s ease;
-}
-
-.prejoin .toggle:hover {
-  border-color: rgba(88, 101, 242, 0.6);
-}
-
-.prejoin .home-card form > * {
-  animation: rise-in 0.4s var(--ease) both;
-}
-
-.prejoin .home-card form > :nth-child(1) {
-  animation-delay: 0.05s;
-}
-
-.prejoin .home-card form > :nth-child(2) {
-  animation-delay: 0.1s;
-}
-
-.prejoin .home-card form > :nth-child(3) {
-  animation-delay: 0.15s;
-}
-
-.prejoin .home-card form > :nth-child(4) {
-  animation-delay: 0.2s;
-}
-
-.prejoin .home-card button[type='submit'] {
-  background: linear-gradient(135deg, var(--accent), #a855f7);
-  transition:
-    filter 0.15s ease,
-    transform 0.15s var(--ease),
-    opacity 0.15s ease;
-}
-
-.prejoin .home-card button[type='submit']:hover:not(:disabled) {
-  background: linear-gradient(135deg, var(--accent), #a855f7);
-  filter: brightness(1.12);
-}
-
 .centered .spinner {
   margin-bottom: 0.5rem;
 }
@@ -266,48 +199,6 @@ button {
 .tagline,
 .centered p {
   color: var(--muted);
-}
-
-.home-card form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  margin-top: 1.25rem;
-  text-align: left;
-}
-
-.home-card input[type='text'] {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  color: var(--text);
-  padding: 0.95rem 1.1rem;
-  font-size: 1.05rem;
-  transition:
-    border-color 0.15s ease,
-    box-shadow 0.15s ease;
-}
-
-.home-card input[type='text']:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(88, 101, 242, 0.25);
-}
-
-.toggle {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  color: var(--muted);
-  font-size: 1rem;
-  cursor: pointer;
-}
-
-.toggle input[type='checkbox'] {
-  width: 1.15rem;
-  height: 1.15rem;
-  accent-color: var(--accent);
-  cursor: pointer;
 }
 
 .home-card button,
@@ -632,12 +523,6 @@ button {
   aspect-ratio: 1;
   flex: 0 0 auto;
   border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: clamp(1.4rem, 11cqmin, 2.75rem);
-  font-weight: 700;
-  color: white;
   border: 2px solid rgba(255, 255, 255, 0.16);
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
 }

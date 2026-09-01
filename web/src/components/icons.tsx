@@ -204,3 +204,12 @@ export function EmojiIcon() {
     </svg>
   );
 }
+
+export function ShuffleIcon() {
+  return (
+    <svg {...base}>
+      <path d="M20 12a8 8 0 1 1-2.34-5.66" />
+      <path d="M20 4v4h-4" />
+    </svg>
+  );
+}

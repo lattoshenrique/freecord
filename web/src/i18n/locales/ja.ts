@@ -12,37 +12,11 @@ export const jaJP: Catalog = {
   'home.createFailed': 'ルームを作成できませんでした。もう一度お試しください。',
   'home.community': 'コミュニティ',
 
-  'home.chip.opensource': 'オープンソース · MIT',
-  'home.chip.p2p': 'ネイティブ WebRTC P2P',
-  'home.chip.nosignup': '登録不要',
-
   'home.hero.titleA': 'ルームは',
   'home.hero.titleB': 'リンクひとつ。',
-  'home.footer.product': 'プロダクト',
   'home.footer.downloads': 'ダウンロード',
 
-  'home.card.title': 'ルームを始める',
   'home.card.hint': 'リンクが招待状。',
-
-  'home.dev.title': '開発者向け',
-  'home.dev.lead': 'ベンダーなし、SDK なし、外部認証情報なし。クローンして、動かして、フォークする。',
-  'home.dev.copy': 'コマンドをコピー',
-  'home.dev.copied': 'コピーしました！',
-  'home.dev.p2p.title': 'メディアはサーバーを経由しない',
-  'home.dev.p2p.body':
-    '音声・映像・画面共有はネイティブ WebRTC の P2P メッシュでブラウザ間を直接流れます。サーバーが扱うのはシグナリングとルームの状態だけです。直接接続はほとんどのネットワークで確立します。TURN リレーは使っていないため、企業 Wi-Fi や一部のモバイル回線など制限の厳しい環境ではメディアが繋がりません。',
-  'home.dev.selfhost.title': '1プロセスでセルフホスト',
-  'home.dev.selfhost.body':
-    '単一の Node プロセスが API・WebSocket・ビルド済みフロントエンドを配信します。同じプロトコルを Cloudflare Workers に無料プランのままデプロイすることもできます。',
-  'home.dev.protocol.title': 'プロトコルはあなたのもの',
-  'home.dev.protocol.body':
-    '自前の WebSocket シグナリング——ルーム、SDP/ICE の中継、チャット、画面ロックがひとつの場所に。フォークしてルールを変えてください。',
-  'home.dev.light.title': '圧倒的に軽量',
-  'home.dev.light.body':
-    'ルームのバンドルは約 14 kB。外側は React + Vite、それ以外はすべて手書き——i18n さえも。',
-  'home.dev.github': 'GitHub でスターを',
-  'home.dev.architecture': 'アーキテクチャを読む',
-  'home.dev.contribute': 'コントリビュートガイド',
 
   'invite.copy': '招待',
   'invite.copied': 'リンクをコピーしました',
@@ -51,8 +25,9 @@ export const jaJP: Catalog = {
   'prejoin.title': '{room} に参加',
   'prejoin.yourName': 'あなたの名前',
   'prejoin.yourNamePlaceholder': 'なんとお呼びしますか？',
-  'prejoin.micOn': 'マイクをオンにして参加',
-  'prejoin.camOn': 'カメラをオンにして参加',
+  'prejoin.mic': 'マイク',
+  'prejoin.cam': 'カメラ',
+  'prejoin.shuffle': '別の名前',
   'prejoin.join': '参加',
   'prejoin.notFound': 'このルームはもう存在しません。',
   'prejoin.loadFailed': 'ルームを読み込めませんでした。',

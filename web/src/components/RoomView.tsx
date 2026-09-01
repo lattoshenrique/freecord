@@ -8,6 +8,7 @@ import { useI18n, type MessageKey, type Translate } from '../i18n';
 import { SCREEN_QUALITY_PRESETS, type ScreenQualityId } from '../lib/screen-quality';
 import type { ScreenStats } from '../lib/stats';
 import { useRoomSession, type JoinOptions } from '../lib/use-room';
+import Avatar from './Avatar';
 import ChatComposer from './ChatComposer';
 import InviteButton from './InviteButton';
 import {
@@ -177,15 +178,6 @@ function hasLiveVideo(stream: MediaStream): boolean {
   return stream.getVideoTracks().some((track) => track.readyState === 'live' && track.enabled);
 }
 
-/** Stable avatar colour derived from the name. */
-function avatarHue(name: string): number {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = (hash * 31 + name.charCodeAt(i)) | 0;
-  }
-  return Math.abs(hash) % 360;
-}
-
 /* WebKit prefixes: Safari (desktop and iOS) still lacks the standard API. */
 type WebkitElement = HTMLElement & { webkitRequestFullscreen?: () => unknown };
 type WebkitDocument = Document & {
@@ -323,13 +315,7 @@ function Tile({
         <MediaView stream={stream} muted={isSelf} className={`tile-video ${isSelf ? 'mirrored' : ''}`} />
       ) : (
         <>
-          <div
-            className="tile-avatar"
-            style={{ background: `hsl(${avatarHue(name)} 60% 52%)` }}
-            aria-hidden
-          >
-            {name.slice(0, 1).toUpperCase()}
-          </div>
+          <Avatar name={name} className="tile-avatar" />
           {!isSelf && stream && <AudioSink stream={stream} />}
         </>
       )}

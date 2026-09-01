@@ -12,37 +12,11 @@ export const ptBR: Catalog = {
   'home.createFailed': 'Não foi possível criar a sala. Tente novamente.',
   'home.community': 'Comunidade',
 
-  'home.chip.opensource': 'Open source · MIT',
-  'home.chip.p2p': 'WebRTC P2P nativo',
-  'home.chip.nosignup': 'Sem cadastro',
-
   'home.hero.titleA': 'Uma sala é',
   'home.hero.titleB': 'só um link.',
-  'home.footer.product': 'Produto',
   'home.footer.downloads': 'Downloads',
 
-  'home.card.title': 'Comece uma sala',
   'home.card.hint': 'O link é o convite.',
-
-  'home.dev.title': 'Para devs',
-  'home.dev.lead': 'Sem vendor, sem SDK, sem credencial externa. Clone, rode, faça fork.',
-  'home.dev.copy': 'Copiar comandos',
-  'home.dev.copied': 'Copiado!',
-  'home.dev.p2p.title': 'A mídia nunca toca o servidor',
-  'home.dev.p2p.body':
-    'Voz, vídeo e tela fluem de navegador a navegador por WebRTC nativo, numa malha P2P. O servidor só carrega sinalização e estado da sala. A conexão direta funciona na maioria das redes; não usamos relay TURN, então algumas mais restritivas — wi-fi corporativo, certas operadoras móveis — não conectam a mídia.',
-  'home.dev.selfhost.title': 'Self-host num processo só',
-  'home.dev.selfhost.body':
-    'Um único processo Node serve a API, o WebSocket e o frontend buildado. Ou publique o mesmo protocolo na Cloudflare Workers, tudo em plano grátis.',
-  'home.dev.protocol.title': 'O protocolo é seu',
-  'home.dev.protocol.body':
-    'Sinalização WebSocket própria — salas, relay de SDP/ICE, chat e a trava de tela num lugar só. Faça um fork e mude as regras.',
-  'home.dev.light.title': 'Absurdamente leve',
-  'home.dev.light.body':
-    'O bundle da sala tem ~14 kB. React + Vite por fora, todo o resto feito à mão — até o i18n.',
-  'home.dev.github': 'Estrela no GitHub',
-  'home.dev.architecture': 'Ler a arquitetura',
-  'home.dev.contribute': 'Guia de contribuição',
 
   'invite.copy': 'Convidar',
   'invite.copied': 'Link copiado!',
@@ -51,8 +25,9 @@ export const ptBR: Catalog = {
   'prejoin.title': 'Entrar em {room}',
   'prejoin.yourName': 'Seu nome',
   'prejoin.yourNamePlaceholder': 'Como podemos te chamar?',
-  'prejoin.micOn': 'Entrar com o microfone ligado',
-  'prejoin.camOn': 'Entrar com a câmera ligada',
+  'prejoin.mic': 'Microfone',
+  'prejoin.cam': 'Câmera',
+  'prejoin.shuffle': 'Outro nome',
   'prejoin.join': 'Entrar',
   'prejoin.notFound': 'Esta sala não existe mais.',
   'prejoin.loadFailed': 'Não foi possível carregar a sala.',
