@@ -498,3 +498,40 @@ describe('deafen', () => {
     }
   });
 });
+
+describe('mute', () => {
+  it('is broadcast to everyone, and only when it changes', () => {
+    const { registry, slug } = setup();
+    const ana = connect(registry, slug, 'Ana');
+    const bia = connect(registry, slug, 'Bia');
+
+    ana.session.handleMessage({ t: 'mute', on: true });
+    expect(bia.last()).toEqual({ t: 'peer-muted', id: ana.session.peerId, on: true });
+    const heard = bia.inbox.length;
+    ana.session.handleMessage({ t: 'mute', on: true });
+    expect(bia.inbox.length).toBe(heard);
+
+    ana.session.handleMessage({ t: 'mute', on: false });
+    expect(bia.last()).toEqual({ t: 'peer-muted', id: ana.session.peerId, on: false });
+  });
+
+  it('welcome carries who is muted, and the seat takes it along when it leaves', () => {
+    const { registry, slug } = setup();
+    const ana = connect(registry, slug, 'Ana');
+    ana.session.handleMessage({ t: 'mute', on: true });
+
+    const bia = connect(registry, slug, 'Bia');
+    const welcome = bia.inbox[0]!;
+    expect(welcome.t).toBe('welcome');
+    if (welcome.t === 'welcome') {
+      expect(welcome.muted).toEqual([ana.session.peerId]);
+    }
+
+    ana.session.handleMessage({ t: 'leave' });
+    const cid = connect(registry, slug, 'Cid');
+    const later = cid.inbox[0]!;
+    if (later.t === 'welcome') {
+      expect(later.muted).toEqual([]);
+    }
+  });
+});

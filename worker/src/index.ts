@@ -103,6 +103,8 @@ type ScreenRelays = Record<string, string>;
 type Cameras = string[];
 /** Peers with their speakers off (`deafen`) — same storage discipline. */
 type Deafened = string[];
+/** Peers with their microphone off (`mute`) — same storage discipline. */
+type Muted = string[];
 
 /** Zombie-sweep cadence while the room has people in it. */
 const SWEEP_INTERVAL_MS = Math.floor(ROOM_LIMITS.peerTimeoutMs / 2);
@@ -256,6 +258,7 @@ export class RoomDurableObject {
       screen: screen ? { id: screen.id, streamId: screen.streamId } : null,
       cameras: await this.cameras(),
       deafened: await this.deafened(),
+      muted: await this.muted(),
     });
     this.broadcast({ t: 'peer-joined', peer: { id: peerId, name } }, peerId);
     // Screen share in progress: the newcomer needs a route, and the tree changes.
@@ -337,6 +340,7 @@ export class RoomDurableObject {
       screen: screen ? { id: screen.id, streamId: screen.streamId } : null,
       cameras: await this.cameras(),
       deafened: await this.deafened(),
+      muted: await this.muted(),
     });
     for (const held of pending) {
       this.send(server, held);
@@ -464,6 +468,16 @@ export class RoomDurableObject {
           await this.putCameras(cameras.filter((id) => id !== peerId));
           this.broadcast({ t: 'camera-stopped', id: peerId });
         }
+        return;
+      }
+      case 'mute': {
+        // Same presence rule as deafen (below).
+        const muted = await this.muted();
+        if (muted.includes(peerId) === message.on) {
+          return;
+        }
+        await this.putMuted(message.on ? [...muted, peerId] : muted.filter((id) => id !== peerId));
+        this.broadcast({ t: 'peer-muted', id: peerId, on: message.on });
         return;
       }
       case 'deafen': {
@@ -638,6 +652,10 @@ export class RoomDurableObject {
     if (deafened.some((id) => gone.has(id))) {
       await this.putDeafened(deafened.filter((id) => !gone.has(id)));
     }
+    const muted = await this.muted();
+    if (muted.some((id) => gone.has(id))) {
+      await this.putMuted(muted.filter((id) => !gone.has(id)));
+    }
     for (const peerId of gone) {
       this.broadcast({ t: 'peer-left', id: peerId }, undefined, leaving);
     }
@@ -731,6 +749,18 @@ export class RoomDurableObject {
       await this.ctx.storage.delete('deafened');
     } else {
       await this.ctx.storage.put('deafened', deafened);
+    }
+  }
+
+  private async muted(): Promise<Muted> {
+    return (await this.ctx.storage.get<Muted>('muted')) ?? [];
+  }
+
+  private async putMuted(muted: Muted): Promise<void> {
+    if (muted.length === 0) {
+      await this.ctx.storage.delete('muted');
+    } else {
+      await this.ctx.storage.put('muted', muted);
     }
   }
 

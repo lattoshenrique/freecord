@@ -63,6 +63,8 @@ export interface Room {
   cameras: Set<string>;
   /** Who has their speakers off (`deafen`), so newcomers see it too. */
   deafened: Set<string>;
+  /** Who has their microphone off (`mute`) — presence only, like `deafened`. */
+  muted: Set<string>;
   /**
    * Forwarding streams reported by the screen tree's relays:
    * relay peerId → streamId it uses to forward to its children.
@@ -237,6 +239,8 @@ export type ServerMessage =
       cameras: string[];
       /** Who has their speakers off (see `deafen`), so joiners see it too. */
       deafened: string[];
+      /** Who has their microphone off (see `mute`). */
+      muted: string[];
     }
   | { t: 'peer-joined'; peer: PeerInfo }
   | { t: 'peer-left'; id: string }
@@ -251,6 +255,8 @@ export type ServerMessage =
   | { t: 'camera-denied' }
   /** A peer switched its speakers off (`on: true`) or back on. */
   | { t: 'peer-deafened'; id: string; on: boolean }
+  /** A peer muted its microphone (`on: true`) or unmuted it. */
+  | { t: 'peer-muted'; id: string; on: boolean }
   /**
    * This peer's role in the screen-forwarding tree.
    *
@@ -285,6 +291,11 @@ export type ClientMessage =
    * is muted locally), the room is told so nobody talks to a wall.
    */
   | { t: 'deafen'; on: boolean }
+  /**
+   * Microphone off: the track keeps flowing (silence) so the mesh sees no
+   * change; the room is told so the tile can show it.
+   */
+  | { t: 'mute'; on: boolean }
   /**
    * Deliberate goodbye: leave immediately instead of holding the seat for
    * a resume. A bare transport close is treated as an accident.

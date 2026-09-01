@@ -143,8 +143,12 @@ export function useRoomSession(options: JoinOptions) {
   const [cameras, setCameras] = useState<Set<string>>(new Set());
   /** Peers with their speakers off — they are not hearing anyone. */
   const [deafened, setDeafened] = useState<Set<string>>(new Set());
+  /** Who has their microphone off — the room's word (`peer-muted`), not the track's. */
+  const [muted, setMuted] = useState<Set<string>>(new Set());
   const [speakerOn, setSpeakerOn] = useState(true);
   const speakerOnRef = useRef(true);
+  /** Mirror of micOn for the welcome handler, which must not close over state. */
+  const micOnRef = useRef(options.micEnabled);
   /** A camera-denied just landed: the UI shows why the toggle did nothing. */
   const [camDenied, setCamDenied] = useState(false);
   const [screenQuality, setScreenQualityState] = useState<ScreenQualityId>(loadQuality);
@@ -526,9 +530,13 @@ export function useRoomSession(options: JoinOptions) {
           const cameraRoster = new Set(message.cameras);
           setCameras(cameraRoster);
           setDeafened(new Set(message.deafened));
+          setMuted(new Set(message.muted));
           if (!speakerOnRef.current) {
             // Presence is not kept for us across a fresh seat: say it again.
             signalingRef.current?.send({ t: 'deafen', on: true });
+          }
+          if (!micOnRef.current) {
+            signalingRef.current?.send({ t: 'mute', on: true });
           }
           if (resumed) {
             // Same seat, mesh intact: reconcile who came and went during
@@ -658,6 +666,14 @@ export function useRoomSession(options: JoinOptions) {
             next.delete(message.id);
             return next;
           });
+          setMuted((current) => {
+            if (!current.has(message.id)) {
+              return current;
+            }
+            const next = new Set(current);
+            next.delete(message.id);
+            return next;
+          });
           return;
         case 'signal': {
           // Relay-health notes ride the same opaque envelope as SDP/ICE
@@ -749,6 +765,17 @@ export function useRoomSession(options: JoinOptions) {
           setCameras((current) => {
             const next = new Set(current);
             next.delete(message.id);
+            return next;
+          });
+          return;
+        case 'peer-muted':
+          setMuted((current) => {
+            const next = new Set(current);
+            if (message.on) {
+              next.add(message.id);
+            } else {
+              next.delete(message.id);
+            }
             return next;
           });
           return;
@@ -1235,7 +1262,11 @@ export function useRoomSession(options: JoinOptions) {
     media.getAudioTracks().forEach((track) => {
       track.enabled = on;
     });
+    micOnRef.current = on;
     setMicOn(on);
+    // A disabled track still flows (as silence), so nothing on the mesh
+    // says the mic is off: the room is told for the others' tiles.
+    signalingRef.current?.send({ t: 'mute', on: !on });
   }, []);
 
   /** What the mic was before the speakers went off, to put it back after. */
@@ -1376,6 +1407,7 @@ export function useRoomSession(options: JoinOptions) {
     camOn,
     speakerOn,
     deafened,
+    muted,
     cameras,
     cameraSlotsFull,
     camDenied,

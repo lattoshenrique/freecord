@@ -145,6 +145,7 @@ export class SignalingSession {
         : null,
       cameras: [...room.cameras],
       deafened: [...room.deafened],
+      muted: [...room.muted],
     });
   }
 
@@ -253,6 +254,17 @@ export class SignalingSession {
       case 'camera-stop': {
         if (room.cameras.delete(this.peerId)) {
           broadcast(room, { t: 'camera-stopped', id: this.peerId });
+        }
+        return;
+      }
+      case 'mute': {
+        // Same presence rule as deafen: no resource, survives a resume,
+        // repeats are quiet.
+        const changed = message.on
+          ? !room.muted.has(this.peerId) && !!room.muted.add(this.peerId)
+          : room.muted.delete(this.peerId);
+        if (changed) {
+          broadcast(room, { t: 'peer-muted', id: this.peerId, on: message.on });
         }
         return;
       }
@@ -399,6 +411,8 @@ export function parseClientMessage(raw: unknown): ClientMessage | null {
       return { t: 'camera-stop' };
     case 'deafen':
       return typeof message.on === 'boolean' ? { t: 'deafen', on: message.on } : null;
+    case 'mute':
+      return typeof message.on === 'boolean' ? { t: 'mute', on: message.on } : null;
     case 'leave':
       return { t: 'leave' };
     case 'ping':

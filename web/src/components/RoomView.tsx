@@ -917,7 +917,7 @@ export default function RoomView({
                   key={peer.id}
                   name={peer.name}
                   isSelf={false}
-                  micOff={false}
+                  micOff={session.muted.has(peer.id)}
                   deafened={session.deafened.has(peer.id)}
                   silenced={!session.speakerOn}
                   speaking={speaking.has(peer.id)}
