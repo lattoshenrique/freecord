@@ -301,6 +301,27 @@ The shell announces what it can do through one additive-safe surface
    installed app a packet relay for its room. That frontier is already drawn:
    `mesh.ts` is the only file that knows the topology is P2P.
 
+## Proving it: the e2e workspace
+
+Three layers of proof live in `e2e/`, each catching what the others cannot:
+raw `ws` clients speaking the wire protocol against the real compiled server
+(capacity, camera slots, the screen tree checked against `computeScreenTree`
+itself, resume in all its shapes), Playwright driving Chromium with fake
+media through the actual UI (including a 12-context full room behind
+`E2E_HEAVY=1`), and plain-Node load drivers. The browser suite paid for
+itself on day one: it caught that a remote camera-off left viewers a black
+tile, because a received track stays `enabled` locally no matter what the
+sender does — the fix keys tiles off the camera roster.
+
+Measured on loopback (Node edge, 50 rooms × 12 peers, 60 s soak): join →
+welcome p95 **6 ms**, sustained ping RTT p95 **21 ms** (n=18 000), chat
+fanout 21 600/21 600 delivered at p95 37 ms, camera request → decision p95
+6 ms with the slot cap doing its job (484 grants, 1 316 denials), screen
+request → route p95 4 ms, zero protocol errors. Two minutes of continuous
+room churn (240 lifecycles) left the server's RSS **bounded** (0.82× of
+start). Loopback numbers prove the software, not the internet — but they
+put a floor under every regression that follows.
+
 ## Two edges over one core
 
 `domain/` and the protocol do not know which transport they run on. There are
