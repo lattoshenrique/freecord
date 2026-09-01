@@ -85,16 +85,19 @@ and its installers are built by GitHub Actions on a `desktop-v*` tag.
 
 ## Product rules that live in code
 
-- Room dies alone: 15 min empty. Max **12 participants** — a P2P mesh limit
+- Room dies alone: 15 min empty. Max **20 participants** — a P2P mesh limit
   priced honestly (each peer uploads N−1 copies): audio and screen keep full
   quality at any size, while **camera slots** shrink as the room grows (≤6:
-  everyone; 7–9: four; 10–12: three, server-granted) and camera bitrate splits
-  a fixed uplink budget across peers.
+  everyone; 7–9: four; 10–16: three; 17–20: two, server-granted) and camera
+  bitrate splits a fixed uplink budget across peers.
 - Screen share: **one at a time**, locked on the server, released even on a
   dropped connection. The sharer picks the quality preset; screen video
   propagates through a **relay tree** (fanout 3), not a star.
 - A peer with no heartbeat for 35 s is dropped by the server — without that,
-  ghosts hold seats and rooms never expire.
+  ghosts hold seats and rooms never expire. Signals addressed to a peer
+  inside that grace are **held, not dropped** (both edges), and the client
+  mesh has a watchdog that rolls back a negotiation left open and retries a
+  dead ICE path: a frozen tile must heal without F5.
 - The room link is the credential: unguessable random slug, no accounts.
 - Chat is ephemeral. Zero content storage, on purpose.
 

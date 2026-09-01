@@ -31,7 +31,12 @@ import {
   type ScreenQualityId,
 } from './screen-quality';
 import { ScreenRelayController, extractRelayNote, makeRelayNote } from './screen-relay';
-import { advanceStall, initialStallState, type StallState } from './stall-watch';
+import {
+  advanceAudioStall,
+  advanceStall,
+  initialStallState,
+  type StallState,
+} from './stall-watch';
 import {
   allowHiFiOpus,
   cameraConstraints,
@@ -182,6 +187,8 @@ export function useRoomSession(options: JoinOptions) {
   const relayControllerRef = useRef<ScreenRelayController | null>(null);
   /** Viewer-side stall watch: flat framesDecoded escalates (stall-watch.ts). */
   const screenStallRef = useRef<StallState>(initialStallState());
+  /** Per-peer voice watch: a flat inbound packet counter restarts that leg's ICE. */
+  const audioStallRef = useRef(new Map<string, StallState>());
   /** AV1-first when hardware-encodable at the current preset; null = browser default. */
   const screenCodecsRef = useRef<RTCRtpCodec[] | null>(null);
   /** Imported once per session from options.roomKey; survives resumes. */
@@ -478,6 +485,11 @@ export function useRoomSession(options: JoinOptions) {
                 mesh.removePeer(id);
               }
             }
+            // Whatever a peer was negotiating with us while our signaling
+            // was down is presumed lost: open negotiations are rolled back
+            // and reoffered, downed ICE paths restarted. Before the held
+            // signals arrive, which the transport flushes right after this.
+            mesh.reconcile();
             if (!message.screen) {
               // The share ended while we were away (ours may have hit the
               // lock's grace); the missed screen-stopped is applied here.
@@ -786,6 +798,7 @@ export function useRoomSession(options: JoinOptions) {
     // New sampler, possibly a new screen source: stale frame counts would
     // compare across different receivers.
     screenStallRef.current = initialStallState();
+    audioStallRef.current = new Map();
 
     const sample = async () => {
       const mesh = meshRef.current;
@@ -797,6 +810,31 @@ export function useRoomSession(options: JoinOptions) {
         return;
       }
       setPeerLatency(latencies);
+
+      // Self-healing for a voice that went quiet on a path that still
+      // claims to be connected (the NAT-rebind zombie the screen's watch
+      // already hunts): one ICE restart per episode, per peer. ICE that
+      // reports itself down is the mesh's own watchdog's job, not this one.
+      const audioStalls = audioStallRef.current;
+      for (const id of [...audioStalls.keys()]) {
+        if (!latencies.has(id)) {
+          audioStalls.delete(id);
+        }
+      }
+      for (const [id, latency] of latencies) {
+        let stall = audioStalls.get(id);
+        if (!stall) {
+          stall = initialStallState();
+          audioStalls.set(id, stall);
+        }
+        const action =
+          latency.state === 'connected'
+            ? advanceAudioStall(stall, latency.audioPackets)
+            : advanceAudioStall(stall, null);
+        if (action === 'restart-ice') {
+          mesh.restartIce(id);
+        }
+      }
 
       const sharing = localScreenRef.current?.getVideoTracks()[0] ?? null;
       // In the tree, the screen arrives from the PARENT (maybe a relay) —

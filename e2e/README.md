@@ -30,13 +30,13 @@ force it fresh with `E2E_BUILD_WEB=1`.
 ## Running
 
 ```sh
-# everything except the @heavy 12-context test
+# everything except the @heavy 20-context test
 npm run test --workspace e2e
 
 # individual suites
 npm run test:protocol --workspace e2e     # ws-level: capacity, cameras, screen tree, resume
 npm run test:browser  --workspace e2e     # 3-context smoke, camera flow, screen share
-npm run test:heavy    --workspace e2e     # 12 headless contexts, full mesh (E2E_HEAVY=1)
+npm run test:heavy    --workspace e2e     # 20 headless contexts, full mesh (E2E_HEAVY=1)
 
 # load
 npm run load:signaling --workspace e2e                       # defaults: 50 rooms x 12 peers

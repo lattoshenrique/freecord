@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { RoomRegistry } from '../src/app/room-registry.js';
 import { SignalingSession, sweepStalePeers } from '../src/app/signaling.js';
-import { ROOM_LIMITS, RoomFullError, type ServerMessage } from '../src/domain/room.js';
+import {
+  ROOM_LIMITS,
+  RoomFullError,
+  enqueueSignal,
+  type ServerMessage,
+} from '../src/domain/room.js';
 
 function connect(registry: RoomRegistry, slug: string, name: string) {
   const inbox: ServerMessage[] = [];
@@ -167,5 +172,97 @@ describe('session resume', () => {
     SignalingSession.join(registry, slug, 'Ana', channel, ice);
 
     expect(welcomeOf(inbox).ice).toEqual(ice);
+  });
+});
+
+describe('signals held across a resume', () => {
+  it('a signal to a detached peer is held, not dropped, and delivered after welcome', () => {
+    const { registry, slug } = setup();
+    const ana = connect(registry, slug, 'Ana');
+    const bia = connect(registry, slug, 'Bia');
+    const token = welcomeOf(ana.inbox).resumeToken;
+
+    ana.session.close();
+    bia.session.handleMessage({ t: 'signal', to: ana.session.peerId, data: { candidate: 'c1' } });
+    bia.session.handleMessage({ t: 'signal', to: ana.session.peerId, data: { candidate: 'c2' } });
+    // The dead channel never sees them.
+    expect(ana.inbox.filter((m) => m.t === 'signal')).toHaveLength(0);
+
+    const back = resumeWith(registry, slug, token);
+    expect(back.inbox[0]!.t).toBe('welcome');
+    expect(back.inbox.slice(1, 3)).toEqual([
+      { t: 'signal', from: bia.session.peerId, data: { candidate: 'c1' } },
+      { t: 'signal', from: bia.session.peerId, data: { candidate: 'c2' } },
+    ]);
+    // Delivered once: a second resume starts with an empty queue.
+    back.session!.close();
+    const again = resumeWith(registry, slug, token);
+    expect(again.inbox.filter((m) => m.t === 'signal')).toHaveLength(0);
+  });
+
+  it('a signal to an attached peer still goes straight through', () => {
+    const { registry, slug } = setup();
+    const ana = connect(registry, slug, 'Ana');
+    const bia = connect(registry, slug, 'Bia');
+    bia.session.handleMessage({ t: 'signal', to: ana.session.peerId, data: { candidate: 'c' } });
+    expect(ana.last()).toEqual({ t: 'signal', from: bia.session.peerId, data: { candidate: 'c' } });
+  });
+
+  it('a swept seat forgets its queue with the seat', () => {
+    let clock = 0;
+    const { registry, slug } = setup(() => clock);
+    const ana = connect(registry, slug, 'Ana');
+    const bia = connect(registry, slug, 'Bia');
+    const token = welcomeOf(ana.inbox).resumeToken;
+    ana.session.close();
+    bia.session.handleMessage({ t: 'signal', to: ana.session.peerId, data: { candidate: 'c' } });
+    clock = ROOM_LIMITS.peerTimeoutMs + 1;
+    sweepStalePeers(registry);
+    expect(resumeWith(registry, slug, token).session).toBeNull();
+  });
+});
+
+describe('enqueueSignal', () => {
+  const from = 'X';
+  const signal = (data: unknown, sender = from): Extract<ServerMessage, { t: 'signal' }> => ({
+    t: 'signal',
+    from: sender,
+    data,
+  });
+
+  it('keeps arrival order for candidates', () => {
+    let queue: ServerMessage[] = [];
+    queue = enqueueSignal(queue, signal({ candidate: 1 }));
+    queue = enqueueSignal(queue, signal({ candidate: 2 }));
+    expect(queue.map((m) => (m as { data: { candidate: number } }).data.candidate)).toEqual([1, 2]);
+  });
+
+  it('a new description from a sender supersedes that sender\'s older offer and candidates', () => {
+    let queue: ServerMessage[] = [];
+    queue = enqueueSignal(queue, signal({ description: { type: 'offer', sdp: 'v1' } }));
+    queue = enqueueSignal(queue, signal({ candidate: 'for-v1' }));
+    queue = enqueueSignal(queue, signal({ candidate: 'other' }, 'Y'));
+    queue = enqueueSignal(queue, signal({ description: { type: 'offer', sdp: 'v2' } }));
+    expect(queue).toEqual([signal({ candidate: 'other' }, 'Y'), signal({ description: { type: 'offer', sdp: 'v2' } })]);
+  });
+
+  it('drops the oldest past the item cap', () => {
+    let queue: ServerMessage[] = [];
+    for (let i = 0; i < ROOM_LIMITS.detachedSignalMaxItems + 5; i += 1) {
+      queue = enqueueSignal(queue, signal({ candidate: i }));
+    }
+    expect(queue).toHaveLength(ROOM_LIMITS.detachedSignalMaxItems);
+    expect((queue[0] as { data: { candidate: number } }).data.candidate).toBe(5);
+  });
+
+  it('drops the oldest past the byte cap, never the newest', () => {
+    const big = 'x'.repeat(40 * 1024);
+    let queue: ServerMessage[] = [];
+    queue = enqueueSignal(queue, signal({ candidate: `1${big}` }));
+    queue = enqueueSignal(queue, signal({ candidate: `2${big}` }));
+    queue = enqueueSignal(queue, signal({ candidate: `3${big}` }));
+    expect(queue).toHaveLength(2);
+    expect(JSON.stringify(queue).length).toBeLessThan(ROOM_LIMITS.detachedSignalMaxBytes + 100);
+    expect((queue[1] as { data: { candidate: string } }).data.candidate.startsWith('3')).toBe(true);
   });
 });

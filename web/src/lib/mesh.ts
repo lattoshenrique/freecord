@@ -29,8 +29,20 @@ interface PeerState {
    */
   queue: Promise<void>;
   streams: Map<string, MediaStream>;
-  /** Armed while ICE sits in 'disconnected': fires a restart if it lingers. */
-  iceRetryTimer: ReturnType<typeof setTimeout> | null;
+  /**
+   * Since when signalingState has been off 'stable' — the clock behind
+   * the negotiation watchdog. A lost offer (signaling down at the wrong
+   * moment) leaves a connection in have-local-offer forever: the
+   * browser fires negotiationneeded only from 'stable', and an impolite
+   * side ignores every rival offer meanwhile. Null while stable.
+   */
+  unstableSince: number | null;
+  /** Since when ICE has been 'disconnected' or 'failed'; null while up. */
+  iceDownSince: number | null;
+  /** Restarts spent on the current ICE-down episode; spaces the next one. */
+  iceRestarts: number;
+  /** When the last ICE restart of the episode fired (the retry clock). */
+  lastIceRestartAt: number | null;
   /** The `files` data channel (see file-transfer.ts); closed with the peer. */
   files: RTCDataChannel;
 }
@@ -93,9 +105,31 @@ interface LowLatencyReceiver extends RTCRtpReceiver {
 /**
  * How long ICE may sit in 'disconnected' before a restart. Short blips
  * self-heal well inside this; what the grace filters out is restarting a
- * path that was about to come back on its own.
+ * path that was about to come back on its own. A restart that changes
+ * nothing is followed by another, the wait doubling up to
+ * ICE_RESTART_MAX_BACKOFF (7 s, 14 s, 28 s, 28 s...): one lost restart
+ * offer used to be the end of the road.
  */
 const ICE_DISCONNECTED_GRACE_MS = 7_000;
+const ICE_RESTART_MAX_BACKOFF = 2;
+
+/**
+ * How long a negotiation may stay open before it is presumed lost and
+ * rolled back. Longer than the other side's whole resume run in the
+ * common case (its reconnect backoff reaches ~7 s by the fourth try), so
+ * a blip resolves through the held signals first and the rollback only
+ * fires for an offer that is genuinely not coming back.
+ */
+const NEGOTIATION_STALL_MS = 12_000;
+/**
+ * On a resumed signaling session (reconcile) an open negotiation is
+ * presumed lost after this much instead: long enough to spare one that
+ * started on the socket that just came back, short enough to matter.
+ */
+const RECONCILE_STALL_MS = 1_000;
+
+/** Cadence of the health pass over every peer. */
+const WATCHDOG_INTERVAL_MS = 2_000;
 
 /**
  * The file-transfer channel is pre-negotiated on a fixed SCTP stream: both
@@ -127,6 +161,8 @@ export class Mesh {
    */
   private readonly remoteSdpTransform: ((sdp: string) => string) | null;
   private closed = false;
+  /** The health pass (see heal); armed by the first peer, stopped by close. */
+  private watchdog: ReturnType<typeof setInterval> | null = null;
   /**
    * Hands each peer's `files` data channel to whoever moves files over it
    * (file-transfer.ts). Set right after construction, before the first
@@ -423,11 +459,15 @@ export class Mesh {
       ignoreOffer: false,
       queue: Promise.resolve(),
       streams: new Map(),
-      iceRetryTimer: null,
+      unstableSince: null,
+      iceDownSince: null,
+      iceRestarts: 0,
+      lastIceRestartAt: null,
       files,
     };
     this.peers.set(peerId, state);
     this.onDataChannel?.(peerId, files);
+    this.watchdog ??= setInterval(() => this.healAll(false), WATCHDOG_INTERVAL_MS);
 
     for (const [track, local] of this.localTracks) {
       if (local.targets === null || local.targets.has(peerId)) {
@@ -461,26 +501,28 @@ export class Mesh {
       }
     };
 
+    pc.onsignalingstatechange = () => {
+      state.unstableSince =
+        pc.signalingState === 'stable' ? null : (state.unstableSince ?? Date.now());
+    };
+
     pc.oniceconnectionstatechange = () => {
       // 'failed' restarts at once. 'disconnected' gets a grace first: it
       // often self-heals in seconds (wi-fi hiccup), but Chrome can also sit
       // there indefinitely after a NAT rebinding — the long-watch freeze —
-      // so a lingering 'disconnected' earns the same restart. Every other
-      // state disarms the watchdog.
-      if (pc.iceConnectionState === 'failed') {
-        this.clearIceRetry(state);
-        this.restartPeerIce(pc);
-      } else if (pc.iceConnectionState === 'disconnected') {
-        if (state.iceRetryTimer === null) {
-          state.iceRetryTimer = setTimeout(() => {
-            state.iceRetryTimer = null;
-            if (pc.iceConnectionState === 'disconnected') {
-              this.restartPeerIce(pc);
-            }
-          }, ICE_DISCONNECTED_GRACE_MS);
-        }
+      // so a lingering 'disconnected' earns the same restart, from the
+      // health pass (heal), which also retries a restart that did not
+      // take. Every other state ends the episode.
+      const ice = pc.iceConnectionState;
+      if (ice === 'failed') {
+        state.iceDownSince ??= Date.now();
+        this.restartPeerIce(state);
+      } else if (ice === 'disconnected') {
+        state.iceDownSince ??= Date.now();
       } else {
-        this.clearIceRetry(state);
+        state.iceDownSince = null;
+        state.iceRestarts = 0;
+        state.lastIceRestartAt = null;
       }
     };
 
@@ -550,18 +592,98 @@ export class Mesh {
     }
   }
 
-  private clearIceRetry(state: PeerState): void {
-    if (state.iceRetryTimer !== null) {
-      clearTimeout(state.iceRetryTimer);
-      state.iceRetryTimer = null;
+  /** Guarded: restartIce is missing from older Safari's RTCPeerConnection. */
+  private restartPeerIce(state: PeerState): void {
+    state.iceRestarts += 1;
+    state.lastIceRestartAt = Date.now();
+    if (typeof state.pc.restartIce === 'function') {
+      state.pc.restartIce();
     }
   }
 
-  /** Guarded: restartIce is missing from older Safari's RTCPeerConnection. */
-  private restartPeerIce(pc: RTCPeerConnection): void {
-    if (typeof pc.restartIce === 'function') {
-      pc.restartIce();
+  /**
+   * Health pass over one peer. Two things a connection cannot fix by
+   * itself once signaling has failed it:
+   *
+   * 1. A negotiation left open past NEGOTIATION_STALL_MS: the offer or
+   *    the answer was lost in transit. Rolling back to 'stable' and
+   *    restarting ICE re-offers through the regular negotiationneeded
+   *    path — with the current tracks, and with glare handled as always.
+   * 2. ICE down past its grace, or a restart that changed nothing: another
+   *    restart, spaced by a doubling backoff so a dead peer is not
+   *    hammered while its seat runs out.
+   *
+   * `force` shortens the clocks — a resumed signaling session calls it on
+   * every peer at once, because whatever broke during the outage has
+   * already waited long enough.
+   */
+  private heal(state: PeerState, now: number, force: boolean): void {
+    const { pc } = state;
+    if (pc.signalingState === 'closed') {
+      return;
     }
+    if (pc.signalingState !== 'stable' && !state.makingOffer) {
+      const since = state.unstableSince ?? now;
+      if (now - since >= (force ? RECONCILE_STALL_MS : NEGOTIATION_STALL_MS)) {
+        // The clock restarts so a second rollback waits a full period.
+        state.unstableSince = now;
+        state.queue = state.queue.then(() => this.renegotiate(state));
+        return;
+      }
+    }
+    const ice = pc.iceConnectionState;
+    if (ice !== 'disconnected' && ice !== 'failed') {
+      return;
+    }
+    const since = state.iceDownSince ?? now;
+    state.iceDownSince = since;
+    const wait =
+      ICE_DISCONNECTED_GRACE_MS * 2 ** Math.min(state.iceRestarts, ICE_RESTART_MAX_BACKOFF);
+    if (force || now - (state.lastIceRestartAt ?? since) >= wait) {
+      this.restartPeerIce(state);
+    }
+  }
+
+  private healAll(force: boolean): void {
+    if (this.closed) {
+      return;
+    }
+    const now = Date.now();
+    for (const state of this.peers.values()) {
+      this.heal(state, now, force);
+    }
+  }
+
+  /**
+   * Abandons an open negotiation and starts a fresh one. Runs on the
+   * peer's signal queue, so it never interleaves with an answer that is
+   * being applied. A browser without rollback (old Safari) skips to the
+   * restart, which at least reoffers once the state clears.
+   */
+  private async renegotiate(state: PeerState): Promise<void> {
+    const { pc } = state;
+    if (pc.signalingState === 'closed' || this.closed) {
+      return;
+    }
+    if (pc.signalingState !== 'stable') {
+      try {
+        await pc.setLocalDescription({ type: 'rollback' });
+      } catch {
+        // rollback unsupported or already stable: fall through to the restart
+      }
+    }
+    this.restartPeerIce(state);
+  }
+
+  /**
+   * The signaling session came back on the same seat: whatever a peer
+   * was waiting on while it was down is presumed lost. Every open
+   * negotiation is rolled back and reoffered, every downed ICE path
+   * restarted — now, not on the watchdog's clock. A healthy peer is left
+   * alone.
+   */
+  reconcile(): void {
+    this.healAll(true);
   }
 
   /**
@@ -575,14 +697,12 @@ export class Mesh {
     if (!state || this.closed) {
       return;
     }
-    this.clearIceRetry(state);
-    this.restartPeerIce(state.pc);
+    this.restartPeerIce(state);
   }
 
   removePeer(peerId: string): void {
     const state = this.peers.get(peerId);
     if (state) {
-      this.clearIceRetry(state);
       state.files.close();
       state.pc.close();
       this.peers.delete(peerId);
@@ -595,8 +715,11 @@ export class Mesh {
 
   close(): void {
     this.closed = true;
+    if (this.watchdog !== null) {
+      clearInterval(this.watchdog);
+      this.watchdog = null;
+    }
     for (const state of this.peers.values()) {
-      this.clearIceRetry(state);
       state.files.close();
       state.pc.close();
     }

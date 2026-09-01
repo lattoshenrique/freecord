@@ -1,24 +1,27 @@
 import { expect, test } from '@playwright/test';
+import { ROOM_LIMITS } from '../../../server/src/domain/room.js';
 import { createRoom, getRoom } from '../../helpers/http';
 import { ProtoClient, cleanup } from '../../helpers/ws-client';
 
+const MAX = ROOM_LIMITS.maxParticipants;
+
 test.describe('room capacity', () => {
-  test('12 join, the 13th is refused with room_full and closed', async () => {
+  test(`${MAX} join, the next is refused with room_full and closed`, async () => {
     const { slug } = await createRoom('capacity');
     const clients: ProtoClient[] = [];
     try {
-      for (let i = 0; i < 12; i += 1) {
+      for (let i = 0; i < MAX; i += 1) {
         clients.push(await ProtoClient.join(slug, `guest-${i}`));
       }
-      // The last joiner sees the other 11 seats taken.
-      expect(clients[11].welcome!.peers).toHaveLength(11);
-      expect((await getRoom(slug)).participantCount).toBe(12);
+      // The last joiner sees every other seat taken.
+      expect(clients[MAX - 1].welcome!.peers).toHaveLength(MAX - 1);
+      expect((await getRoom(slug)).participantCount).toBe(MAX);
 
-      const refusal = await ProtoClient.joinExpectingError(slug, 'thirteenth');
+      const refusal = await ProtoClient.joinExpectingError(slug, 'one-too-many');
       expect(refusal).toEqual({ t: 'error', code: 'room_full' });
 
       // The refusal took no seat.
-      expect((await getRoom(slug)).participantCount).toBe(12);
+      expect((await getRoom(slug)).participantCount).toBe(MAX);
     } finally {
       await cleanup(clients);
     }
@@ -28,7 +31,7 @@ test.describe('room capacity', () => {
     const { slug } = await createRoom('capacity-retake');
     const clients: ProtoClient[] = [];
     try {
-      for (let i = 0; i < 12; i += 1) {
+      for (let i = 0; i < MAX; i += 1) {
         clients.push(await ProtoClient.join(slug, `guest-${i}`));
       }
       const leaver = clients.pop()!;
@@ -38,7 +41,7 @@ test.describe('room capacity', () => {
       expect(left.id).toBe(leaver.selfId);
 
       clients.push(await ProtoClient.join(slug, 'replacement'));
-      expect((await getRoom(slug)).participantCount).toBe(12);
+      expect((await getRoom(slug)).participantCount).toBe(MAX);
     } finally {
       await cleanup(clients);
     }

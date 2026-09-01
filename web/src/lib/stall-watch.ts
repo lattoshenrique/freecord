@@ -70,3 +70,30 @@ export function advanceStall(
   // stall lasts, so a parent that becomes demotable eventually hears it.
   return 'notify-parent';
 }
+
+/**
+ * The voice's version of the same watch, per peer. Audio has no relay
+ * tree and no parent to notify, so the ladder is one rung: a peer whose
+ * inbound packet counter stops moving while its ICE path still claims to
+ * be connected gets one ICE restart per episode (~8 s in). Chromium keeps
+ * sending packets for a muted microphone (silence frames, no DTX), so a
+ * flat counter means the path, not the person, went quiet. A peer that
+ * never sent audio at all (no microphone permission) is not an episode:
+ * the counter must have moved once before its stillness counts.
+ */
+export function advanceAudioStall(state: StallState, packetsReceived: number | null): StallAction {
+  const stalled =
+    packetsReceived !== null && state.frames !== null && state.frames > 0 && state.frames === packetsReceived;
+  state.frames = packetsReceived;
+  if (!stalled) {
+    state.strikes = 0;
+    state.restarted = false;
+    return 'none';
+  }
+  state.strikes += 1;
+  if (state.strikes >= RESTART_STRIKES && !state.restarted) {
+    state.restarted = true;
+    return 'restart-ice';
+  }
+  return 'none';
+}

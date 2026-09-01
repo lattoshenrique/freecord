@@ -6,6 +6,7 @@
  * the few label-based lookups stay deterministic.
  */
 import { expect, type Browser, type BrowserContext, type Page } from '@playwright/test';
+import { ROOM_LIMITS } from '../../server/src/domain/room.js';
 import { baseUrl } from './env';
 
 export interface RoomPageHandle {
@@ -49,12 +50,16 @@ export async function joinMany(browser: Browser, slug: string, count: number, pr
   return handles;
 }
 
-/** "3/12" from the seat counter. */
+/** "3/20" from the seat counter — the max is the server's own limit. */
 export async function seatCount(page: Page): Promise<string> {
   return (await page.locator('.seat-count').innerText()).trim();
 }
 
-export async function expectSeatCount(page: Page, occupied: number, max = 12): Promise<void> {
+export async function expectSeatCount(
+  page: Page,
+  occupied: number,
+  max = ROOM_LIMITS.maxParticipants,
+): Promise<void> {
   await expect(page.locator('.seat-count')).toHaveText(`${occupied}/${max}`, { timeout: 20_000 });
 }
 

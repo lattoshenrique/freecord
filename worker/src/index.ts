@@ -9,6 +9,7 @@
 import {
   ROOM_LIMITS,
   cameraSlotsFor,
+  enqueueSignal,
   normalizeChatText,
   type IceServerConfig,
   type PeerInfo,
@@ -66,6 +67,16 @@ interface DetachedPeer {
   disconnectedAt: number;
 }
 type DetachedPeers = Record<string, DetachedPeer>;
+
+/**
+ * Signals held for a detached seat live under their own key, one per
+ * peer: a queue is bounded at 96 KiB (ROOM_LIMITS.detachedSignalMaxBytes)
+ * and a storage value at 128 KiB, so several queues cannot share the
+ * `detached` record.
+ */
+function pendingKey(peerId: string): string {
+  return `pending:${peerId}`;
+}
 
 /** ICE servers resolved by the outer Worker travel on an internal header. */
 const ICE_HEADER = 'X-Ice-Servers';
@@ -258,9 +269,17 @@ export class RoomDurableObject {
     }
 
     const identity = record ?? this.attachment(stale!);
+    // Signals that arrived during the absence: delivered after `welcome`,
+    // in order, then forgotten (the key is read before the seat's record
+    // goes, and cleared whether or not anything was held).
+    const pendingKeyOf = pendingKey(identity.peerId);
+    const pending = record
+      ? ((await this.ctx.storage.get<ServerMessage[]>(pendingKeyOf)) ?? [])
+      : [];
     if (record) {
       delete detached[token];
       await this.putDetachedPeers(detached);
+      await this.ctx.storage.delete(pendingKeyOf);
     }
     this.ctx.acceptWebSocket(server);
     server.serializeAttachment({
@@ -297,6 +316,9 @@ export class RoomDurableObject {
       screen: screen ? { id: screen.id, streamId: screen.streamId } : null,
       cameras: await this.cameras(),
     });
+    for (const held of pending) {
+      this.send(server, held);
+    }
     // The seat was never vacated: no peer-joined. The tree may have changed
     // shape during the absence, so routes are re-emitted.
     await this.broadcastScreenRoutes();
@@ -323,11 +345,22 @@ export class RoomDurableObject {
         return;
       }
       case 'signal': {
+        const envelope = { t: 'signal', from: peerId, data: message.data } as const;
         const target = this.ctx
           .getWebSockets()
           .find((peer) => this.attachment(peer).peerId === message.to);
         if (target) {
-          this.send(target, { t: 'signal', from: peerId, data: message.data });
+          this.send(target, envelope);
+          return;
+        }
+        // Transport down, seat kept: hold the signal for the resume instead
+        // of dropping it (enqueueSignal) — mirror of the Node edge.
+        const detached = await this.detachedPeers();
+        const seat = Object.values(detached).find((held) => held.peerId === message.to);
+        if (seat) {
+          const key = pendingKey(seat.peerId);
+          const queue = (await this.ctx.storage.get<ServerMessage[]>(key)) ?? [];
+          await this.ctx.storage.put(key, enqueueSignal(queue, envelope));
         }
         return;
       }
@@ -510,6 +543,8 @@ export class RoomDurableObject {
         delete relays[seat.peerId];
       }
       await this.putDetachedPeers(detached);
+      // Nobody is coming back for these signals.
+      await this.ctx.storage.delete(expired.map((seat) => pendingKey(seat.peerId)));
       await this.ctx.storage.put('screenRelays', relays);
       for (const seat of expired) {
         this.broadcast({ t: 'peer-left', id: seat.peerId });

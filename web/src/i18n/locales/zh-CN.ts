@@ -36,7 +36,7 @@ export const zhCN: Catalog = {
     '链接既是邀请，也是凭证。拿到的人就能进来。聊天密钥藏在 URL 里 # 之后的部分，浏览器从不会把它发给服务器。',
   'how.step.talk.title': '开始聊',
   'how.step.talk.body':
-    '每个人进来时麦克风和摄像头都是关着的，想开哪个自己开。最多十二个人。语音和共享屏幕永远优先；真正要抢位置的是摄像头——房间越满，能同时开的摄像头越少，每一路的画质也会自动调整。',
+    '每个人进来时麦克风和摄像头都是关着的，想开哪个自己开。最多二十个人。语音和共享屏幕永远优先；真正要抢位置的是摄像头——房间越满，能同时开的摄像头越少，每一路的画质也会自动调整。',
 
   'how.mesh.title': '音视频从不经过我们的服务器',
   'how.mesh.body':
@@ -54,7 +54,7 @@ export const zhCN: Catalog = {
 
   'how.limits.title': '房间遵守的规则',
   'how.limits.body':
-    '每个房间十二个人。空房间十五分钟后关闭。三十五秒没有回应的浏览器会被移出，免得崩溃的标签页一直占着位置。超过十二人，网格就不再是诚实的答案——下一步是像屏幕共享那样在参与者之间转发。',
+    '每个房间二十个人。空房间十五分钟后关闭。三十五秒没有回应的浏览器会被移出，免得崩溃的标签页一直占着位置。超过二十人，网格就不再是诚实的答案——下一步是我们自己的媒体节点，就像屏幕共享已经在参与者之间转发那样。',
 
   'how.run.title': '自己跑一遍',
   'how.run.body':
@@ -95,7 +95,7 @@ export const zhCN: Catalog = {
   'room.someone': '某人',
   'room.micMuted': '麦克风已关闭',
   'room.leftTitle': '你已离开房间',
-  'room.endedFull': '房间已满（最多 12 人）。',
+  'room.endedFull': '房间已满（最多 20 人）。',
   'room.endedNotFound': '该房间已不存在。',
   'room.endedClosed': '与房间的连接已断开。',
   'room.seatsAria': '座位：{max} 个中已占 {count} 个',
@@ -227,7 +227,7 @@ export const zhCN: Catalog = {
   'community.source.title':
     '阅读源码',
   'community.source.body':
-    '一切都在 GitHub 上，采用 MIT 许可 —— 随意使用、fork、自行部署。架构文档是不加粉饰的那一版：点对点网状连接真正的代价、房间为什么止步于十二人，以及哪些技术债是被记录下来而不是被藏起来的。',
+    '一切都在 GitHub 上，采用 MIT 许可 —— 随意使用、fork、自行部署。架构文档是不加粉饰的那一版：点对点网状连接真正的代价、房间为什么止步于二十人，以及哪些技术债是被记录下来而不是被藏起来的。',
   'community.source.repo':
     '在 GitHub 上查看',
   'community.source.architecture':

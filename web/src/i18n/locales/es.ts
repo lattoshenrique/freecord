@@ -37,7 +37,7 @@ export const esES: Catalog = {
     'El enlace es la invitación y la credencial. Quien lo tiene, entra. La clave del chat viaja en la parte de la URL después del #, que los navegadores nunca envían a un servidor.',
   'how.step.talk.title': 'Habla',
   'how.step.talk.body':
-    'Todo el mundo llega en silencio y sin cámara, y enciende lo que quiera. Hasta doce personas. El audio y la pantalla compartida tienen prioridad siempre; las cámaras son las que compiten por sitio: en una sala llena entran menos, y la calidad de cada una se ajusta sola.',
+    'Todo el mundo llega en silencio y sin cámara, y enciende lo que quiera. Hasta veinte personas. El audio y la pantalla compartida tienen prioridad siempre; las cámaras son las que compiten por sitio: en una sala llena entran menos, y la calidad de cada una se ajusta sola.',
 
   'how.mesh.title': 'El contenido nunca toca nuestro servidor',
   'how.mesh.body':
@@ -55,7 +55,7 @@ export const esES: Catalog = {
 
   'how.limits.title': 'Las reglas que sigue la sala',
   'how.limits.body':
-    'Doce personas por sala. Una sala vacía se cierra a los quince minutos. Un navegador que se calla treinta y cinco segundos pierde su sitio, para que una pestaña colgada no lo ocupe para siempre. Por encima de doce la malla deja de ser la respuesta honesta: el siguiente paso es retransmitir entre pares, como ya hace la pantalla compartida.',
+    'Veinte personas por sala. Una sala vacía se cierra a los quince minutos. Un navegador que se calla treinta y cinco segundos pierde su sitio, para que una pestaña colgada no lo ocupe para siempre. Por encima de veinte la malla deja de ser la respuesta honesta: el siguiente paso es un nodo de medios propio, como la pantalla compartida ya retransmite entre pares.',
 
   'how.run.title': 'Ejecútalo tú mismo',
   'how.run.body':
@@ -96,7 +96,7 @@ export const esES: Catalog = {
   'room.someone': 'Alguien',
   'room.micMuted': 'Micrófono desactivado',
   'room.leftTitle': 'Has salido de la sala',
-  'room.endedFull': 'La sala está llena (máximo 12 personas).',
+  'room.endedFull': 'La sala está llena (máximo 20 personas).',
   'room.endedNotFound': 'La sala ya no existe.',
   'room.endedClosed': 'Se perdió la conexión con la sala.',
   'room.seatsAria': 'Asientos: {count} de {max} ocupados',
@@ -229,7 +229,7 @@ export const esES: Catalog = {
   'community.source.title':
     'Lee el código',
   'community.source.body':
-    'Está todo en GitHub bajo licencia MIT: úsalo, haz un fork, alójalo tú. El documento de arquitectura es la versión honesta: lo que cuesta de verdad una malla entre pares, por qué las salas se detienen en doce y qué deudas están mapeadas en vez de escondidas.',
+    'Está todo en GitHub bajo licencia MIT: úsalo, haz un fork, alójalo tú. El documento de arquitectura es la versión honesta: lo que cuesta de verdad una malla entre pares, por qué las salas se detienen en veinte y qué deudas están mapeadas en vez de escondidas.',
   'community.source.repo':
     'Ver en GitHub',
   'community.source.architecture':

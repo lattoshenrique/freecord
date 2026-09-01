@@ -24,11 +24,11 @@ test.describe('room smoke', () => {
     // parallel restyle lands them (defensive — see README brittleness notes).
     const ghosts = handles[0].page.locator('.tile-seat');
     if ((await ghosts.count()) > 0) {
-      expect(await ghosts.count()).toBe(12 - 3);
+      expect(await ghosts.count()).toBe(20 - 3);
     }
 
     // One guest leaves (navigation fires the pagehide goodbye); the
-    // others converge to 2/12.
+    // others converge to 2/20.
     const leaver = handles.pop()!;
     await leaveRoom(leaver);
     for (const { page } of handles) {

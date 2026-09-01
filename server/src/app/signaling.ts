@@ -1,5 +1,6 @@
 import {
   cameraSlotsFor,
+  enqueueSignal,
   normalizeChatText,
   type ClientMessage,
   type IceServerConfig,
@@ -105,7 +106,9 @@ export class SignalingSession {
    *
    * No `peer-joined` goes out — the seat was never vacated, and clients
    * de-duplicate peers by id anyway. Routes are re-emitted because the
-   * tree may have changed shape while this peer was away.
+   * tree may have changed shape while this peer was away, and the
+   * signals that arrived meanwhile are delivered right after `welcome`,
+   * in order — the client reconciles its mesh on the welcome first.
    */
   static resume(
     registry: RoomRegistry,
@@ -120,6 +123,9 @@ export class SignalingSession {
     }
     const session = new SignalingSession(registry, slug, resumed.peerId, resumed.name, channel);
     session.sendWelcome(resumed.room, ice);
+    for (const held of resumed.pending) {
+      channel.send(held);
+    }
     broadcastScreenRoutes(resumed.room);
     return session;
   }
@@ -159,7 +165,17 @@ export class SignalingSession {
       }
       case 'signal': {
         const target = room.peers.get(message.to);
-        target?.channel.send({ t: 'signal', from: this.peerId, data: message.data });
+        if (!target) {
+          return;
+        }
+        const envelope = { t: 'signal', from: this.peerId, data: message.data } as const;
+        if (target.disconnectedAt !== null) {
+          // Transport down, seat kept: hold the signal for the resume
+          // instead of dropping it into a dead socket (enqueueSignal).
+          target.pending = enqueueSignal(target.pending, envelope);
+          return;
+        }
+        target.channel.send(envelope);
         return;
       }
       case 'chat': {

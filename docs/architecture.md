@@ -21,13 +21,15 @@ media: it owns room state and carries signaling envelopes. Consequences:
   relay for peers that cannot connect directly, carrying encrypted bytes it
   cannot read. Unset, everything still works on public STUN.
 - The honest limit of a mesh: with video, **each participant's upload** is the
-  bottleneck (N−1 copies of every stream). `maxParticipants: 12` is that limit
+  bottleneck (N−1 copies of every stream). `maxParticipants: 20` is that limit
   priced honestly: audio and screen are the product's quality promise and do
-  not scale with room size (audio is cheap; the screen rides the relay tree),
-  while the camera is the variable that adapts — server-granted camera slots
-  shrink as the room grows (≤6 people: everyone; 7–9: four cameras; 10–12:
-  three), and each camera's bitrate is a fixed uplink budget divided by the
-  peer count, recomputed on every join and leave. Whoever already has a camera
+  not scale with room size (audio is cheap — ~1 Mbps of Opus at 19 copies;
+  the screen rides the relay tree), while the camera is the variable that
+  adapts — server-granted camera slots shrink as the room grows (≤6 people:
+  everyone; 7–9: four cameras; 10–16: three; 17–20: two), and each camera's
+  bitrate is a fixed uplink budget divided by the peer count, recomputed on
+  every join and leave. The last camera step is what keeps the split
+  (4 Mbps / 19 ≈ 210 kbps) above the floor where a face stops being a face. Whoever already has a camera
   on keeps it when the room crosses a threshold; only new activations wait.
 
 ## Server layers
@@ -68,7 +70,9 @@ src/
 - `mesh.ts` — one `RTCPeerConnection` per peer, with **perfect negotiation**
   (the MDN pattern): renegotiations (turning the camera on, sharing a screen
   mid-call) work from both sides without glare. Whoever joins initiates the
-  offer toward whoever was already there.
+  offer toward whoever was already there. A 2 s **watchdog** covers what
+  negotiation cannot fix by itself once a signal has been lost (see "A leg
+  that dies quietly" below).
 - `use-room.ts` — the hook that orchestrates signaling + mesh + UI state.
 
 ### TURN
@@ -146,7 +150,7 @@ The screen now propagates as a **tree**, not a star:
        /   |   \
     Ana  Bruno  Enzo        fanout 3
                 /   \
-             Duda   Caio     depth ≤ 2 with 12 people (1 + 3 + 9 seats)
+             Duda   Caio     depth ≤ 2 up to 13 people (1 + 3 + 9 seats), 3 at 20
 ```
 
 - The server computes the tree (`computeScreenTree`: BFS, lexicographic order
@@ -285,7 +289,7 @@ to move the Electron shell itself, which changes rarely.
 
 | Decision | Effect |
 | --- | --- |
-| Small rooms (≤ 12) | Keeps the mesh viable; audio is cheap at 11 copies, cameras are rationed |
+| Small rooms (≤ 20) | Keeps the mesh viable; audio is cheap at 19 copies, cameras are rationed |
 | Camera slots shrink as the room grows | Audio and screen never pay for a full room; cameras do |
 | One screen at a time | The screen is the most expensive stream; locked on the server |
 | Video off by default | A Discord-style room is mostly voice |
@@ -351,8 +355,9 @@ to move the Electron shell itself, which changes rarely.
    The UI does not change.
 4. **Bigger rooms / millions of visits**: the relay tree pushed this frontier
    out once (the sharer no longer uploads N−1 copies), and encoded passthrough
-   plus camera rationing pushed it again (12 seats with audio and screen at
-   full quality). What remains is structural: the audio/camera mesh still
+   plus camera rationing pushed it again (20 seats with audio and screen at
+   full quality — voice at ~1 Mbps of Opus per peer is the last N−1 cost
+   worth paying). What remains is structural: the audio/camera mesh still
    costs N−1 uplinks per participant. The next step is **our own media node**
    — either an SFU (e.g. on top of Pion/werift, or from scratch on libwebrtc)
    behind the SAME signaling protocol, or its distributed cousin: a native
@@ -367,7 +372,7 @@ Three layers of proof live in `e2e/`, each catching what the others cannot:
 raw `ws` clients speaking the wire protocol against the real compiled server
 (capacity, camera slots, the screen tree checked against `computeScreenTree`
 itself, resume in all its shapes), Playwright driving Chromium with fake
-media through the actual UI (including a 12-context full room behind
+media through the actual UI (including a 20-context full room behind
 `E2E_HEAVY=1`), and plain-Node load drivers. The browser suite paid for
 itself on day one: it caught that a remote camera-off left viewers a black
 tile, because a received track stays `enabled` locally no matter what the
@@ -450,6 +455,41 @@ session: with no `pong` in time it forces the transport down and goes through
 the resume path (backoff capped well inside the 35 s grace). The session only
 ends when the resume is refused (`resume_invalid`: the seat was swept) or the
 attempts run out.
+
+**Signals do not die with the transport.** A renegotiation that lands in the
+grace window — someone turning a camera on, a route change, an ICE restart
+triggered by the very blip that dropped the socket — used to be discarded by
+the server (no live socket for the addressee) and by the client (no open
+socket to write to). The offering side then sat in `have-local-offer` for the
+rest of the call: the browser fires `negotiationneeded` only from `stable`,
+and an impolite peer ignores every rival offer meanwhile. That was the
+"frozen tile that only F5 fixes". Now both edges **hold** signals for a
+detached seat (`enqueueSignal`: bounded, and coherent per sender — a new
+description from X supersedes X's older offer and its candidates, because
+the client may have rolled that negotiation back), delivered in order right
+after the resume's `welcome`; and the client holds its own answers and
+candidates for a same-seat welcome (`signaling.ts`, outbox — offers are
+deliberately not held, since a stale offer arriving after a fresh one would
+put the peer on an ICE generation that no longer exists).
+
+### A leg that dies quietly
+
+Three watches, because the mesh has no referee and a `RTCPeerConnection`
+never repairs itself:
+
+- **Negotiation left open** past 12 s (`mesh.ts`): the offer or the answer
+  was lost. Roll back to `stable`, restart ICE, reoffer through the regular
+  path. On a resumed signaling session this fires at once for every peer
+  (`reconcile`), before the held signals arrive.
+- **ICE down**: `failed` restarts at once; `disconnected` after a 7 s grace;
+  and a restart that changes nothing is followed by another, the wait
+  doubling to 28 s. One lost restart offer used to be the end of the road.
+- **Voice gone quiet on a path that claims to be connected** (the NAT-rebind
+  zombie the screen's stall watch already hunts): each peer's inbound audio
+  packet counter is read on the 2 s stats tick, and a counter that stops
+  moving for ~8 s earns one ICE restart per episode
+  (`advanceAudioStall`). Chromium keeps sending silence frames for a muted
+  microphone, so flat means the path, not the person.
 
 On the Cloudflare edge a peer survives DO hibernation: participant identity
 (with its resume token) goes in the socket's `serializeAttachment`, and

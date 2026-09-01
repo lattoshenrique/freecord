@@ -18,8 +18,8 @@ const CAMERA_MAX_BITRATE = 2_500_000;
 
 /**
  * Floor of the split AND of the congestion ladder (adaptive-policy.ts):
- * below this a face stops being a face. With 12 seats the split never
- * reaches it (4 Mbps / 11 ≈ 360 kbps); adaptation can, on a genuinely
+ * below this a face stops being a face. With 20 seats the split never
+ * reaches it (4 Mbps / 19 ≈ 210 kbps); adaptation can, on a genuinely
  * squeezed uplink — and stops here.
  */
 export const CAMERA_MIN_BITRATE = 150_000;

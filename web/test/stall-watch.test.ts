@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { advanceStall, initialStallState, type StallAction } from '../src/lib/stall-watch';
+import {
+  advanceAudioStall,
+  advanceStall,
+  initialStallState,
+  type StallAction,
+} from '../src/lib/stall-watch';
 
 /** Feeds `count` identical stalled samples (flat frames, silent wire). */
 function stalledTicks(
@@ -71,6 +76,60 @@ describe('advanceStall', () => {
   it('the first reading alone is not a stall', () => {
     const state = initialStallState();
     expect(advanceStall(state, 100, null)).toBe('none');
+    expect(state.strikes).toBe(0);
+  });
+});
+
+describe('advanceAudioStall', () => {
+  it('stays quiet while packets keep arriving', () => {
+    const state = initialStallState();
+    expect(advanceAudioStall(state, 100)).toBe('none');
+    expect(advanceAudioStall(state, 150)).toBe('none');
+    expect(advanceAudioStall(state, 200)).toBe('none');
+    expect(state.strikes).toBe(0);
+  });
+
+  it('a peer that never sent audio is not an episode', () => {
+    const state = initialStallState();
+    for (let i = 0; i < 10; i += 1) {
+      expect(advanceAudioStall(state, 0)).toBe('none');
+    }
+    for (let i = 0; i < 10; i += 1) {
+      expect(advanceAudioStall(state, null)).toBe('none');
+    }
+    expect(state.strikes).toBe(0);
+  });
+
+  it('a counter that stops moving earns one ICE restart per episode', () => {
+    const state = initialStallState();
+    advanceAudioStall(state, 100);
+    advanceAudioStall(state, 200);
+    const actions: StallAction[] = [];
+    for (let i = 0; i < 8; i += 1) {
+      actions.push(advanceAudioStall(state, 200));
+    }
+    expect(actions.filter((a) => a === 'restart-ice')).toHaveLength(1);
+    expect(actions.indexOf('restart-ice')).toBe(3);
+  });
+
+  it('movement ends the episode and re-arms the restart', () => {
+    const state = initialStallState();
+    advanceAudioStall(state, 100);
+    for (let i = 0; i < 4; i += 1) {
+      advanceAudioStall(state, 100);
+    }
+    expect(state.restarted).toBe(true);
+    expect(advanceAudioStall(state, 101)).toBe('none');
+    expect(state.restarted).toBe(false);
+    expect(state.strikes).toBe(0);
+  });
+
+  it('a null reading while ICE is down resets rather than counts', () => {
+    const state = initialStallState();
+    advanceAudioStall(state, 100);
+    advanceAudioStall(state, 100);
+    expect(state.strikes).toBe(1);
+    expect(advanceAudioStall(state, null)).toBe('none');
     expect(state.strikes).toBe(0);
   });
 });

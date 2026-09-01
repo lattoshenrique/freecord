@@ -8,6 +8,12 @@ export interface PeerLatency {
   /** Round trip over the P2P path, in ms. Null until ICE settles. */
   rttMs: number | null;
   state: RTCPeerConnectionState;
+  /**
+   * Cumulative audio packets received from this peer — flat readings
+   * mean the voice path went quiet (stall-watch.ts, advanceAudioStall).
+   * Null when the connection reports no inbound audio.
+   */
+  audioPackets: number | null;
 }
 
 export interface ScreenStats {
@@ -62,6 +68,21 @@ function candidatePairRtt(report: RTCStatsReport): number | null {
     }
   }
   return rtt;
+}
+
+/** Sum of packets received over every inbound audio stream in the report. */
+function inboundAudioPackets(report: RTCStatsReport): number | null {
+  let total: number | null = null;
+  for (const stat of report.values() as Iterable<Record<string, unknown>>) {
+    if (stat.type !== 'inbound-rtp' || stat.kind !== 'audio') {
+      continue;
+    }
+    const packets = num(stat.packetsReceived);
+    if (packets !== null) {
+      total = (total ?? 0) + packets;
+    }
+  }
+  return total;
 }
 
 /**
@@ -123,9 +144,16 @@ export class StatsSampler {
         }
         try {
           const report = await pc.getStats();
-          return [peerId, { rttMs: candidatePairRtt(report), state: pc.connectionState }];
+          return [
+            peerId,
+            {
+              rttMs: candidatePairRtt(report),
+              state: pc.connectionState,
+              audioPackets: inboundAudioPackets(report),
+            },
+          ];
         } catch {
-          return [peerId, { rttMs: null, state: pc.connectionState }];
+          return [peerId, { rttMs: null, state: pc.connectionState, audioPackets: null }];
         }
       }),
     );

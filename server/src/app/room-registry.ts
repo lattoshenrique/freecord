@@ -5,6 +5,7 @@ import {
   RoomNotFoundError,
   type PeerChannel,
   type Room,
+  type ServerMessage,
 } from '../domain/room.js';
 
 /** Unguessable slug: the link IS the room's discovery credential. */
@@ -84,6 +85,7 @@ export class RoomRegistry {
       lastSeen: this.now(),
       resumeToken: randomBytes(16).toString('base64url'),
       disconnectedAt: null,
+      pending: [],
     });
     room.emptyAt = null;
     return { room, peerId };
@@ -108,13 +110,15 @@ export class RoomRegistry {
    *
    * Also covers the half-dead case where the server never saw the old
    * socket close: the stale channel is closed and replaced. Returns null
-   * for an unknown token — the seat may already have been swept.
+   * for an unknown token — the seat may already have been swept. The
+   * signals held during the absence come back with the seat (and leave
+   * the peer), for the caller to deliver after `welcome`.
    */
   resumePeer(
     slug: string,
     token: string,
     channel: PeerChannel,
-  ): { room: Room; peerId: string; name: string } | null {
+  ): { room: Room; peerId: string; name: string; pending: ServerMessage[] } | null {
     const room = this.rooms.get(slug);
     if (!room) {
       return null;
@@ -127,7 +131,9 @@ export class RoomRegistry {
         peer.channel = channel;
         peer.disconnectedAt = null;
         peer.lastSeen = this.now();
-        return { room, peerId, name: peer.name };
+        const pending = peer.pending;
+        peer.pending = [];
+        return { room, peerId, name: peer.name, pending };
       }
     }
     return null;

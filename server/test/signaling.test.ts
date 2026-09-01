@@ -305,13 +305,15 @@ describe('screen relay tree', () => {
 });
 
 describe('camera slots', () => {
-  it('cameraSlotsFor: everyone up to 6 people, then 4, then 3', () => {
+  it('cameraSlotsFor: everyone up to 6 people, then 4, then 3, then 2', () => {
     expect(cameraSlotsFor(2)).toBe(2);
     expect(cameraSlotsFor(6)).toBe(6);
     expect(cameraSlotsFor(7)).toBe(4);
     expect(cameraSlotsFor(9)).toBe(4);
     expect(cameraSlotsFor(10)).toBe(3);
-    expect(cameraSlotsFor(12)).toBe(3);
+    expect(cameraSlotsFor(16)).toBe(3);
+    expect(cameraSlotsFor(17)).toBe(2);
+    expect(cameraSlotsFor(ROOM_LIMITS.maxParticipants)).toBe(2);
   });
 
   it('grant is broadcast to everyone — the requester hears it as its grant', () => {

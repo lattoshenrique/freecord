@@ -76,6 +76,38 @@ test.describe('screen share lock and route tree', () => {
     }
   });
 
+  test('a full room of 20: the tree matches computeScreenTree and stays within depth 3', async () => {
+    const { slug } = await createRoom('screen-20');
+    const clients = await joinMany(slug, 20);
+    try {
+      const sharer = clients[0];
+      sharer.send({ t: 'screen-request', streamId: 'stream-20', quality: 'balanced' });
+      await sharer.expect('screen-started');
+      const expected = computeScreenTree(
+        sharer.selfId,
+        clients.map((c) => c.selfId),
+      ) as Map<string, { parentId: string | null; children: string[] }>;
+      // Depth: walk parents up to the sharer.
+      const depthOf = (id: string): number => {
+        let depth = 0;
+        let cursor = id;
+        while (expected.get(cursor)!.parentId !== null) {
+          cursor = expected.get(cursor)!.parentId!;
+          depth += 1;
+        }
+        return depth;
+      };
+      for (const client of clients) {
+        const route = await client.expect('screen-route');
+        expect(route.children).toEqual(expected.get(client.selfId!)!.children);
+        expect(route.children.length).toBeLessThanOrEqual(SCREEN_FANOUT);
+        expect(depthOf(client.selfId!)).toBeLessThanOrEqual(3);
+      }
+    } finally {
+      await cleanup(clients);
+    }
+  });
+
   test('the lock is exclusive: a second sharer is denied, privately', async () => {
     const { slug } = await createRoom('screen-lock');
     const clients = await joinMany(slug, 3);

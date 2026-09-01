@@ -86,7 +86,7 @@ localhost. `CORS_ORIGIN` restricts the origin in production.
 
 ## Product rules that live in the code
 
-- A room expires on its own after 15 min empty; **12 participants** max (both
+- A room expires on its own after 15 min empty; **20 participants** max (both
   a technical and a product limit of the P2P mesh — see the architecture).
   Audio and screen sharing keep full quality at any room size; cameras adapt —
   fewer slots and less bitrate each as the room fills.

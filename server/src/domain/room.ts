@@ -33,6 +33,11 @@ export interface Peer {
    * the worst case the room already tolerates.
    */
   disconnectedAt: number | null;
+  /**
+   * Signals addressed to this peer while it was detached, delivered in
+   * order on resume (see enqueueSignal). Empty while attached.
+   */
+  pending: ServerMessage[];
 }
 
 /**
@@ -67,14 +72,17 @@ export interface Room {
 
 export const ROOM_LIMITS = {
   /**
-   * P2P mesh: every peer keeps a connection to every other. 12 holds
+   * P2P mesh: every peer keeps a connection to every other. 20 holds
    * because the variable cost adapts with size: cameras split a fixed
    * uplink budget and are slot-limited past 6 people (cameraSlotsFor),
-   * the screen rides the forwarding tree, and audio is cheap. What
-   * remains is the connection and encoder count per peer — at 12 still
-   * within what a browser sustains.
+   * the screen rides the forwarding tree (depth 3 at fanout 3, cheap
+   * with encoded passthrough), and voice is the only stream still paid
+   * N−1 times — ~1 Mbps of Opus at 19 copies. What remains is the
+   * connection and encoder count per peer — at 20 still within what a
+   * desktop browser sustains; past it the honest answer is a media node
+   * (docs/architecture.md, "The scaling path").
    */
-  maxParticipants: 12,
+  maxParticipants: 20,
   /** An empty room expires after this (ms) — enough time for the link to circulate. */
   emptyTimeoutMs: 15 * 60 * 1000,
   /** Client ping cadence: measures latency and proves the peer is still alive. */
@@ -103,7 +111,52 @@ export const ROOM_LIMITS = {
    * +21 of framing ("e2e:<iv>.") ≈ 2045 — 2800 leaves headroom.
    */
   chatEnvelopeMaxLength: 2800,
+  /**
+   * Signals held for a detached peer (see enqueueSignal). Items bound the
+   * memory per seat; bytes keep the Worker's copy under a Durable Object
+   * storage value (128 KiB) with room to spare.
+   */
+  detachedSignalMaxItems: 32,
+  detachedSignalMaxBytes: 96 * 1024,
 } as const;
+
+/**
+ * Holds a signal for a peer whose transport is down, so a renegotiation
+ * that happens during its resume grace is not silently lost — that loss
+ * left the offering side stuck in have-local-offer for good (a frozen
+ * tile that only F5 fixed).
+ *
+ * The queue is coherent per sender, not merely bounded: a new session
+ * DESCRIPTION from X supersedes everything X queued before it (the older
+ * offer and its ICE candidates belong to a negotiation X has since rolled
+ * back), so the resumer only ever sees the latest offer plus its own
+ * candidates. That is the one field of the opaque envelope the server
+ * looks at — `data.description` — and it reads its presence, never its
+ * content. Beyond the caps, the oldest items go first; the client's own
+ * negotiation watchdog is the backstop for anything dropped here.
+ */
+export function enqueueSignal(
+  queue: ServerMessage[],
+  message: Extract<ServerMessage, { t: 'signal' }>,
+): ServerMessage[] {
+  const supersedes = carriesDescription(message.data);
+  const kept = supersedes
+    ? queue.filter((held) => held.t !== 'signal' || held.from !== message.from)
+    : [...queue];
+  kept.push(message);
+  let bytes = kept.reduce((sum, held) => sum + JSON.stringify(held).length, 0);
+  while (
+    kept.length > 1 &&
+    (kept.length > ROOM_LIMITS.detachedSignalMaxItems || bytes > ROOM_LIMITS.detachedSignalMaxBytes)
+  ) {
+    bytes -= JSON.stringify(kept.shift()).length;
+  }
+  return kept;
+}
+
+function carriesDescription(data: unknown): boolean {
+  return typeof data === 'object' && data !== null && 'description' in data;
+}
 
 /**
  * How many cameras may be live at once for a given room size. Mirrored in
@@ -111,16 +164,22 @@ export const ROOM_LIMITS = {
  *
  * Small rooms pay nothing: up to 6 people, everyone may turn the camera
  * on. Past that, live cameras are capped so the CAMERA uplink share of
- * each peer stays honest while audio and the screen keep their budgets.
- * The cap binds NEW activations only — a camera already live is never
- * shut off by the room growing past a threshold (grandfathering); slots
- * free up when someone turns the camera off or leaves.
+ * each peer stays honest while audio and the screen keep their budgets:
+ * 7–9 people carry four, 10–16 three, 17–20 two. The last step keeps the
+ * per-viewer split (4 Mbps / 19 ≈ 210 kbps) clear of the floor where a
+ * face stops being a face, with fewer encoders competing for it. The cap
+ * binds NEW activations only — a camera already live is never shut off
+ * by the room growing past a threshold (grandfathering); slots free up
+ * when someone turns the camera off or leaves.
  */
 export function cameraSlotsFor(participantCount: number): number {
   if (participantCount <= 6) {
     return participantCount;
   }
-  return participantCount <= 9 ? 4 : 3;
+  if (participantCount <= 9) {
+    return 4;
+  }
+  return participantCount <= 16 ? 3 : 2;
 }
 
 /**

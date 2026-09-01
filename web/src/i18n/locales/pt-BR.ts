@@ -36,7 +36,7 @@ export const ptBR: Catalog = {
     'O link é o convite e a credencial. Quem tem, entra. A chave do chat viaja no pedaço da URL depois do #, que o navegador nunca manda para um servidor.',
   'how.step.talk.title': 'Converse',
   'how.step.talk.body':
-    'Todo mundo chega mudo e sem câmera, e liga o que quiser. Até doze pessoas. Áudio e tela compartilhada têm prioridade sempre; as câmeras é que disputam espaço — numa sala cheia entram menos, e a qualidade de cada uma se ajusta sozinha.',
+    'Todo mundo chega mudo e sem câmera, e liga o que quiser. Até vinte pessoas. Áudio e tela compartilhada têm prioridade sempre; as câmeras é que disputam espaço — numa sala cheia entram menos, e a qualidade de cada uma se ajusta sozinha.',
 
   'how.mesh.title': 'A mídia nunca toca o nosso servidor',
   'how.mesh.body':
@@ -54,7 +54,7 @@ export const ptBR: Catalog = {
 
   'how.limits.title': 'As regras que a sala segue',
   'how.limits.body':
-    'Doze pessoas por sala. Uma sala vazia fecha em quinze minutos. Um navegador que fica trinta e cinco segundos calado perde o lugar, para uma aba travada não segurar uma vaga para sempre. Acima de doze a malha deixa de ser a resposta honesta: o próximo passo é repassar entre os pares, do jeito que o compartilhamento de tela já faz.',
+    'Vinte pessoas por sala. Uma sala vazia fecha em quinze minutos. Um navegador que fica trinta e cinco segundos calado perde o lugar, para uma aba travada não segurar uma vaga para sempre. Acima de vinte a malha deixa de ser a resposta honesta: o próximo passo é um nó de mídia nosso, do jeito que o compartilhamento de tela já repassa entre os pares.',
 
   'how.run.title': 'Rode você mesmo',
   'how.run.body':
@@ -95,7 +95,7 @@ export const ptBR: Catalog = {
   'room.someone': 'Alguém',
   'room.micMuted': 'Microfone desativado',
   'room.leftTitle': 'Você saiu da sala',
-  'room.endedFull': 'A sala está cheia (máximo de 12 pessoas).',
+  'room.endedFull': 'A sala está cheia (máximo de 20 pessoas).',
   'room.endedNotFound': 'A sala não existe mais.',
   'room.endedClosed': 'A conexão com a sala caiu.',
   'room.seatsAria': 'Assentos: {count} de {max} ocupados',
@@ -228,7 +228,7 @@ export const ptBR: Catalog = {
   'community.source.title':
     'Leia o código',
   'community.source.body':
-    'Está tudo no GitHub sob licença MIT — use, faça um fork, hospede o seu. O documento de arquitetura é a versão honesta: quanto uma malha ponto a ponto realmente custa, por que as salas param em doze, e quais dívidas estão mapeadas em vez de escondidas.',
+    'Está tudo no GitHub sob licença MIT — use, faça um fork, hospede o seu. O documento de arquitetura é a versão honesta: quanto uma malha ponto a ponto realmente custa, por que as salas param em vinte, e quais dívidas estão mapeadas em vez de escondidas.',
   'community.source.repo':
     'Ver no GitHub',
   'community.source.architecture':

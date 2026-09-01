@@ -19,6 +19,18 @@ const RECONNECT_BASE_MS = 500;
 const RECONNECT_MAX_MS = 5_000;
 const RECONNECT_MAX_ATTEMPTS = 6;
 
+/**
+ * Signals written while the transport is down are held for the resume
+ * (see send). Bounded per outage: an ICE restart trickles a few dozen
+ * candidates at most, and older ones are the least likely to still apply.
+ */
+const OUTBOX_MAX = 64;
+
+/** What a `signal` envelope may carry — mirror of mesh.ts's payload. */
+interface SignalPayload {
+  description?: { type?: string };
+}
+
 export interface SignalingHandlers {
   onMessage: (message: ServerMessage) => void;
   /** Called when the session is really over: closed by us, or resume gave up. */
@@ -44,6 +56,10 @@ export class Signaling {
   private attempts = 0;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private closedByUs = false;
+  /** Our peerId from the last welcome — decides whether a resume kept the seat. */
+  private selfId: string | null = null;
+  /** Signals held while the transport was down; flushed on a same-seat welcome. */
+  private outbox: ClientMessage[] = [];
 
   constructor(slug: string, name: string, handlers: SignalingHandlers) {
     this.slug = slug;
@@ -95,8 +111,23 @@ export class Signaling {
           // The seat is gone: retrying with the dead token would only
           // spray refused connections until the attempts ran out.
           this.resumeToken = null;
+          this.outbox = [];
         }
         this.handlers.onMessage(message);
+        if (message.t === 'welcome') {
+          // After the handler, on purpose: the room reconciles its mesh on
+          // the welcome (rolling back what the outage broke), and the held
+          // answers and candidates are only worth sending to the SAME seat
+          // — a fresh one starts a fresh mesh, where they mean nothing.
+          const held = this.outbox;
+          this.outbox = [];
+          if (this.selfId === message.selfId) {
+            for (const pending of held) {
+              this.send(pending);
+            }
+          }
+          this.selfId = message.selfId;
+        }
       } catch {
         // message outside the protocol: ignore it
       }
@@ -129,14 +160,37 @@ export class Signaling {
     }, delay);
   }
 
+  /**
+   * Sends now, or — for a signal written while the transport is down and
+   * a resume is still possible — holds it for the same seat's welcome. A
+   * dropped candidate or answer used to leave the mesh's negotiation
+   * hanging on the other side; an OFFER is never held, though: by the
+   * time the transport is back the mesh's own watchdog may have rolled it
+   * back and reoffered, and a stale offer arriving after the fresh one
+   * would put the peer on an ICE generation that no longer exists.
+   */
   send(message: ClientMessage): void {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(message));
+      return;
+    }
+    if (
+      message.t !== 'signal' ||
+      this.closedByUs ||
+      !this.resumeToken ||
+      isOffer(message.data)
+    ) {
+      return;
+    }
+    this.outbox.push(message);
+    if (this.outbox.length > OUTBOX_MAX) {
+      this.outbox.shift();
     }
   }
 
   close(): void {
     this.closedByUs = true;
+    this.outbox = [];
     if (this.reconnectTimer !== null) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
@@ -144,4 +198,12 @@ export class Signaling {
     this.ws?.close();
     this.ws = null;
   }
+}
+
+function isOffer(data: unknown): boolean {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    (data as SignalPayload).description?.type === 'offer'
+  );
 }

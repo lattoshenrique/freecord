@@ -11,19 +11,23 @@ export interface PeerInfo {
 }
 
 /** Mirror of ROOM_LIMITS.maxParticipants — the room's seat count. */
-export const MAX_PARTICIPANTS = 12;
+export const MAX_PARTICIPANTS = 20;
 
 /**
  * How many cameras may be live at once for a given room size — mirror of
- * the server's cameraSlotsFor. The cap binds NEW activations only: a
- * camera already live is never shut off by the room growing past a
- * threshold; slots free up when someone turns the camera off or leaves.
+ * the server's cameraSlotsFor (≤6: everyone; 7–9: four; 10–16: three;
+ * 17–20: two). The cap binds NEW activations only: a camera already live
+ * is never shut off by the room growing past a threshold; slots free up
+ * when someone turns the camera off or leaves.
  */
 export function cameraSlotsFor(participantCount: number): number {
   if (participantCount <= 6) {
     return participantCount;
   }
-  return participantCount <= 9 ? 4 : 3;
+  if (participantCount <= 9) {
+    return 4;
+  }
+  return participantCount <= 16 ? 3 : 2;
 }
 
 /** An ICE server handed out by the edge (STUN/TURN, ephemeral credentials). */

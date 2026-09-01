@@ -40,7 +40,7 @@ export const enUS = {
     'The link is both the invitation and the credential. Whoever has it walks in. The chat key travels in the part of the URL after the #, which browsers never send to a server.',
   'how.step.talk.title': 'Talk',
   'how.step.talk.body':
-    'Everyone arrives muted and off camera, and turns on what they want. Up to twelve people. Audio and the shared screen always come first; cameras are the ones that compete for room — in a full room fewer of them can be on, and the quality of each adjusts itself.',
+    'Everyone arrives muted and off camera, and turns on what they want. Up to twenty people. Audio and the shared screen always come first; cameras are the ones that compete for room — in a full room fewer of them can be on, and the quality of each adjusts itself.',
 
   'how.mesh.title': 'The media never touches our server',
   'how.mesh.body':
@@ -58,7 +58,7 @@ export const enUS = {
 
   'how.limits.title': 'The rules the room lives by',
   'how.limits.body':
-    'Twelve people per room. An empty room closes after fifteen minutes. A browser that goes quiet for thirty-five seconds loses its seat, so a crashed tab cannot hold one forever. Past twelve a mesh stops being the honest answer: the next step is relaying between peers, the way screen sharing already works.',
+    'Twenty people per room. An empty room closes after fifteen minutes. A browser that goes quiet for thirty-five seconds loses its seat, so a crashed tab cannot hold one forever. Past twenty a mesh stops being the honest answer: the next step is a media node of our own, the way screen sharing already relays between peers.',
 
   'how.run.title': 'Run it yourself',
   'how.run.body':
@@ -99,7 +99,7 @@ export const enUS = {
   'room.someone': 'Someone',
   'room.micMuted': 'Microphone off',
   'room.leftTitle': 'You left the room',
-  'room.endedFull': 'The room is full (12 people max).',
+  'room.endedFull': 'The room is full (20 people max).',
   'room.endedNotFound': 'This room no longer exists.',
   'room.endedClosed': 'The connection to the room dropped.',
   'room.seatsAria': 'Seats: {count} of {max} taken',
@@ -227,7 +227,7 @@ export const enUS = {
 
   'community.source.title': 'Read the source',
   'community.source.body':
-    'Everything is on GitHub under the MIT license — use it, fork it, host your own. The architecture document is the honest version: what a peer-to-peer mesh really costs, why rooms stop at twelve, and which debts are mapped rather than hidden.',
+    'Everything is on GitHub under the MIT license — use it, fork it, host your own. The architecture document is the honest version: what a peer-to-peer mesh really costs, why rooms stop at twenty, and which debts are mapped rather than hidden.',
   'community.source.repo': 'View on GitHub',
   'community.source.architecture': 'Read the architecture',
   'community.source.license': 'MIT license',

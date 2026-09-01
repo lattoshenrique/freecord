@@ -34,6 +34,39 @@ test.describe('resume', () => {
     }
   });
 
+  test('signals sent during the outage are held and delivered after the resume welcome', async () => {
+    const { slug } = await createRoom('resume-held-signals');
+    const alice = await ProtoClient.join(slug, 'alice');
+    const bob = await ProtoClient.join(slug, 'bob');
+    try {
+      const token = alice.welcome!.resumeToken;
+      alice.terminate();
+      await bob.expectSilence((m) => m.t === 'peer-left', 300);
+
+      // Bob renegotiates while alice's transport is down: an offer, then
+      // its candidates, then a fresh offer that supersedes the first.
+      bob.send({ t: 'signal', to: alice.selfId!, data: { description: { type: 'offer', sdp: 'v1' } } });
+      bob.send({ t: 'signal', to: alice.selfId!, data: { candidate: 'for-v1' } });
+      bob.send({ t: 'signal', to: alice.selfId!, data: { description: { type: 'offer', sdp: 'v2' } } });
+      bob.send({ t: 'signal', to: alice.selfId!, data: { candidate: 'for-v2' } });
+
+      const alice2 = await ProtoClient.resume(slug, token);
+      expect(alice2.welcome).not.toBeNull();
+      const first = await alice2.expect('signal');
+      const second = await alice2.expect('signal');
+      expect([first, second]).toEqual([
+        { t: 'signal', from: bob.selfId, data: { description: { type: 'offer', sdp: 'v2' } } },
+        { t: 'signal', from: bob.selfId, data: { candidate: 'for-v2' } },
+      ]);
+      // Nothing else was held: the superseded offer and its candidate are gone.
+      await alice2.expectSilence((m) => m.t === 'signal');
+
+      alice2.leave();
+    } finally {
+      await cleanup([bob]);
+    }
+  });
+
   test('the camera slot is released on disconnect and re-granted on re-request', async () => {
     const { slug } = await createRoom('resume-camera');
     const alice = await ProtoClient.join(slug, 'alice');
