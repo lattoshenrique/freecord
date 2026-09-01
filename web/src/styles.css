@@ -83,6 +83,18 @@ button {
   }
 }
 
+/* Like rise-in, but carrying the centring translate through every frame. */
+@keyframes unread-badge-pop {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.7);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
 @keyframes slide-in-right {
   from {
     opacity: 0;
@@ -108,15 +120,6 @@ button {
 @keyframes spin {
   to {
     transform: rotate(360deg);
-  }
-}
-
-@keyframes badge-pop {
-  from {
-    transform: scale(0.4);
-  }
-  to {
-    transform: scale(1);
   }
 }
 
@@ -644,15 +647,17 @@ button {
 
 /*
  * The telemetry strip: labels muted, values bright, everything tabular so a
- * changing number never nudges the one beside it. Markup lands with the HUD
- * work in RoomView.
+ * changing number never nudges the one beside it. It rides in the header row,
+ * opposite the title panel, so the stage stays clear.
  */
 .hud-bar {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 0.35rem 1rem;
+  gap: 1rem;
   padding: 0.4rem 0.7rem;
+  overflow: hidden;
+  animation: rise-in 0.35s var(--ease) both;
   background: var(--hud-bg);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -1060,6 +1065,16 @@ button {
   animation: rise-in 0.4s var(--ease) both;
 }
 
+/*
+ * The library's warp layer carries the backdrop-filter but no radius of its
+ * own, and a backdrop-filter is clipped to the element's OWN border box — the
+ * rounded parent never gets to trim it. Unrounded, it lit a bright rectangle
+ * behind the pill. 999px is the cornerRadius the dock is built with.
+ */
+.dock-glass .glass__warp {
+  border-radius: 999px;
+}
+
 .controls {
   display: flex;
   align-items: center;
@@ -1342,7 +1357,10 @@ button {
   font-variant-numeric: tabular-nums;
   line-height: 1;
   pointer-events: none;
-  animation: rise-in 0.25s var(--ease) both;
+  /* Its own keyframes, not rise-in: that one animates `transform` too, and
+     with fill `both` it holds the end frame forever — wiping the centring
+     translate above and dropping the badge a corner's width down and right. */
+  animation: unread-badge-pop 0.25s var(--ease) both;
 }
 
 /* ---- markdown dentro da bolha de chat ---- */

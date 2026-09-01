@@ -757,20 +757,20 @@ export default function RoomView({
             {participantCount}/{MAX_PARTICIPANTS}
           </span>
         </div>
+        {hudMetrics.length > 0 && (
+          <div className="hud-bar">
+            {hudMetrics.map((metric) => (
+              <span key={metric.label} className="hud-metric">
+                <b>{metric.label}</b>
+                <i>{metric.value}</i>
+              </span>
+            ))}
+          </div>
+        )}
       </header>
 
       <div className="room-body">
         <div className="stage-area">
-          {hudMetrics.length > 0 && (
-            <div className="hud-bar">
-              {hudMetrics.map((metric) => (
-                <span key={metric.label} className="hud-metric">
-                  <b>{metric.label}</b>
-                  <i>{metric.value}</i>
-                </span>
-              ))}
-            </div>
-          )}
           {screenStream && (
             <div
               className={`screen-stage fade-in ${fullscreen.active ? 'is-fullscreen' : ''}`}
