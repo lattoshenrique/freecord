@@ -4,7 +4,7 @@ import { createRoom } from '../api';
 import { APP_BUILD, APP_VERSION } from '../lib/build-info';
 import { generateRoomKey } from '../lib/chat-crypto';
 import { looksLikeInvite, parseInvite } from '../lib/invite';
-import DownloadCard from '../components/DownloadCard';
+import { DownloadButton } from '../components/DownloadCard';
 import LanguagePicker from '../components/LanguagePicker';
 import Logo from '../components/Logo';
 import MeshBackground from '../components/MeshBackground';
@@ -14,7 +14,8 @@ import './home.css';
 const REPO = 'https://github.com/lattoshenrique/freecord';
 
 /**
- * The whole home page is one thing: a field and a button that open a room.
+ * The home is an app's first screen, not a landing page: the mark, the field
+ * and button that open a room, and a quiet link to the desktop build.
  *
  * The field opens rooms in both directions: type a name to create one, or
  * paste an invite link to join one — the button follows what the field holds.
@@ -23,8 +24,9 @@ const REPO = 'https://github.com/lattoshenrique/freecord';
  * without the paste path there would be no way to join a room from the app.
  *
  * Everything else — what the project is, how to self-host it, the desktop
- * builds — lives one link away in /community and in the README. A landing
- * page that explains before it lets you start makes the first click slower.
+ * builds — lives one link away in /community and in the README. Nothing here
+ * sells: a page that pitches before it lets you start makes the first click
+ * slower, and this same page is what the desktop app opens on.
  */
 export default function HomePage() {
   const { t } = useI18n();
@@ -104,21 +106,19 @@ export default function HomePage() {
         <MeshBackground />
 
         <div className="start-center">
-          <Link to="/" className="start-brand">
-            <Logo size={30} />
-            <span>{t('app.name')}</span>
-          </Link>
-
-          <h1>
-            {t('home.hero.titleA')} <span className="start-grad">{t('home.hero.titleB')}</span>
+          {/* The mark alone is the title; the name stays for screen readers. */}
+          <h1 className="start-brand">
+            <Logo size={88} />
+            <span className="visually-hidden">{t('app.name')}</span>
           </h1>
-
-          <p className="start-sub">{t('app.tagline')}</p>
 
           <form className="start-form" onSubmit={handleSubmit}>
             <input
               ref={inputRef}
               type="text"
+              // Belt and braces with the effect above: the browser focuses it
+              // on first paint, the effect takes it back afterwards.
+              autoFocus
               value={displayName}
               // Room for a full invite URL; names are capped on submit.
               maxLength={300}
@@ -134,17 +134,21 @@ export default function HomePage() {
             </button>
           </form>
 
+          {/* One line under the button, only when there is something to say:
+              an error, or that the pasted text is an invite. */}
           {error ? (
             <p className="start-error">{error}</p>
-          ) : (
-            <p className="start-hint">{invite ? t('home.joinHint') : t('home.card.hint')}</p>
-          )}
+          ) : invite ? (
+            <p className="start-hint">{t('home.joinHint')}</p>
+          ) : null}
+
+          {/* The second thing to do here, drawn as text: the room comes first. */}
+          <DownloadButton />
         </div>
 
         <footer className="start-foot">
           <Link to="/how-it-works">{t('how.link')}</Link>
           <Link to="/community">{t('home.community')}</Link>
-          <a href="#download">{t('home.footer.downloads')}</a>
           <a href={REPO} target="_blank" rel="noreferrer">
             GitHub
           </a>
@@ -154,12 +158,6 @@ export default function HomePage() {
           </span>
         </footer>
       </section>
-
-      {/* Below the fold on purpose: reached from the footer link and from
-          /community, never in the way of creating a room. */}
-      <div id="download" className="home-download">
-        <DownloadCard />
-      </div>
     </main>
   );
 }

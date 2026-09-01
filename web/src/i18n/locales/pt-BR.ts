@@ -265,7 +265,7 @@ export const ptBR: Catalog = {
   'community.desktop.title':
     'No computador também',
   'community.desktop.body':
-    'Um app para macOS, Windows e Linux embrulha esta mesma página e acrescenta o que o navegador não dá: seletor de tela nativo e permissões de mídia de verdade do sistema. O download está na página inicial.',
+    'Um app para macOS, Windows e Linux embrulha esta mesma página e acrescenta o que o navegador não dá: seletor de tela nativo e permissões de mídia de verdade do sistema.',
   'community.footer':
     'Publicado sob a licença MIT. Feito por Henrique Brito e colaboradores.',
 

@@ -257,7 +257,7 @@ export const enUS = {
 
   'community.desktop.title': 'On the desktop too',
   'community.desktop.body':
-    'A desktop app for macOS, Windows and Linux wraps the same page and adds what a browser will not: a native screen picker and real system media permissions. The download is on the home page.',
+    'A desktop app for macOS, Windows and Linux wraps the same page and adds what a browser will not: a native screen picker and real system media permissions.',
 
   'community.footer': 'Released under the MIT license. Built by Henrique Brito and contributors.',
 

@@ -264,7 +264,7 @@ export const zhCN: Catalog = {
   'community.desktop.title':
     '桌面端也有',
   'community.desktop.body':
-    'macOS、Windows 和 Linux 的桌面应用包裹着同一个页面，并补上浏览器给不了的东西：原生屏幕选择器和真正的系统媒体权限。下载入口在首页。',
+    'macOS、Windows 和 Linux 的桌面应用包裹着同一个页面，并补上浏览器给不了的东西：原生屏幕选择器和真正的系统媒体权限。',
   'community.footer':
     '基于 MIT 许可发布。由 Henrique Brito 和贡献者共同打造。',
 

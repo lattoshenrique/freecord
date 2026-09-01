@@ -1,0 +1,142 @@
+/*
+ * The mark, alive on every page. The home's background canvas plays a room —
+ * peers fade in over ~0.85 s, their edges march dashed while they negotiate,
+ * packets ride the edges, heartbeats ring out — and the mark plays the same
+ * scene once when it mounts, then keeps the room running for as long as it is
+ * on screen: a packet always in flight, a heartbeat always ringing somewhere.
+ *
+ * Every loop is tuned so the global reduced-motion rule (animations collapse
+ * to their last keyframe) leaves a clean static mark.
+ */
+
+.logo {
+  overflow: visible;
+}
+
+/* ---- opening: peers join, one after another ---- */
+
+.logo .logo-peer {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: logo-join 0.85s var(--ease) both;
+  animation-delay: calc(0.15s + var(--i) * 0.22s);
+}
+
+@keyframes logo-join {
+  from {
+    opacity: 0;
+    transform: scale(0.2);
+  }
+  60% {
+    transform: scale(1.18);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ---- opening: edges dashed while negotiating, then drawn solid ---- */
+
+.logo .logo-negotiating {
+  opacity: 0;
+  stroke-dasharray: 2 4;
+  animation:
+    logo-negotiate 1.4s linear 0.35s both,
+    logo-march 1.4s linear 0.35s both;
+}
+
+@keyframes logo-negotiate {
+  0% {
+    opacity: 0;
+  }
+  25% {
+    opacity: 0.55;
+  }
+  75% {
+    opacity: 0.55;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes logo-march {
+  from {
+    stroke-dashoffset: 24;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.logo .logo-mesh {
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  animation: logo-link 0.9s var(--ease) 1.15s both;
+}
+
+@keyframes logo-link {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* ---- and then the room just runs ---- */
+
+/*
+ * Heartbeat: the ring the background's peers send out. Three peers, one
+ * period, each a third of it apart — a ring is always in flight.
+ */
+.logo .logo-beat {
+  fill: none;
+  stroke: url(#logo-grad);
+  stroke-width: 1.5;
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: logo-beat 3.6s ease-out infinite;
+  animation-delay: calc(2.1s + var(--i) * 1.2s);
+}
+
+@keyframes logo-beat {
+  0% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  40% {
+    opacity: 0;
+    transform: scale(2.6);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(2.6);
+  }
+}
+
+/*
+ * A packet forever on the ring: it fades in once the edges have closed and
+ * never leaves. Linear, so a long edge honestly takes longer, like the canvas.
+ */
+.logo .logo-packet {
+  opacity: 0;
+  offset-path: path('M40.1 14.4 49.5 49.5 14.4 40.1Z');
+  animation:
+    logo-arrive 0.6s ease-out 2.2s forwards,
+    logo-packet 3.2s linear 2.2s infinite;
+}
+
+@keyframes logo-arrive {
+  to {
+    opacity: 0.9;
+  }
+}
+
+@keyframes logo-packet {
+  from {
+    offset-distance: 0%;
+  }
+  to {
+    offset-distance: 100%;
+  }
+}

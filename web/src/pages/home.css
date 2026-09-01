@@ -1,5 +1,5 @@
 /*
- * Styles for the home page: one screen, one field.
+ * Styles for the home page: one screen — mark and field.
  *
  * Outside styles.css by the same convention as community.css and download.css:
  * a self-contained block cannot be clobbered by another session editing the
@@ -8,9 +8,8 @@
 
 .home {
   min-height: 100dvh;
-  /* The download block sits below the fold; #root is a fixed 100dvh box. */
+  /* Short viewports still reach the footer; #root is a fixed 100dvh box. */
   overflow-y: auto;
-  scroll-behavior: smooth;
 }
 
 /* ---- the screen ---- */
@@ -39,53 +38,45 @@
   margin: 0;
 }
 
-.start-center > *:nth-child(2) {
-  animation-delay: 0.06s;
+/*
+ * The mark plays its own entrance (logo.css) — peers join, edges close — and
+ * the words around it wait for the edges. The field and the button do not:
+ * they are what the page is for, so they are on screen from the first frame,
+ * whatever the mark is doing.
+ */
+.start-center > .start-brand {
+  animation: fade-in 0.4s var(--ease) both;
 }
 
-.start-center > *:nth-child(3) {
-  animation-delay: 0.12s;
+.start-center > .start-form {
+  animation: none;
 }
 
+/* Everything under the button. */
+.start-center > *:nth-child(3),
 .start-center > *:nth-child(4) {
-  animation-delay: 0.18s;
+  animation-delay: 1.65s;
 }
 
-.start-center > *:nth-child(5) {
-  animation-delay: 0.24s;
-}
-
+/* The mark alone, the size of an app icon, lit like the button. */
 .start-brand {
   display: inline-flex;
-  align-items: center;
-  gap: 0.6rem;
-  color: var(--muted);
-  text-decoration: none;
-  font-weight: 700;
-  font-size: 1.05rem;
-  letter-spacing: -0.01em;
+  margin: 0;
 }
 
-.start-center h1 {
-  font-size: clamp(2.4rem, 6vw, 4.5rem);
-  line-height: 1.03;
-  letter-spacing: -0.035em;
-  font-weight: 700;
-  max-width: 16ch;
+.start-brand .logo {
+  filter: drop-shadow(0 8px 24px rgba(88, 101, 242, 0.35));
 }
 
-.start-grad {
-  background: linear-gradient(135deg, var(--accent), #a855f7);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-
-.start-sub {
-  color: var(--muted);
-  font-size: 1.05rem;
-  line-height: 1.6;
-  max-width: 34rem;
+.start-brand .visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 /* ---- the field ---- */
@@ -132,11 +123,11 @@
   border-bottom-color: rgba(255, 255, 255, 0.22);
 }
 
-/* The underline is the focus indicator: it brightens, nothing else moves. */
+/* The underline is the focus indicator: it lights up, nothing else moves. */
 .start-form input:focus,
 .start-form input:focus-visible {
   outline: none;
-  border-bottom-color: rgba(255, 255, 255, 0.45);
+  border-bottom-color: var(--accent);
 }
 
 .start-form button {
@@ -193,6 +184,26 @@
   color: var(--danger);
 }
 
+/* A line of text under the lit button: present, secondary. */
+.download-button {
+  color: var(--muted);
+  font-size: 0.92rem;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.download-button:hover {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 0.25em;
+}
+
+.download-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
 /* ---- the one line of chrome ---- */
 
 .start-foot {
@@ -201,7 +212,7 @@
   align-items: center;
   justify-content: center;
   gap: 0.35rem 1.25rem;
-  animation: fade-in 0.6s var(--ease) 0.25s both;
+  animation: fade-in 0.6s var(--ease) 1.9s both;
 }
 
 .start-foot a {
@@ -277,19 +288,6 @@
 .start-foot .language-picker option {
   background: var(--panel);
   color: var(--text);
-}
-
-/* ---- downloads, below the fold ---- */
-
-.home-download {
-  display: flex;
-  justify-content: center;
-  padding: 0 1.5rem 3rem;
-}
-
-/* No release published, or already inside the desktop app: no empty gap. */
-.home-download:empty {
-  display: none;
 }
 
 @media (max-width: 640px) {

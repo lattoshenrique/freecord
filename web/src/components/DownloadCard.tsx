@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { getDownloads, type DesktopAsset, type DesktopCatalog } from '../api';
 import { useI18n, type MessageKey, type Translate } from '../i18n';
 import { detectPlatform, isDesktopApp, type PlatformGuess } from '../lib/platform';
@@ -41,11 +42,18 @@ function formatSize(bytes: number | null, locale: string): string | null {
   }).format(bytes / 1024 / 1024);
 }
 
-export default function DownloadCard() {
-  const { t, locale } = useI18n();
+/**
+ * The catalog and the visitor's OS, fetched once: the card below and the
+ * home's button both need the same pair. `null` while loading, inside the
+ * desktop app, or when there is nothing published — callers render nothing.
+ */
+export function useDesktopDownload(): {
+  catalog: DesktopCatalog;
+  guess: PlatformGuess;
+  pick: DesktopAsset | null;
+} | null {
   const [catalog, setCatalog] = useState<DesktopCatalog | null>(null);
   const [guess, setGuess] = useState<PlatformGuess | null>(null);
-  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     if (isDesktopApp()) {
@@ -69,8 +77,43 @@ export default function DownloadCard() {
   if (!catalog || !guess || catalog.builds.length === 0) {
     return null;
   }
-
   const pick = catalog.builds.find((build) => build.target === guess.target) ?? null;
+  return { catalog, guess, pick };
+}
+
+/**
+ * One button for the home: the visitor's own build, or the list on
+ * /community when the OS is a phone or a guess. Hidden in the same three
+ * honest cases as the card.
+ */
+export function DownloadButton() {
+  const { t } = useI18n();
+  const download = useDesktopDownload();
+  if (!download) {
+    return null;
+  }
+  const { pick } = download;
+  return pick ? (
+    <a className="download-button" href={pick.url}>
+      {t('download.cta', { os: OS_LABEL[pick.os] })}
+    </a>
+  ) : (
+    <Link className="download-button" to="/community">
+      {t('home.footer.downloads')}
+    </Link>
+  );
+}
+
+export default function DownloadCard() {
+  const { t, locale } = useI18n();
+  const [showAll, setShowAll] = useState(false);
+  const download = useDesktopDownload();
+
+  if (!download) {
+    return null;
+  }
+
+  const { catalog, guess, pick } = download;
   const version = catalog.version ? `v${catalog.version}` : null;
 
   // Mobile, unknown OS, or no build for it: offer the list, not a button

@@ -266,7 +266,7 @@ export const jaJP: Catalog = {
   'community.desktop.title':
     'デスクトップでも',
   'community.desktop.body':
-    'macOS・Windows・Linux 向けのアプリが同じページを包み、ブラウザにはできないことを足します。ネイティブの画面選択と、本物のシステムメディア権限です。ダウンロードはホームページにあります。',
+    'macOS・Windows・Linux 向けのアプリが同じページを包み、ブラウザにはできないことを足します。ネイティブの画面選択と、本物のシステムメディア権限です。',
   'community.footer':
     'MIT ライセンスで公開。Henrique Brito とコントリビューターが作りました。',
 

@@ -129,3 +129,17 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* The download block was drawn for a wide landing; here it is one column. */
+.community .download {
+  grid-template-columns: 1fr;
+  gap: 1.75rem;
+  margin-top: 1.25rem;
+  padding: 1.5rem;
+}
+
+/* The section above already says what the card would: no title twice. */
+.community .download-title,
+.community .download-lead {
+  display: none;
+}

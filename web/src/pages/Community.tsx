@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import DownloadCard from '../components/DownloadCard';
 import Logo from '../components/Logo';
 import { useI18n, type MessageKey } from '../i18n';
 import './community.css';
@@ -49,11 +50,6 @@ const SECTIONS: { title: MessageKey; body: MessageKey; links: SectionLink[] }[] 
       { label: 'community.issues.report', href: `${REPO}/issues/new` },
       { label: 'community.issues.browse', href: `${REPO}/issues` },
     ],
-  },
-  {
-    title: 'community.desktop.title',
-    body: 'community.desktop.body',
-    links: [{ label: 'home.footer.downloads', href: '/#download', internal: true }],
   },
 ];
 
@@ -111,6 +107,14 @@ export default function CommunityPage() {
             </p>
           </section>
         ))}
+
+        {/* The desktop builds live here, with the rest of the reading matter:
+            the home is the app's first screen and pitches nothing. */}
+        <section>
+          <h2>{t('community.desktop.title')}</h2>
+          <p>{t('community.desktop.body')}</p>
+          <DownloadCard />
+        </section>
 
         <p className="community-footer">{t('community.footer')}</p>
       </article>

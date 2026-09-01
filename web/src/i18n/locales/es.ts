@@ -266,7 +266,7 @@ export const esES: Catalog = {
   'community.desktop.title':
     'En el escritorio también',
   'community.desktop.body':
-    'Una app para macOS, Windows y Linux envuelve esta misma página y añade lo que el navegador no da: un selector de pantalla nativo y permisos de medios reales del sistema. La descarga está en la página de inicio.',
+    'Una app para macOS, Windows y Linux envuelve esta misma página y añade lo que el navegador no da: un selector de pantalla nativo y permisos de medios reales del sistema.',
   'community.footer':
     'Publicado bajo la licencia MIT. Hecho por Henrique Brito y colaboradores.',
 
