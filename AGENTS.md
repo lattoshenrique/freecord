@@ -78,8 +78,10 @@ and its installers are built by GitHub Actions on a `desktop-v*` tag.
 
 - **Commit small and push at once.** As soon as a step is green (typecheck plus
   the tests it touches), commit it by explicit path and `git push origin main`
-  in the same breath, then `git push origin main:develop` so develop mirrors
-  main. Work that only exists in the working tree has been lost here before —
+  in the same breath, then mirror develop **by the SHA you just pushed**
+  (`git push origin <sha>:develop`) — `main:develop` pushes whatever local main
+  is at that instant, which in a shared tree may already be a peer's newer
+  commit. Work that only exists in the working tree has been lost here before —
   one session's whole-file write silently erased another's edits, and a deploy
   once shipped someone's half-done WIP. A commit on main is the only durable
   place; do not hold work back "for review".
