@@ -2,6 +2,8 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import LiquidGlass from 'liquid-glass-react';
 import { Link } from 'react-router-dom';
 import type { RoomSummary } from '../api';
+import { renderMarkdown } from '../lib/markdown';
+import { playMessageChime } from '../lib/notification-sound';
 import { SCREEN_QUALITY_PRESETS, type ScreenQualityId } from '../lib/screen-quality';
 import type { ScreenStats } from '../lib/stats';
 import { useRoomSession, type JoinOptions } from '../lib/use-room';
@@ -108,31 +110,32 @@ function QualityMenu({
   );
 }
 
-interface Toast {
-  id: number;
-  author: string;
-  text: string;
-}
-
-/** Balão que anuncia mensagem nova quando o chat está fechado. */
-function ChatToasts({ toasts, onOpen }: { toasts: Toast[]; onOpen: () => void }) {
-  if (toasts.length === 0) {
-    return null;
-  }
+/**
+ * Contador de mensagens não lidas, ancorado acima do botão de chat.
+ *
+ * Fica FORA do dock de vidro: a lib corta overflow e impõe fonte própria aos
+ * filhos. A posição horizontal é medida a partir do botão, para o chip apontar
+ * para ele e não para o meio do rodapé.
+ */
+function ChatUnreadChip({
+  count,
+  left,
+  onOpen,
+}: {
+  count: number;
+  left: number | null;
+  onOpen: () => void;
+}) {
   return (
-    <div className="chat-toasts">
-      {toasts.map((toast) => (
-        <button key={toast.id} type="button" className="chat-toast" onClick={onOpen}>
-          <span className="chat-toast-icon" aria-hidden>
-            <ChatIcon />
-          </span>
-          <span className="chat-toast-body">
-            <span className="chat-toast-author">{toast.author}</span>
-            <span className="chat-toast-text">{toast.text}</span>
-          </span>
-        </button>
-      ))}
-    </div>
+    <button
+      type="button"
+      className="chat-unread-chip"
+      style={left === null ? undefined : { left }}
+      onClick={onOpen}
+    >
+      <span className="chat-unread-count">{count > 99 ? '99+' : count}</span>
+      {count === 1 ? 'nova mensagem' : 'novas mensagens'}
+    </button>
   );
 }
 
@@ -286,9 +289,11 @@ export default function RoomView({
   const [chatOpen, setChatOpen] = useState(false);
   const [draft, setDraft] = useState('');
   const [unread, setUnread] = useState(0);
-  const [toasts, setToasts] = useState<Toast[]>([]);
   const [qualityOpen, setQualityOpen] = useState(false);
+  const [chipLeft, setChipLeft] = useState<number | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const footerRef = useRef<HTMLElement>(null);
+  const chatButtonRef = useRef<HTMLButtonElement>(null);
 
   const { status } = session;
   useEffect(() => {
@@ -313,38 +318,34 @@ export default function RoomView({
     seenCountRef.current = chatCount;
   }, [chatCount, chatOpen]);
 
-  // Balão de mensagem nova: só para o que chegou de outra pessoa com o chat
-  // fechado. O contador do botão continua sendo a memória de longo prazo.
-  const toastedCountRef = useRef(0);
+  // Aviso sonoro: só do que veio de outra pessoa, com o chat aberto ou não.
+  const soundedCountRef = useRef(0);
   const { chat, selfId } = session;
   useEffect(() => {
-    const fresh = chat.slice(toastedCountRef.current);
-    toastedCountRef.current = chat.length;
-    if (chatOpen || fresh.length === 0) {
-      return;
+    const fresh = chat.slice(soundedCountRef.current);
+    soundedCountRef.current = chat.length;
+    if (fresh.some((message) => message.from.id !== selfId)) {
+      playMessageChime();
     }
-    const arriving = fresh
-      .filter((message) => message.from.id !== selfId)
-      .map((message, index) => ({
-        id: message.ts * 1000 + index,
-        author: message.from.name,
-        text: message.text,
-      }));
-    if (arriving.length === 0) {
-      return;
-    }
-    setToasts((current) => [...current, ...arriving].slice(-3));
-    const timer = setTimeout(() => {
-      setToasts((current) => current.filter((toast) => !arriving.some((a) => a.id === toast.id)));
-    }, 5000);
-    return () => clearTimeout(timer);
-  }, [chat, chatOpen, selfId]);
+  }, [chat, selfId]);
 
-  useEffect(() => {
-    if (chatOpen) {
-      setToasts([]);
+  // O chip aponta para o botão de chat, que se move conforme o dock muda de
+  // largura (botão de tela desabilitado, telas estreitas) — daí a medição.
+  useLayoutEffect(() => {
+    if (chatOpen || unread === 0) {
+      return;
     }
-  }, [chatOpen]);
+    const measure = () => {
+      const button = chatButtonRef.current?.getBoundingClientRect();
+      const footer = footerRef.current?.getBoundingClientRect();
+      if (button && footer) {
+        setChipLeft(button.left - footer.left + button.width / 2);
+      }
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [chatOpen, unread]);
 
   // Computado a cada render de propósito: streams remotos chegam por
   // notificação do mesh (re-render sem mudança de estado React) — um
@@ -489,7 +490,7 @@ export default function RoomView({
                 return (
                   <div key={`${message.ts}-${index}`} className={`chat-bubble ${mine ? 'mine' : ''}`}>
                     {!mine && <span className="chat-author">{message.from.name}</span>}
-                    <p>{message.text}</p>
+                    <div className="chat-md">{renderMarkdown(message.text)}</div>
                   </div>
                 );
               })}
@@ -522,9 +523,10 @@ export default function RoomView({
         )}
       </div>
 
-      {!chatOpen && <ChatToasts toasts={toasts} onOpen={() => setChatOpen(true)} />}
-
-      <footer className="room-footer">
+      <footer className="room-footer" ref={footerRef}>
+        {!chatOpen && unread > 0 && !qualityOpen && (
+          <ChatUnreadChip count={unread} left={chipLeft} onOpen={() => setChatOpen(true)} />
+        )}
         {qualityOpen && (
           <QualityMenu
             value={session.screenQuality}
@@ -539,7 +541,7 @@ export default function RoomView({
           blurAmount={0.06}
           saturation={160}
           aberrationIntensity={2}
-          elasticity={0.05}
+          elasticity={0}
           className="dock-glass"
         >
           <div className="controls">
@@ -594,6 +596,7 @@ export default function RoomView({
             <SlidersIcon />
           </button>
           <button
+            ref={chatButtonRef}
             type="button"
             className={`control ${chatOpen ? 'control-active' : ''}`}
             aria-pressed={chatOpen}
@@ -601,7 +604,6 @@ export default function RoomView({
             onClick={() => setChatOpen((open) => !open)}
           >
             <ChatIcon />
-            {unread > 0 && <span className="control-badge">{unread > 9 ? '9+' : unread}</span>}
           </button>
           <button
             type="button"

@@ -13,6 +13,10 @@
   --radius: 14px;
   --shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  /* Header e dock flutuam sobre o palco; quem fica embaixo reserva esta folga.
+     Estavam repetidas na mão em três lugares e desalinhavam juntas. */
+  --header-clear: 4rem;
+  --dock-clear: 6rem;
   /* liquid glass */
   --glass-bg: rgba(255, 255, 255, 0.08);
   --glass-bg-strong: rgba(16, 19, 27, 0.55);
@@ -338,7 +342,7 @@ button {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  padding: 4rem 0.75rem 6rem;
+  padding: var(--header-clear) 0.75rem var(--dock-clear);
   gap: 0.75rem;
 }
 
@@ -419,7 +423,17 @@ button {
   gap: 12px;
   overflow-x: auto;
   padding-bottom: 2px;
-  justify-content: safe center;
+}
+
+/* Centraliza sem `justify-content: safe center`: naquele, quando a faixa
+   transborda, alguns navegadores cortam os tiles da esquerda sem deixar
+   rolar até eles. */
+.tiles-strip > :first-child {
+  margin-inline-start: auto;
+}
+
+.tiles-strip > :last-child {
+  margin-inline-end: auto;
 }
 
 .tiles-strip .tile {
@@ -509,7 +523,7 @@ button {
 
 .chat-panel {
   width: min(21rem, 45vw);
-  margin: 4rem 0.75rem 6rem 0;
+  margin: var(--header-clear) 0.75rem var(--dock-clear) 0;
   border: 1px solid var(--glass-border);
   border-radius: 20px;
   display: flex;
@@ -584,12 +598,6 @@ button {
   border-bottom-right-radius: 4px;
 }
 
-.chat-bubble p {
-  margin: 0;
-  font-size: 0.9rem;
-  overflow-wrap: anywhere;
-}
-
 .chat-author {
   display: block;
   font-size: 0.72rem;
@@ -645,7 +653,7 @@ button {
 }
 
 .chat-form button:active:not(:disabled) {
-  transform: scale(0.92);
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.3);
 }
 
 .chat-form button:disabled {
@@ -700,16 +708,25 @@ button {
     background 0.15s ease,
     border-color 0.15s ease,
     color 0.15s ease,
-    transform 0.15s var(--ease);
+    box-shadow 0.15s ease;
 }
 
+/*
+ * Hover sem transform de propósito.
+ *
+ * Elemento transformado por cima de superfície com backdrop-filter faz o
+ * Chrome recompor a região do desfoque e deixar um halo escuro em volta do
+ * botão — a "sombra" que aparecia na área dos controles. O estado de hover
+ * é dito só com cor, que o vidro não tem como borrar.
+ */
 .control:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.2);
-  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.32);
 }
 
 .control:active:not(:disabled) {
-  transform: scale(0.94);
+  background: rgba(255, 255, 255, 0.3);
+  box-shadow: var(--glass-highlight), inset 0 2px 5px rgba(0, 0, 0, 0.28);
 }
 
 .control:focus-visible {
@@ -755,31 +772,7 @@ button {
   background: var(--danger-hover);
 }
 
-.control-badge {
-  position: absolute;
-  top: -3px;
-  right: -3px;
-  min-width: 1.1rem;
-  height: 1.1rem;
-  padding: 0 0.25rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--danger);
-  border-radius: 999px;
-  color: white;
-  font-size: 0.65rem;
-  font-weight: 700;
-  animation: badge-pop 0.25s var(--ease) both;
-}
-
 @media (max-width: 640px) {
-  .chat-toasts {
-    right: 0.6rem;
-    left: 0.6rem;
-    align-items: stretch;
-  }
-
   .chat-panel {
     position: fixed;
     inset: auto 0 5.4rem 0;
@@ -916,74 +909,122 @@ button {
   color: var(--muted);
 }
 
-/* ---- balão de mensagem nova ---- */
+/* ---- contador de mensagens novas ---- */
 
-.chat-toasts {
+/* Irmão do dock, não filho: a lib de vidro corta overflow e impõe fonte
+   própria aos filhos. `left` vem medido do botão de chat, em JS. */
+.chat-unread-chip {
   position: absolute;
-  right: 1rem;
-  bottom: 6.4rem;
-  z-index: 15;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.5rem;
-  pointer-events: none;
-}
-
-.chat-toast {
-  pointer-events: auto;
-  display: flex;
-  align-items: flex-start;
-  gap: 0.6rem;
-  max-width: min(20rem, calc(100vw - 2rem));
-  text-align: left;
+  bottom: calc(100% + 0.6rem);
+  transform: translateX(-50%);
+  z-index: 16;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
   background: var(--glass-bg-strong);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
   border: 1px solid var(--glass-border);
-  border-left: 3px solid var(--accent);
-  border-radius: var(--radius);
+  border-radius: 999px;
   box-shadow: var(--shadow), var(--glass-highlight);
   color: var(--text);
-  padding: 0.6rem 0.8rem;
+  padding: 0.35rem 0.8rem 0.35rem 0.4rem;
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1.2;
   cursor: pointer;
-  animation: slide-in-right 0.25s var(--ease) both;
+  animation: rise-in 0.25s var(--ease) both;
   transition: border-color 0.15s ease;
 }
 
-.chat-toast:hover {
+.chat-unread-chip:hover {
   border-color: var(--accent);
 }
 
-.chat-toast-icon {
+.chat-unread-count {
   display: inline-flex;
-  color: var(--accent-hover);
-  flex: 0 0 auto;
-  margin-top: 0.1rem;
-}
-
-.chat-toast-icon svg {
-  width: 16px;
-  height: 16px;
-}
-
-.chat-toast-body {
-  min-width: 0;
-}
-
-.chat-toast-author {
-  display: block;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  padding: 0 0.3rem;
+  background: var(--accent);
+  border-radius: 999px;
+  color: white;
   font-size: 0.72rem;
   font-weight: 700;
-  color: var(--accent-hover);
+  font-variant-numeric: tabular-nums;
 }
 
-.chat-toast-text {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  font-size: 0.85rem;
+/* ---- markdown dentro da bolha de chat ---- */
+
+.chat-md > :first-child {
+  margin-top: 0;
+}
+
+.chat-md > :last-child {
+  margin-bottom: 0;
+}
+
+.chat-md p {
+  margin: 0 0 0.4rem;
+  font-size: 0.9rem;
   overflow-wrap: anywhere;
+}
+
+.chat-md a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  overflow-wrap: anywhere;
+}
+
+.chat-md code {
+  background: rgba(0, 0, 0, 0.28);
+  border-radius: 5px;
+  padding: 0.1em 0.35em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.84em;
+}
+
+.chat-md pre {
+  margin: 0.4rem 0;
+  background: rgba(0, 0, 0, 0.32);
+  border-radius: 8px;
+  padding: 0.55rem 0.7rem;
+  /* Bloco de código não pode alargar a bolha: rola sozinho. */
+  overflow-x: auto;
+}
+
+.chat-md pre code {
+  background: none;
+  padding: 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.chat-md ul,
+.chat-md ol {
+  margin: 0.25rem 0 0.4rem;
+  padding-inline-start: 1.15rem;
+  font-size: 0.9rem;
+}
+
+.chat-md li {
+  margin: 0.1rem 0;
+  overflow-wrap: anywhere;
+}
+
+.chat-md blockquote {
+  margin: 0.35rem 0;
+  padding-inline-start: 0.6rem;
+  border-inline-start: 2px solid var(--glass-border);
+  color: var(--muted);
+}
+
+/* Na bolha própria (fundo de destaque) a citação precisa de contraste. */
+.chat-bubble.mine .chat-md blockquote {
+  border-inline-start-color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.85);
 }
