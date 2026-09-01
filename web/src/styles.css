@@ -10,9 +10,15 @@
   --accent-hover: #6a76f5;
   --danger: #e5484d;
   --danger-hover: #f2555a;
-  --radius: 12px;
+  --radius: 14px;
   --shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  /* liquid glass */
+  --glass-bg: rgba(255, 255, 255, 0.08);
+  --glass-bg-strong: rgba(16, 19, 27, 0.55);
+  --glass-border: rgba(255, 255, 255, 0.14);
+  --glass-blur: blur(22px) saturate(180%);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.16);
 }
 
 * {
@@ -27,7 +33,13 @@ body {
     'Segoe UI',
     Roboto,
     sans-serif;
-  background: var(--bg);
+  /* Luz ambiente sutil: dá ao vidro algo para refratar. */
+  background:
+    radial-gradient(52rem 34rem at 12% -8%, rgba(88, 101, 242, 0.16), transparent 60%),
+    radial-gradient(44rem 30rem at 92% 12%, rgba(168, 85, 247, 0.12), transparent 60%),
+    radial-gradient(48rem 32rem at 55% 112%, rgba(56, 189, 248, 0.1), transparent 60%),
+    var(--bg);
+  background-attachment: fixed;
   color: var(--text);
 }
 
@@ -137,13 +149,15 @@ button {
 }
 
 .home-card {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 16px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: 24px;
   padding: 2.5rem 2rem;
   max-width: 26rem;
   width: 100%;
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow), var(--glass-highlight);
   animation: rise-in 0.4s var(--ease) both;
 }
 
@@ -226,20 +240,30 @@ button {
 /* ---- sala ---- */
 
 .room-layout {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100dvh;
   animation: fade-in 0.3s var(--ease) both;
 }
 
+/* Header flutuante: pills de vidro sobre o palco. */
 .room-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 0.65rem 1rem;
-  background: var(--panel);
-  border-bottom: 1px solid var(--border);
+  padding: 0.75rem 1rem;
+  pointer-events: none;
+}
+
+.room-header > * {
+  pointer-events: auto;
 }
 
 .room-title {
@@ -247,6 +271,13 @@ button {
   align-items: baseline;
   gap: 0.75rem;
   min-width: 0;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  padding: 0.45rem 1rem;
+  box-shadow: var(--glass-highlight);
 }
 
 .room-header h1 {
@@ -268,14 +299,17 @@ button {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  background: transparent;
-  border: 1px solid var(--border);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
   border-radius: 999px;
   color: var(--text);
-  padding: 0.4rem 0.9rem;
+  padding: 0.5rem 1rem;
   font-size: 0.85rem;
   font-weight: 500;
   cursor: pointer;
+  box-shadow: var(--glass-highlight);
   transition:
     background 0.15s ease,
     border-color 0.15s ease,
@@ -283,8 +317,8 @@ button {
 }
 
 .invite-button:hover {
-  background: var(--panel-2);
-  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.28);
 }
 
 .invite-copied {
@@ -298,12 +332,13 @@ button {
   min-height: 0;
 }
 
+/* Header e dock flutuam: o palco reserva espaço para eles. */
 .stage-area {
   flex: 1;
   display: flex;
   flex-direction: column;
   min-width: 0;
-  padding: 0.75rem;
+  padding: 4rem 0.75rem 6rem;
   gap: 0.75rem;
 }
 
@@ -323,15 +358,34 @@ button {
   object-fit: contain;
 }
 
-.screen-label {
+.screen-overlay {
   position: absolute;
   left: 0.75rem;
+  right: 0.75rem;
   bottom: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  pointer-events: none;
+}
+
+.screen-label,
+.screen-stats {
   background: rgba(0, 0, 0, 0.65);
   backdrop-filter: blur(6px);
   padding: 0.3rem 0.7rem;
   border-radius: 999px;
   font-size: 0.85rem;
+}
+
+/* Números do que está realmente trafegando — tabulares para não dançar. */
+.screen-stats {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Grade principal: tiles 16:9 dimensionados por JS, centralizados. */
@@ -417,8 +471,10 @@ button {
   align-items: center;
   gap: 0.35rem;
   max-width: calc(100% - 1.2rem);
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(6px);
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   padding: 0.25rem 0.65rem;
   border-radius: 999px;
   font-size: 0.8rem;
@@ -447,13 +503,15 @@ button {
 
 .chat-panel {
   width: min(21rem, 45vw);
-  margin: 0.75rem 0.75rem 0.75rem 0;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  margin: 4rem 0.75rem 6rem 0;
+  border: 1px solid var(--glass-border);
+  border-radius: 20px;
   display: flex;
   flex-direction: column;
-  background: var(--panel);
-  box-shadow: var(--shadow);
+  background: var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow), var(--glass-highlight);
   animation: slide-in-right 0.3s var(--ease) both;
 }
 
@@ -462,7 +520,7 @@ button {
   align-items: center;
   justify-content: space-between;
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .chat-header h2 {
@@ -506,7 +564,7 @@ button {
 .chat-bubble {
   max-width: 85%;
   align-self: flex-start;
-  background: var(--panel-2);
+  background: rgba(255, 255, 255, 0.09);
   border-radius: 14px;
   border-bottom-left-radius: 4px;
   padding: 0.45rem 0.75rem;
@@ -538,14 +596,14 @@ button {
   display: flex;
   gap: 0.5rem;
   padding: 0.75rem;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .chat-form input {
   flex: 1;
   min-width: 0;
-  background: var(--bg);
-  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--glass-border);
   border-radius: 999px;
   color: var(--text);
   padding: 0.5rem 0.9rem;
@@ -591,19 +649,32 @@ button {
 
 /* ---- controles ---- */
 
+/* Dock flutuante de vidro sobre o palco. */
 .room-footer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0.9rem;
+  z-index: 30;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0.75rem;
-  background: var(--panel);
-  border-top: 1px solid var(--border);
+  pointer-events: none;
+}
+
+.room-footer > * {
+  pointer-events: auto;
+}
+
+.dock-glass {
+  animation: rise-in 0.4s var(--ease) both;
 }
 
 .controls {
   display: flex;
   align-items: center;
   gap: 0.6rem;
+  font-size: 0.95rem;
 }
 
 .control {
@@ -613,11 +684,12 @@ button {
   justify-content: center;
   width: 2.9rem;
   height: 2.9rem;
-  background: var(--panel-2);
-  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--glass-border);
   border-radius: 50%;
   color: var(--text);
   cursor: pointer;
+  box-shadow: var(--glass-highlight);
   transition:
     background 0.15s ease,
     border-color 0.15s ease,
@@ -626,7 +698,7 @@ button {
 }
 
 .control:hover:not(:disabled) {
-  background: var(--border);
+  background: rgba(255, 255, 255, 0.2);
   transform: translateY(-2px);
 }
 
@@ -696,9 +768,15 @@ button {
 }
 
 @media (max-width: 640px) {
+  .chat-toasts {
+    right: 0.6rem;
+    left: 0.6rem;
+    align-items: stretch;
+  }
+
   .chat-panel {
     position: fixed;
-    inset: auto 0 4.6rem 0;
+    inset: auto 0 5.4rem 0;
     width: auto;
     margin: 0.5rem;
     max-height: 55dvh;
@@ -708,4 +786,198 @@ button {
   .tiles-strip .tile {
     flex-basis: 9rem;
   }
+}
+
+/* ---- latência ---- */
+
+.latency-chip {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  z-index: 1;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.latency-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.latency-good {
+  color: #4ade80;
+}
+
+.latency-fair {
+  color: #fbbf24;
+}
+
+.latency-poor {
+  color: #ff7a7a;
+}
+
+/* ---- menu de qualidade ---- */
+
+/* Captura o clique fora sem roubar o foco visual do menu. */
+.menu-backdrop {
+  position: fixed;
+  inset: 0;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: default;
+  z-index: 31;
+}
+
+/* Ancorado no rodapé (fora do dock de vidro, que corta overflow). */
+.quality-menu {
+  position: absolute;
+  bottom: calc(100% + 0.75rem);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 32;
+  width: 17rem;
+  max-width: calc(100vw - 2rem);
+  background: var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: 18px;
+  box-shadow: var(--shadow), var(--glass-highlight);
+  padding: 0.4rem;
+  animation: rise-in 0.2s var(--ease) both;
+}
+
+.quality-menu-title {
+  margin: 0.3rem 0.6rem 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.quality-option {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--text);
+  padding: 0.5rem 0.6rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.quality-option:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.quality-option.selected {
+  background: var(--accent);
+}
+
+.quality-option-label {
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.quality-option-hint {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.quality-option.selected .quality-option-hint {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.quality-menu-note {
+  margin: 0.5rem 0.6rem 0.3rem;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+/* ---- balão de mensagem nova ---- */
+
+.chat-toasts {
+  position: absolute;
+  right: 1rem;
+  bottom: 6.4rem;
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+  pointer-events: none;
+}
+
+.chat-toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  max-width: min(20rem, calc(100vw - 2rem));
+  text-align: left;
+  background: var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow), var(--glass-highlight);
+  color: var(--text);
+  padding: 0.6rem 0.8rem;
+  cursor: pointer;
+  animation: slide-in-right 0.25s var(--ease) both;
+  transition: border-color 0.15s ease;
+}
+
+.chat-toast:hover {
+  border-color: var(--accent);
+}
+
+.chat-toast-icon {
+  display: inline-flex;
+  color: var(--accent-hover);
+  flex: 0 0 auto;
+  margin-top: 0.1rem;
+}
+
+.chat-toast-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.chat-toast-body {
+  min-width: 0;
+}
+
+.chat-toast-author {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--accent-hover);
+}
+
+.chat-toast-text {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
 }

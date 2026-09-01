@@ -3,7 +3,12 @@ import type { WebSocket } from 'ws';
 import { z } from 'zod';
 import type { RoomRegistry } from '../app/room-registry.js';
 import { SignalingSession, parseClientMessage } from '../app/signaling.js';
-import { ROOM_LIMITS, RoomFullError, RoomNotFoundError } from '../domain/room.js';
+import {
+  ROOM_LIMITS,
+  RoomFullError,
+  RoomNotFoundError,
+  type PeerChannel,
+} from '../domain/room.js';
 
 const createRoomBody = z.object({
   displayName: z.string().max(ROOM_LIMITS.displayNameMaxLength).optional(),
@@ -56,17 +61,22 @@ export function registerRoutes(app: FastifyInstance, registry: RoomRegistry): vo
       return;
     }
 
+    const channel: PeerChannel = {
+      send: (message) => {
+        if (socket.readyState === socket.OPEN) {
+          socket.send(JSON.stringify(message));
+        }
+      },
+      close: () => socket.close(),
+    };
+
     let session: SignalingSession;
     try {
       session = new SignalingSession(
         registry,
         params.data.slug,
         query.data.name.trim(),
-        (message) => {
-          if (socket.readyState === socket.OPEN) {
-            socket.send(JSON.stringify(message));
-          }
-        },
+        channel,
       );
     } catch (error) {
       const code =

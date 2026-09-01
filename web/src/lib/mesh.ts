@@ -33,11 +33,28 @@ interface SignalPayload {
   candidate?: RTCIceCandidateInit;
 }
 
+/** Teto de envio de um track — aplicado igual em todos os pares. */
+export interface TrackEncoding {
+  maxBitrate: number;
+  maxFramerate: number;
+  degradationPreference: RTCDegradationPreference;
+}
+
+interface LocalTrack {
+  stream: MediaStream;
+  encoding: TrackEncoding | null;
+}
+
+/** Chrome/Edge: pede o menor buffer de reprodução possível (não está no lib.dom). */
+interface LowLatencyReceiver extends RTCRtpReceiver {
+  playoutDelayHint?: number;
+}
+
 export class Mesh {
   private readonly selfId: string;
   private readonly sendSignal: (to: string, data: SignalPayload) => void;
   private readonly peers = new Map<string, PeerState>();
-  private readonly localTracks = new Map<MediaStreamTrack, MediaStream>();
+  private readonly localTracks = new Map<MediaStreamTrack, LocalTrack>();
   private readonly listeners = new Set<() => void>();
   private closed = false;
 
@@ -62,10 +79,59 @@ export class Mesh {
     return [...(this.peers.get(peerId)?.streams.values() ?? [])];
   }
 
-  addLocalTrack(track: MediaStreamTrack, stream: MediaStream): void {
-    this.localTracks.set(track, stream);
+  peerIds(): string[] {
+    return [...this.peers.keys()];
+  }
+
+  getPeerConnection(peerId: string): RTCPeerConnection | null {
+    return this.peers.get(peerId)?.pc ?? null;
+  }
+
+  addLocalTrack(track: MediaStreamTrack, stream: MediaStream, encoding?: TrackEncoding): void {
+    this.localTracks.set(track, { stream, encoding: encoding ?? null });
     for (const state of this.peers.values()) {
       state.pc.addTrack(track, stream);
+      void this.applyEncoding(state.pc, track);
+    }
+  }
+
+  /**
+   * Reaplica o teto de envio de um track em todos os pares.
+   *
+   * Chamado quando a qualidade escolhida muda ou quando entra/sai gente —
+   * o rateio do uplink depende de quantos estão recebendo.
+   */
+  setTrackEncoding(track: MediaStreamTrack, encoding: TrackEncoding): void {
+    const local = this.localTracks.get(track);
+    if (!local) {
+      return;
+    }
+    local.encoding = encoding;
+    for (const state of this.peers.values()) {
+      void this.applyEncoding(state.pc, track);
+    }
+  }
+
+  private async applyEncoding(pc: RTCPeerConnection, track: MediaStreamTrack): Promise<void> {
+    const encoding = this.localTracks.get(track)?.encoding;
+    const sender = pc.getSenders().find((s) => s.track === track);
+    if (!encoding || !sender) {
+      return;
+    }
+    const parameters = sender.getParameters();
+    // Sender recém-criado pode vir sem encodings até a primeira negociação.
+    if (parameters.encodings.length === 0) {
+      parameters.encodings = [{}];
+    }
+    for (const layer of parameters.encodings) {
+      layer.maxBitrate = encoding.maxBitrate;
+      layer.maxFramerate = encoding.maxFramerate;
+    }
+    parameters.degradationPreference = encoding.degradationPreference;
+    try {
+      await sender.setParameters(parameters);
+    } catch {
+      // parâmetros recusados (par caindo): a próxima aplicação tenta de novo
     }
   }
 
@@ -94,8 +160,9 @@ export class Mesh {
     };
     this.peers.set(peerId, state);
 
-    for (const [track, stream] of this.localTracks) {
-      pc.addTrack(track, stream);
+    for (const [track, local] of this.localTracks) {
+      pc.addTrack(track, local.stream);
+      void this.applyEncoding(pc, track);
     }
     // Sem mídia local (permissão negada), ainda precisamos negociar para
     // RECEBER os outros: transceivers recvonly disparam a oferta.
@@ -134,6 +201,11 @@ export class Mesh {
       const stream = event.streams[0];
       if (!stream) {
         return;
+      }
+      if (event.track.kind === 'video') {
+        // Sem isso o navegador acumula centenas de ms de buffer: numa tela
+        // compartilhada isso é a diferença entre acompanhar e ver o passado.
+        (event.receiver as LowLatencyReceiver).playoutDelayHint = 0;
       }
       state.streams.set(stream.id, stream);
       stream.onremovetrack = () => {

@@ -9,13 +9,26 @@ export interface PeerInfo {
   name: string;
 }
 
-/** Canal de saída de um participante — abstrai o WebSocket (testável). */
-export type PeerSender = (message: ServerMessage) => void;
+/**
+ * Canal de saída de um participante — abstrai o WebSocket (testável).
+ * Precisa saber desligar: um par sem sinal de vida é expulso pelo servidor.
+ */
+export interface PeerChannel {
+  send(message: ServerMessage): void;
+  close(): void;
+}
+
+export interface Peer {
+  name: string;
+  channel: PeerChannel;
+  /** Último ping recebido — base para expulsar conexões zumbis. */
+  lastSeen: number;
+}
 
 export interface Room {
   slug: string;
   displayName: string;
-  peers: Map<string, { name: string; send: PeerSender }>;
+  peers: Map<string, Peer>;
   /** Quem detém o lock de compartilhamento de tela, se alguém. */
   screenSharer: { id: string; streamId: string } | null;
   /** Marca de quando a sala ficou vazia, para expiração. */
@@ -30,6 +43,16 @@ export const ROOM_LIMITS = {
   maxParticipants: 8,
   /** Sala vazia expira depois disso (ms) — dá tempo do link circular. */
   emptyTimeoutMs: 15 * 60 * 1000,
+  /** Cadência do ping do cliente: mede latência e prova que ainda está vivo. */
+  heartbeatIntervalMs: 10 * 1000,
+  /**
+   * Sem ping nesse tempo, o par é considerado morto e removido.
+   *
+   * Queda de rede sem FIN (tampa do notebook, wi-fi que some) não gera
+   * evento de close: sem isso a sala fica ocupada por fantasmas e nunca
+   * chega a ficar vazia — logo, nunca expira.
+   */
+  peerTimeoutMs: 35 * 1000,
   displayNameMaxLength: 60,
   guestNameMaxLength: 40,
   chatMessageMaxLength: 500,
@@ -65,6 +88,8 @@ export type ServerMessage =
   | { t: 'screen-started'; id: string; streamId: string }
   | { t: 'screen-stopped' }
   | { t: 'screen-denied' }
+  /** Eco do ping: o cliente mede a latência de sinalização com `ts`. */
+  | { t: 'pong'; ts: number }
   | { t: 'error'; code: 'room_not_found' | 'room_full' | 'invalid_name' };
 
 /** Mensagens cliente → servidor. Espelhadas em web/src/lib/protocol.ts. */
@@ -72,4 +97,5 @@ export type ClientMessage =
   | { t: 'signal'; to: string; data: unknown }
   | { t: 'chat'; text: string }
   | { t: 'screen-request'; streamId: string }
-  | { t: 'screen-stop' };
+  | { t: 'screen-stop' }
+  | { t: 'ping'; ts: number };

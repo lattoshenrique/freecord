@@ -1,7 +1,7 @@
 import {
   ROOM_LIMITS,
   type ClientMessage,
-  type PeerSender,
+  type PeerChannel,
   type Room,
   type ServerMessage,
 } from '../domain/room.js';
@@ -10,7 +10,7 @@ import type { RoomRegistry } from './room-registry.js';
 function broadcast(room: Room, message: ServerMessage, exceptId?: string): void {
   for (const [id, peer] of room.peers) {
     if (id !== exceptId) {
-      peer.send(message);
+      peer.channel.send(message);
     }
   }
 }
@@ -18,7 +18,7 @@ function broadcast(room: Room, message: ServerMessage, exceptId?: string): void 
 /**
  * Sessão de sinalização de um participante: relay de SDP/ICE entre pares,
  * chat e o lock server-side de "uma tela por vez". Independente de
- * transporte — o WebSocket entra só como PeerSender + chamadas a
+ * transporte — o WebSocket entra só como PeerChannel + chamadas a
  * handleMessage/close.
  */
 export class SignalingSession {
@@ -28,14 +28,14 @@ export class SignalingSession {
   private readonly name: string;
   private closed = false;
 
-  constructor(registry: RoomRegistry, slug: string, name: string, send: PeerSender) {
+  constructor(registry: RoomRegistry, slug: string, name: string, channel: PeerChannel) {
     this.registry = registry;
     this.slug = slug;
     this.name = name;
-    const { room, peerId } = registry.addPeer(slug, name, send);
+    const { room, peerId } = registry.addPeer(slug, name, channel);
     this.peerId = peerId;
 
-    send({
+    channel.send({
       t: 'welcome',
       selfId: peerId,
       room: { slug: room.slug, displayName: room.displayName },
@@ -57,9 +57,15 @@ export class SignalingSession {
     }
 
     switch (message.t) {
+      case 'ping': {
+        // Prova de vida + medida de latência: o cliente cronometra o eco.
+        this.registry.touchPeer(this.slug, this.peerId);
+        room.peers.get(this.peerId)?.channel.send({ t: 'pong', ts: message.ts });
+        return;
+      }
       case 'signal': {
         const target = room.peers.get(message.to);
-        target?.send({ t: 'signal', from: this.peerId, data: message.data });
+        target?.channel.send({ t: 'signal', from: this.peerId, data: message.data });
         return;
       }
       case 'chat': {
@@ -78,7 +84,7 @@ export class SignalingSession {
       case 'screen-request': {
         // Regra de produto garantida no servidor: uma tela por vez.
         if (room.screenSharer && room.screenSharer.id !== this.peerId) {
-          room.peers.get(this.peerId)?.send({ t: 'screen-denied' });
+          room.peers.get(this.peerId)?.channel.send({ t: 'screen-denied' });
           return;
         }
         room.screenSharer = { id: this.peerId, streamId: message.streamId };
@@ -111,6 +117,30 @@ export class SignalingSession {
   }
 }
 
+/**
+ * Expulsa pares que pararam de dar sinal de vida e avisa quem ficou.
+ *
+ * Sem isso uma conexão zumbi (rede que sumiu, sem close) segura a vaga para
+ * sempre: a sala nunca fica vazia e nunca expira. Retorna quantos saíram.
+ */
+export function sweepStalePeers(registry: RoomRegistry): number {
+  const stale = registry.stalePeers();
+  for (const { slug, peerId } of stale) {
+    const before = registry.getRoomSafe(slug);
+    const channel = before?.peers.get(peerId)?.channel;
+    const hadScreen = before?.screenSharer?.id === peerId;
+    const room = registry.removePeer(slug, peerId);
+    channel?.close();
+    if (room) {
+      if (hadScreen) {
+        broadcast(room, { t: 'screen-stopped' });
+      }
+      broadcast(room, { t: 'peer-left', id: peerId });
+    }
+  }
+  return stale.length;
+}
+
 /** Parse defensivo da borda: só formatos do protocolo fechado passam. */
 export function parseClientMessage(raw: unknown): ClientMessage | null {
   if (typeof raw !== 'string') {
@@ -139,6 +169,10 @@ export function parseClientMessage(raw: unknown): ClientMessage | null {
         : null;
     case 'screen-stop':
       return { t: 'screen-stop' };
+    case 'ping':
+      return typeof message.ts === 'number' && Number.isFinite(message.ts)
+        ? { t: 'ping', ts: message.ts }
+        : null;
     default:
       return null;
   }

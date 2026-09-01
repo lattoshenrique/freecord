@@ -3,7 +3,7 @@ import {
   ROOM_LIMITS,
   RoomFullError,
   RoomNotFoundError,
-  type PeerSender,
+  type PeerChannel,
   type Room,
 } from '../domain/room.js';
 
@@ -67,15 +67,23 @@ export class RoomRegistry {
     };
   }
 
-  addPeer(slug: string, name: string, send: PeerSender): { room: Room; peerId: string } {
+  addPeer(slug: string, name: string, channel: PeerChannel): { room: Room; peerId: string } {
     const room = this.getRoom(slug);
     if (room.peers.size >= ROOM_LIMITS.maxParticipants) {
       throw new RoomFullError(slug);
     }
     const peerId = randomBytes(8).toString('base64url');
-    room.peers.set(peerId, { name, send });
+    room.peers.set(peerId, { name, channel, lastSeen: this.now() });
     room.emptyAt = null;
     return { room, peerId };
+  }
+
+  /** Ping recebido: o par continua vivo. */
+  touchPeer(slug: string, peerId: string): void {
+    const peer = this.rooms.get(slug)?.peers.get(peerId);
+    if (peer) {
+      peer.lastSeen = this.now();
+    }
   }
 
   removePeer(slug: string, peerId: string): Room | null {
@@ -90,6 +98,20 @@ export class RoomRegistry {
       room.emptyAt = this.now();
     }
     return room;
+  }
+
+  /** Pares mudos além do timeout — conexões que caíram sem avisar. */
+  stalePeers(): Array<{ slug: string; peerId: string }> {
+    const cutoff = this.now() - ROOM_LIMITS.peerTimeoutMs;
+    const stale: Array<{ slug: string; peerId: string }> = [];
+    for (const [slug, room] of this.rooms) {
+      for (const [peerId, peer] of room.peers) {
+        if (peer.lastSeen <= cutoff) {
+          stale.push({ slug, peerId });
+        }
+      }
+    }
+    return stale;
   }
 
   /** Remove salas vazias há mais tempo que o timeout. Retorna quantas. */

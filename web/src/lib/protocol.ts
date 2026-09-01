@@ -23,10 +23,13 @@ export type ServerMessage =
   | { t: 'screen-started'; id: string; streamId: string }
   | { t: 'screen-stopped' }
   | { t: 'screen-denied' }
+  /** Eco do ping: o cliente mede a latência de sinalização com `ts`. */
+  | { t: 'pong'; ts: number }
   | { t: 'error'; code: 'room_not_found' | 'room_full' | 'invalid_name' };
 
 export type ClientMessage =
   | { t: 'signal'; to: string; data: unknown }
   | { t: 'chat'; text: string }
   | { t: 'screen-request'; streamId: string }
-  | { t: 'screen-stop' };
+  | { t: 'screen-stop' }
+  | { t: 'ping'; ts: number };

@@ -1,16 +1,24 @@
 import { describe, expect, it } from 'vitest';
 import { RoomRegistry } from '../src/app/room-registry.js';
-import { SignalingSession, parseClientMessage } from '../src/app/signaling.js';
-import type { ServerMessage } from '../src/domain/room.js';
+import {
+  SignalingSession,
+  parseClientMessage,
+  sweepStalePeers,
+} from '../src/app/signaling.js';
+import { ROOM_LIMITS, type ServerMessage } from '../src/domain/room.js';
 
 function connect(registry: RoomRegistry, slug: string, name: string) {
   const inbox: ServerMessage[] = [];
-  const session = new SignalingSession(registry, slug, name, (m) => inbox.push(m));
-  return { session, inbox, last: () => inbox[inbox.length - 1] };
+  const channel = { send: (m: ServerMessage) => inbox.push(m), closed: false, close() {} };
+  channel.close = () => {
+    channel.closed = true;
+  };
+  const session = new SignalingSession(registry, slug, name, channel);
+  return { session, inbox, channel, last: () => inbox[inbox.length - 1] };
 }
 
-function setup() {
-  const registry = new RoomRegistry();
+function setup(now?: () => number) {
+  const registry = new RoomRegistry(now);
   const { slug } = registry.createRoom('Sala');
   return { registry, slug };
 }
@@ -58,6 +66,16 @@ describe('SignalingSession', () => {
     expect(ana.last().t).toBe('chat');
   });
 
+  it('ping é ecoado como pong só para quem perguntou', () => {
+    const { registry, slug } = setup();
+    const ana = connect(registry, slug, 'Ana');
+    const bia = connect(registry, slug, 'Bia');
+
+    ana.session.handleMessage({ t: 'ping', ts: 1234 });
+    expect(ana.last()).toEqual({ t: 'pong', ts: 1234 });
+    expect(bia.inbox.some((m) => m.t === 'pong')).toBe(false);
+  });
+
   it('lock de tela: um por vez, negado ao segundo, liberado ao parar', () => {
     const { registry, slug } = setup();
     const ana = connect(registry, slug, 'Ana');
@@ -93,6 +111,46 @@ describe('SignalingSession', () => {
   });
 });
 
+describe('sweepStalePeers', () => {
+  it('expulsa quem parou de dar sinal de vida, esvaziando a sala', () => {
+    let clock = 0;
+    const { registry, slug } = setup(() => clock);
+    const ana = connect(registry, slug, 'Ana');
+    const bia = connect(registry, slug, 'Bia');
+
+    clock = ROOM_LIMITS.peerTimeoutMs + 1;
+    ana.session.handleMessage({ t: 'ping', ts: 1 });
+
+    expect(sweepStalePeers(registry)).toBe(1);
+    expect(bia.channel.closed).toBe(true);
+    expect(ana.last()).toEqual({ t: 'peer-left', id: bia.session.peerId });
+    expect(registry.summarize(slug).participantCount).toBe(1);
+
+    // Sem ninguém dando sinal de vida, a sala esvazia e passa a expirar.
+    clock += ROOM_LIMITS.peerTimeoutMs + 1;
+    expect(sweepStalePeers(registry)).toBe(1);
+    expect(registry.summarize(slug).participantCount).toBe(0);
+    clock += ROOM_LIMITS.emptyTimeoutMs + 1;
+    expect(registry.sweepExpired()).toBe(1);
+  });
+
+  it('libera o lock de tela de quem foi expulso', () => {
+    let clock = 0;
+    const { registry, slug } = setup(() => clock);
+    const ana = connect(registry, slug, 'Ana');
+    const bia = connect(registry, slug, 'Bia');
+
+    ana.session.handleMessage({ t: 'screen-request', streamId: 's-ana' });
+    clock = ROOM_LIMITS.peerTimeoutMs + 1;
+    bia.session.handleMessage({ t: 'ping', ts: 1 });
+    sweepStalePeers(registry);
+
+    expect(bia.inbox.map((m) => m.t)).toContain('screen-stopped');
+    bia.session.handleMessage({ t: 'screen-request', streamId: 's-bia' });
+    expect(bia.last()).toEqual({ t: 'screen-started', id: bia.session.peerId, streamId: 's-bia' });
+  });
+});
+
 describe('parseClientMessage', () => {
   it('aceita apenas o protocolo fechado', () => {
     expect(parseClientMessage(JSON.stringify({ t: 'chat', text: 'oi' }))).toEqual({
@@ -108,5 +166,7 @@ describe('parseClientMessage', () => {
     expect(parseClientMessage(JSON.stringify({ t: 'hack' }))).toBeNull();
     expect(parseClientMessage(JSON.stringify({ t: 'chat' }))).toBeNull();
     expect(parseClientMessage(JSON.stringify({ t: 'signal', to: 7, data: 1 }))).toBeNull();
+    expect(parseClientMessage(JSON.stringify({ t: 'ping', ts: 42 }))).toEqual({ t: 'ping', ts: 42 });
+    expect(parseClientMessage(JSON.stringify({ t: 'ping', ts: 'agora' }))).toBeNull();
   });
 });

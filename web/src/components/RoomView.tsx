@@ -1,6 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import LiquidGlass from 'liquid-glass-react';
 import { Link } from 'react-router-dom';
 import type { RoomSummary } from '../api';
+import { SCREEN_QUALITY_PRESETS, type ScreenQualityId } from '../lib/screen-quality';
+import type { ScreenStats } from '../lib/stats';
 import { useRoomSession, type JoinOptions } from '../lib/use-room';
 import InviteButton from './InviteButton';
 import {
@@ -13,7 +16,125 @@ import {
   MicOffIcon,
   ScreenIcon,
   SendIcon,
+  SlidersIcon,
 } from './icons';
+
+/** Faixas de latência: verde conversa bem, âmbar arrasta, vermelho atrapalha. */
+function latencyGrade(ms: number): 'good' | 'fair' | 'poor' {
+  return ms < 100 ? 'good' : ms < 250 ? 'fair' : 'poor';
+}
+
+function LatencyChip({ ms, title }: { ms: number | null; title: string }) {
+  if (ms === null) {
+    return null;
+  }
+  return (
+    <span className={`latency-chip latency-${latencyGrade(ms)}`} title={title}>
+      {ms} ms
+    </span>
+  );
+}
+
+function formatBitrate(kbps: number): string {
+  return kbps >= 1000 ? `${(kbps / 1000).toFixed(1)} Mb/s` : `${kbps} kb/s`;
+}
+
+/** O que está realmente saindo/chegando — não o que foi pedido. */
+function ScreenStatsBar({ stats }: { stats: ScreenStats }) {
+  const parts: string[] = [];
+  if (stats.width && stats.height) {
+    parts.push(`${stats.width}×${stats.height}`);
+  }
+  if (stats.fps !== null) {
+    parts.push(`${Math.round(stats.fps)} fps`);
+  }
+  if (stats.kbps !== null) {
+    parts.push(formatBitrate(stats.kbps));
+  }
+  if (parts.length === 0 && stats.rttMs === null) {
+    return null;
+  }
+  return (
+    <span className="screen-stats">
+      {stats.direction === 'sending' ? 'Enviando' : 'Recebendo'}
+      {parts.length > 0 && ` · ${parts.join(' · ')}`}
+      {stats.rttMs !== null && (
+        <>
+          {' · '}
+          <span className={`latency-dot latency-${latencyGrade(stats.rttMs)}`} aria-hidden />
+          {stats.rttMs} ms
+        </>
+      )}
+    </span>
+  );
+}
+
+function QualityMenu({
+  value,
+  onChange,
+  onClose,
+}: {
+  value: ScreenQualityId;
+  onChange: (id: ScreenQualityId) => void;
+  onClose: () => void;
+}) {
+  return (
+    <>
+      <button type="button" className="menu-backdrop" aria-label="Fechar menu" onClick={onClose} />
+      <div className="quality-menu" role="menu">
+        <p className="quality-menu-title">Qualidade da tela</p>
+        {SCREEN_QUALITY_PRESETS.map((preset) => (
+          <button
+            key={preset.id}
+            type="button"
+            role="menuitemradio"
+            aria-checked={preset.id === value}
+            className={`quality-option ${preset.id === value ? 'selected' : ''}`}
+            onClick={() => {
+              onChange(preset.id);
+              onClose();
+            }}
+          >
+            <span className="quality-option-label">{preset.label}</span>
+            <span className="quality-option-hint">{preset.hint}</span>
+          </button>
+        ))}
+        <p className="quality-menu-note">
+          Vale na hora, mesmo compartilhando. Com mais gente na sala o teto cai — a tela sobe uma
+          vez por pessoa.
+        </p>
+      </div>
+    </>
+  );
+}
+
+interface Toast {
+  id: number;
+  author: string;
+  text: string;
+}
+
+/** Balão que anuncia mensagem nova quando o chat está fechado. */
+function ChatToasts({ toasts, onOpen }: { toasts: Toast[]; onOpen: () => void }) {
+  if (toasts.length === 0) {
+    return null;
+  }
+  return (
+    <div className="chat-toasts">
+      {toasts.map((toast) => (
+        <button key={toast.id} type="button" className="chat-toast" onClick={onOpen}>
+          <span className="chat-toast-icon" aria-hidden>
+            <ChatIcon />
+          </span>
+          <span className="chat-toast-body">
+            <span className="chat-toast-author">{toast.author}</span>
+            <span className="chat-toast-text">{toast.text}</span>
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+}
 
 function MediaView({
   stream,
@@ -109,17 +230,22 @@ function Tile({
   isSelf,
   micOff,
   stream,
+  latencyMs,
+  latencyTitle,
   style,
 }: {
   name: string;
   isSelf: boolean;
   micOff: boolean;
   stream: MediaStream | null;
+  latencyMs: number | null;
+  latencyTitle: string;
   style?: React.CSSProperties;
 }) {
   const showVideo = stream !== null && hasLiveVideo(stream);
   return (
     <div className="tile" style={style}>
+      <LatencyChip ms={latencyMs} title={latencyTitle} />
       {showVideo ? (
         <MediaView stream={stream} muted={isSelf} className={`tile-video ${isSelf ? 'mirrored' : ''}`} />
       ) : (
@@ -160,6 +286,8 @@ export default function RoomView({
   const [chatOpen, setChatOpen] = useState(false);
   const [draft, setDraft] = useState('');
   const [unread, setUnread] = useState(0);
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const [qualityOpen, setQualityOpen] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const { status } = session;
@@ -184,6 +312,39 @@ export default function RoomView({
     }
     seenCountRef.current = chatCount;
   }, [chatCount, chatOpen]);
+
+  // Balão de mensagem nova: só para o que chegou de outra pessoa com o chat
+  // fechado. O contador do botão continua sendo a memória de longo prazo.
+  const toastedCountRef = useRef(0);
+  const { chat, selfId } = session;
+  useEffect(() => {
+    const fresh = chat.slice(toastedCountRef.current);
+    toastedCountRef.current = chat.length;
+    if (chatOpen || fresh.length === 0) {
+      return;
+    }
+    const arriving = fresh
+      .filter((message) => message.from.id !== selfId)
+      .map((message, index) => ({
+        id: message.ts * 1000 + index,
+        author: message.from.name,
+        text: message.text,
+      }));
+    if (arriving.length === 0) {
+      return;
+    }
+    setToasts((current) => [...current, ...arriving].slice(-3));
+    const timer = setTimeout(() => {
+      setToasts((current) => current.filter((toast) => !arriving.some((a) => a.id === toast.id)));
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [chat, chatOpen, selfId]);
+
+  useEffect(() => {
+    if (chatOpen) {
+      setToasts([]);
+    }
+  }, [chatOpen]);
 
   // Computado a cada render de propósito: streams remotos chegam por
   // notificação do mesh (re-render sem mudança de estado React) — um
@@ -251,7 +412,12 @@ export default function RoomView({
           {screenStream && (
             <div className="screen-stage fade-in">
               <MediaView stream={screenStream} muted className="screen-video" />
-              {sharerName && <span className="screen-label">Tela de {sharerName}</span>}
+              <div className="screen-overlay">
+                <span className="screen-label">
+                  {sharerName ? `Tela de ${sharerName}` : 'Sua tela'}
+                </span>
+                {session.screenStats && <ScreenStatsBar stats={session.screenStats} />}
+              </div>
             </div>
           )}
           <div
@@ -263,6 +429,8 @@ export default function RoomView({
               isSelf
               micOff={!session.micOn}
               stream={session.localMedia && session.camOn ? session.localMedia : null}
+              latencyMs={session.signalRttMs}
+              latencyTitle="Latência até o servidor de sinalização"
               style={tileStyle}
             />
             {session.peers.map((peer) => {
@@ -276,6 +444,8 @@ export default function RoomView({
                   isSelf={false}
                   micOff={false}
                   stream={cameraStream}
+                  latencyMs={session.peerLatency.get(peer.id)?.rttMs ?? null}
+                  latencyTitle={`Latência direta com ${peer.name}`}
                   style={tileStyle}
                 />
               );
@@ -338,8 +508,27 @@ export default function RoomView({
         )}
       </div>
 
+      {!chatOpen && <ChatToasts toasts={toasts} onOpen={() => setChatOpen(true)} />}
+
       <footer className="room-footer">
-        <div className="controls">
+        {qualityOpen && (
+          <QualityMenu
+            value={session.screenQuality}
+            onChange={session.setScreenQuality}
+            onClose={() => setQualityOpen(false)}
+          />
+        )}
+        <LiquidGlass
+          cornerRadius={999}
+          padding="8px 12px"
+          displacementScale={44}
+          blurAmount={0.06}
+          saturation={160}
+          aberrationIntensity={2}
+          elasticity={0.05}
+          className="dock-glass"
+        >
+          <div className="controls">
           <button
             type="button"
             className={`control ${session.micOn ? '' : 'control-off'}`}
@@ -382,6 +571,16 @@ export default function RoomView({
           </button>
           <button
             type="button"
+            className={`control ${qualityOpen ? 'control-active' : ''}`}
+            aria-haspopup="menu"
+            aria-expanded={qualityOpen}
+            title="Qualidade do compartilhamento de tela"
+            onClick={() => setQualityOpen((open) => !open)}
+          >
+            <SlidersIcon />
+          </button>
+          <button
+            type="button"
             className={`control ${chatOpen ? 'control-active' : ''}`}
             aria-pressed={chatOpen}
             title={chatOpen ? 'Fechar chat' : 'Abrir chat'}
@@ -398,7 +597,8 @@ export default function RoomView({
           >
             <LeaveIcon />
           </button>
-        </div>
+          </div>
+        </LiquidGlass>
       </footer>
     </div>
   );

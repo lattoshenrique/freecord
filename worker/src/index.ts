@@ -21,6 +21,8 @@ export interface Env {
 interface PeerAttachment {
   peerId: string;
   name: string;
+  /** Último ping — base para expulsar conexões zumbis (ver alarm). */
+  lastSeen: number;
 }
 
 interface RoomMeta {
@@ -29,6 +31,9 @@ interface RoomMeta {
 }
 
 type ScreenLock = { id: string; streamId: string } | null;
+
+/** Cadência da varredura de zumbis enquanto há gente na sala. */
+const SWEEP_INTERVAL_MS = Math.floor(ROOM_LIMITS.peerTimeoutMs / 2);
 
 /** Id não adivinhável: o link É a credencial de descoberta da sala. */
 function randomId(bytes: number): string {
@@ -58,7 +63,7 @@ function json(body: unknown, status: number, env: Env): Response {
 /**
  * Uma sala viva: dona dos participantes, do relay de sinalização, do chat e
  * do lock de tela. Usa WebSocket Hibernation — o estado reconstruível vem dos
- * anexos dos sockets, o resto (metadados, lock) do storage.
+ * anexos dos sockets, o resto (metadados, lock, `emptyAt`) do storage.
  */
 export class RoomDurableObject {
   private readonly ctx: DurableObjectState;
@@ -85,7 +90,7 @@ export class RoomDurableObject {
     const { slug, displayName } = (await request.json()) as RoomMeta;
     await this.ctx.storage.put('meta', { slug, displayName } satisfies RoomMeta);
     // Sala nasce vazia: o relógio de expiração já começa a correr.
-    await this.ctx.storage.setAlarm(Date.now() + ROOM_LIMITS.emptyTimeoutMs);
+    await this.markEmptyFrom(Date.now());
     return Response.json({ slug, displayName, participantCount: 0 });
   }
 
@@ -124,9 +129,10 @@ export class RoomDurableObject {
 
     const peerId = randomId(8);
     this.ctx.acceptWebSocket(server);
-    server.serializeAttachment({ peerId, name } satisfies PeerAttachment);
-    // Enquanto tem gente, a sala não expira.
-    await this.ctx.storage.deleteAlarm();
+    server.serializeAttachment({ peerId, name, lastSeen: Date.now() } satisfies PeerAttachment);
+    // Com gente dentro, o relógio de expiração para e a varredura de zumbis começa.
+    await this.ctx.storage.delete('emptyAt');
+    await this.ctx.storage.setAlarm(Date.now() + SWEEP_INTERVAL_MS);
 
     const screen = (await this.ctx.storage.get<ScreenLock>('screen')) ?? null;
     this.send(server, {
@@ -149,9 +155,16 @@ export class RoomDurableObject {
     if (!message) {
       return;
     }
-    const { peerId, name } = this.attachment(ws);
+    const attachment = this.attachment(ws);
+    const { peerId, name } = attachment;
 
     switch (message.t) {
+      case 'ping': {
+        // Prova de vida + medida de latência: o cliente cronometra o eco.
+        ws.serializeAttachment({ ...attachment, lastSeen: Date.now() } satisfies PeerAttachment);
+        this.send(ws, { t: 'pong', ts: message.ts });
+        return;
+      }
       case 'signal': {
         const target = this.ctx
           .getWebSockets()
@@ -191,34 +204,79 @@ export class RoomDurableObject {
   }
 
   async webSocketClose(ws: WebSocket): Promise<void> {
-    await this.leave(ws);
+    await this.leave([ws]);
   }
 
   async webSocketError(ws: WebSocket): Promise<void> {
-    await this.leave(ws);
+    await this.leave([ws]);
   }
 
-  /** Sala vazia há mais que o timeout deixa de existir — nada fica sem gente. */
+  /**
+   * Varredura periódica: derruba quem parou de dar sinal de vida e mata a
+   * sala que ficou vazia além do timeout.
+   *
+   * Sem a parte dos zumbis a sala nunca esvazia — queda de rede sem FIN
+   * (tampa do notebook, wi-fi que some) não gera evento de close, e o socket
+   * fantasma seguraria a sala viva para sempre.
+   */
   async alarm(): Promise<void> {
-    if (this.ctx.getWebSockets().length > 0) {
-      await this.ctx.storage.setAlarm(Date.now() + ROOM_LIMITS.emptyTimeoutMs);
+    const now = Date.now();
+    const zombies = this.ctx
+      .getWebSockets()
+      .filter((ws) => now - this.attachment(ws).lastSeen > ROOM_LIMITS.peerTimeoutMs);
+
+    if (zombies.length > 0) {
+      await this.leave(zombies);
+      for (const ws of zombies) {
+        try {
+          ws.close(1001, 'sem sinal de vida');
+        } catch {
+          // socket já foi embora
+        }
+      }
       return;
     }
-    await this.ctx.storage.deleteAll();
+
+    await this.rescheduleSweep([]);
   }
 
-  private async leave(ws: WebSocket): Promise<void> {
-    const { peerId } = this.attachment(ws);
+  /** Saída de um ou mais pares: avisa quem ficou e reavalia o fim da sala. */
+  private async leave(leaving: WebSocket[]): Promise<void> {
+    const gone = new Set(leaving.map((ws) => this.attachment(ws).peerId));
     const screen = (await this.ctx.storage.get<ScreenLock>('screen')) ?? null;
     // O lock de tela é liberado até em queda de conexão.
-    if (screen?.id === peerId) {
+    if (screen && gone.has(screen.id)) {
       await this.ctx.storage.delete('screen');
-      this.broadcast({ t: 'screen-stopped' }, peerId);
+      this.broadcast({ t: 'screen-stopped' }, undefined, leaving);
     }
-    this.broadcast({ t: 'peer-left', id: peerId }, peerId);
-    if (this.ctx.getWebSockets().filter((peer) => peer !== ws).length === 0) {
-      await this.ctx.storage.setAlarm(Date.now() + ROOM_LIMITS.emptyTimeoutMs);
+    for (const peerId of gone) {
+      this.broadcast({ t: 'peer-left', id: peerId }, undefined, leaving);
     }
+    await this.rescheduleSweep(leaving);
+  }
+
+  private async rescheduleSweep(excluded: WebSocket[]): Promise<void> {
+    const now = Date.now();
+    if (this.remaining(excluded).length > 0) {
+      await this.ctx.storage.setAlarm(now + SWEEP_INTERVAL_MS);
+      return;
+    }
+    const emptyAt = (await this.ctx.storage.get<number>('emptyAt')) ?? now;
+    if (now - emptyAt >= ROOM_LIMITS.emptyTimeoutMs) {
+      // Sala sem ninguém além do timeout: deixa de existir.
+      await this.ctx.storage.deleteAll();
+      return;
+    }
+    await this.markEmptyFrom(emptyAt);
+  }
+
+  private async markEmptyFrom(emptyAt: number): Promise<void> {
+    await this.ctx.storage.put('emptyAt', emptyAt);
+    await this.ctx.storage.setAlarm(emptyAt + ROOM_LIMITS.emptyTimeoutMs);
+  }
+
+  private remaining(excluded: WebSocket[]): WebSocket[] {
+    return this.ctx.getWebSockets().filter((ws) => !excluded.includes(ws));
   }
 
   private attachment(ws: WebSocket): PeerAttachment {
@@ -238,8 +296,8 @@ export class RoomDurableObject {
     }
   }
 
-  private broadcast(message: ServerMessage, exceptId?: string): void {
-    for (const ws of this.ctx.getWebSockets()) {
+  private broadcast(message: ServerMessage, exceptId?: string, excluded: WebSocket[] = []): void {
+    for (const ws of this.remaining(excluded)) {
       if (this.attachment(ws).peerId !== exceptId) {
         this.send(ws, message);
       }
@@ -265,16 +323,15 @@ async function handleApi(request: Request, env: Env, url: URL): Promise<Response
     }
 
     let displayName: string | undefined;
-    try {
-      const body = (await request.json().catch(() => ({}))) as { displayName?: unknown };
-      if (body.displayName !== undefined) {
-        if (typeof body.displayName !== 'string' || body.displayName.length > ROOM_LIMITS.displayNameMaxLength) {
-          return json({ error: 'invalid_body' }, 400, env);
-        }
-        displayName = body.displayName;
+    const body = (await request.json().catch(() => ({}))) as { displayName?: unknown };
+    if (body.displayName !== undefined) {
+      if (
+        typeof body.displayName !== 'string' ||
+        body.displayName.length > ROOM_LIMITS.displayNameMaxLength
+      ) {
+        return json({ error: 'invalid_body' }, 400, env);
       }
-    } catch {
-      return json({ error: 'invalid_body' }, 400, env);
+      displayName = body.displayName;
     }
 
     const slug = randomId(9);

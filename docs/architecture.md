@@ -41,6 +41,8 @@ abaixo).
   (função de envio) e é testada com fakes, sem WebSocket real.
 - `parseClientMessage` só aceita o protocolo fechado — mensagem fora do
   formato é descartada na borda.
+- `ping`/`pong` é a batida do coração: o cliente cronometra o eco (latência de
+  sinalização) e o servidor usa o silêncio para expulsar conexões zumbis.
 - O lock de "uma tela por vez" vive no servidor (`screen-request` →
   `screen-started`/`screen-denied`) e é liberado até em queda de conexão.
 
@@ -57,6 +59,28 @@ abaixo).
 STUN público resolve a descoberta de endereço na maioria das redes. Sem TURN,
 uma fração de pares (redes corporativas restritivas, CGNAT simétrico) não se
 conecta — ver hardening.
+
+- `stats.ts` — lê `getStats()` da malha: RTT do par de candidatos em uso (a
+  latência real entre duas pessoas) e a qualidade efetiva da tela.
+
+## Compartilhamento de tela: o que controla a qualidade
+
+`getDisplayMedia({ video: true })` entrega o pior dos mundos — o navegador
+degrada resolução E fps juntos e mira um bitrate conservador. Quatro alavancas
+explícitas em `screen-quality.ts` e `mesh.ts`:
+
+| Alavanca | Efeito |
+| --- | --- |
+| `contentHint` (`text`/`detail`/`motion`) | Diz ao codec o que preservar: nitidez de letra ou fluidez |
+| `degradationPreference` | O que sacrificar sob pressão — resolução ou fps, nunca os dois |
+| `maxBitrate`/`maxFramerate` no sender | Teto explícito, em vez do palpite do navegador |
+| `playoutDelayHint = 0` no receiver | Corta o buffer de reprodução: a diferença entre acompanhar e ver o passado |
+
+O teto por par é rateado: numa malha a tela sobe N−1 vezes, então
+`bitrateFor()` divide o orçamento de uplink pelo número de pares. Sem isso, 6
+pessoas assistindo saturam o upload de quem compartilha — e a latência explode.
+Quem compartilha escolhe o preset (Nítida / Equilibrada / Fluida) e a troca
+vale na hora, sem reiniciar o compartilhamento.
 
 ## Decisões de produto que controlam custo e complexidade
 
@@ -106,13 +130,27 @@ conecta — ver hardening.
 | --- | --- | --- |
 | Transporte | Fastify + `ws` | `fetch` + WebSocket Hibernation |
 | Estado da sala | `RoomRegistry`, um `Map` por processo | uma Durable Object por slug |
-| Expiração | `setInterval` varrendo salas vazias | alarme da DO (agendado ao esvaziar) |
+| Expiração | `setInterval` varrendo zumbis e salas vazias | alarme da DO (varre com gente, agenda o fim ao esvaziar) |
 | Estáticos | `@fastify/static` | binding `ASSETS` (fallback de SPA no Worker) |
 | Rate limit | `@fastify/rate-limit` | binding `ratelimit` (60/min por IP) |
 
 O que **não** muda entre as duas: o protocolo fechado, os limites de
 `ROOM_LIMITS`, o lock de uma-tela-por-vez e a liberação dele em queda de
 conexão. Os testes do núcleo (`server/test/`) valem para as duas.
+
+### Como uma sala morre
+
+Queda de rede sem FIN (tampa do notebook, wi-fi que some) não gera evento de
+close: o socket fantasma segura a vaga e a sala nunca fica vazia — logo, nunca
+expira. Por isso a morte é em duas etapas, com timeout dos dois lados:
+
+1. Sem `ping` por `peerTimeoutMs` (35 s), o servidor derruba o par e anuncia
+   `peer-left` a quem ficou — liberando o lock de tela se era dele.
+2. Sala sem ninguém por `emptyTimeoutMs` (15 min) deixa de existir; o link
+   passa a responder `room_not_found`.
+
+O cliente tem o mesmo relógio ao contrário: sem `pong` no prazo ele encerra a
+sessão sozinho, porque a rede que sumiu também não entrega o frame de close.
 
 Na borda Cloudflare o par sobrevive à hibernação da DO: identidade do
 participante vai no `serializeAttachment` do socket, `screenSharer` e
@@ -128,6 +166,7 @@ metadados no storage — nada depende de memória do processo.
   protocolo comporta (`kick` seria mais um tipo de mensagem com segredo de
   moderação no localStorage do criador).
 - **Sem reconexão automática de WS**: queda de sinalização derruba a sessão
-  da sala (a UI avisa). Reconnect com backoff é melhoria contida.
+  da sala (a UI avisa, via timeout de `pong`). Reconnect com backoff é
+  melhoria contida.
 - **Observabilidade**: logs estruturados do Fastify; métricas entram junto
   com o primeiro deploy sério.

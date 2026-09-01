@@ -112,3 +112,13 @@ export function CloseIcon() {
     </svg>
   );
 }
+
+export function SlidersIcon() {
+  return (
+    <svg {...base}>
+      <path d="M4 8h9M17 8h3M4 16h3M11 16h9" />
+      <circle cx="15" cy="8" r="2.2" />
+      <circle cx="9" cy="16" r="2.2" />
+    </svg>
+  );
+}

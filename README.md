@@ -73,6 +73,12 @@ localhost. `CORS_ORIGIN` restringe a origem em produção.
 - Sala expira sozinha após 15 min vazia; máximo de **8 participantes**
   (limite técnico e de produto do mesh P2P — ver arquitetura).
 - Compartilhamento de tela: **uma pessoa por vez**, garantido no servidor
-  (lock na sala, liberado até em queda de conexão).
+  (lock na sala, liberado até em queda de conexão). Quem compartilha escolhe o
+  preset — **Nítida** (texto/código), **Equilibrada**, **Fluida** (vídeo/jogo)
+  — e a troca vale na hora.
+- Par sem sinal de vida por 35 s é **derrubado pelo servidor**: sem isso a sala
+  ficaria ocupada por fantasmas e nunca expiraria.
+- Latência à vista: RTT direto com cada pessoa e resolução/fps/bitrate reais da
+  tela compartilhada.
 - O link da sala é a credencial de acesso: slug aleatório não adivinhável.
 - Chat efêmero (não persiste) — zero armazenamento de conteúdo.
