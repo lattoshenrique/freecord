@@ -1159,28 +1159,61 @@ export function useRoomSession(options: JoinOptions) {
   const cancelTransfer = useCallback((key: string) => transfersRef.current?.cancel(key), []);
   const dismissTransfer = useCallback((key: string) => transfersRef.current?.dismiss(key), []);
 
+  const setMic = useCallback((on: boolean) => {
+    const media = localMediaRef.current;
+    if (!media) {
+      return;
+    }
+    media.getAudioTracks().forEach((track) => {
+      track.enabled = on;
+    });
+    setMicOn(on);
+  }, []);
+
+  /** What the mic was before the speakers went off, to put it back after. */
+  const micBeforeDeafenRef = useRef(true);
+
+  const setSpeaker = useCallback((on: boolean) => {
+    speakerOnRef.current = on;
+    setSpeakerOn(on);
+    signalingRef.current?.send({ t: 'deafen', on: !on });
+  }, []);
+
+  /**
+   * Unmuting the mic while the speakers are off brings the speakers back
+   * too: talking to people you cannot hear is never what was meant.
+   */
   const toggleMic = useCallback(() => {
     const media = localMediaRef.current;
     if (!media) {
       return;
     }
     const next = !media.getAudioTracks().some((track) => track.enabled);
-    media.getAudioTracks().forEach((track) => {
-      track.enabled = next;
-    });
-    setMicOn(next);
-  }, []);
+    setMic(next);
+    if (next && !speakerOnRef.current) {
+      setSpeaker(true);
+    }
+  }, [setMic, setSpeaker]);
 
   /**
    * Speakers off. Playback is muted in the view (every remote sink reads
-   * `speakerOn`); the room is told so the others see it on the tile.
+   * `speakerOn`) and the mic goes with it — someone who is not listening
+   * should not be heard either; the room is told so the others see it on
+   * the tile. Coming back restores the mic to what it was before.
    */
   const toggleSpeaker = useCallback(() => {
     const next = !speakerOnRef.current;
-    speakerOnRef.current = next;
-    setSpeakerOn(next);
-    signalingRef.current?.send({ t: 'deafen', on: !next });
-  }, []);
+    if (!next) {
+      const media = localMediaRef.current;
+      micBeforeDeafenRef.current = media
+        ? media.getAudioTracks().some((track) => track.enabled)
+        : true;
+      setMic(false);
+    } else if (micBeforeDeafenRef.current) {
+      setMic(true);
+    }
+    setSpeaker(next);
+  }, [setMic, setSpeaker]);
 
   const toggleCam = useCallback(() => {
     const videoTrack = localMediaRef.current?.getVideoTracks()[0];
