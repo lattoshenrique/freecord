@@ -815,7 +815,17 @@ export default {
 
     // SPA fallback: /r/:slug lands on index.html.
     if (request.method === 'GET') {
-      return env.ASSETS.fetch(new Request(new URL('/', url), request));
+      const response = await env.ASSETS.fetch(new Request(new URL('/', url), request));
+      // The room link is the credential: an indexed slug would be a
+      // world-readable room. The header reaches crawlers that never run
+      // our JS — unlike the meta tag — and does not rely on robots.txt
+      // being honored.
+      if (url.pathname.startsWith('/r/')) {
+        const headers = new Headers(response.headers);
+        headers.set('X-Robots-Tag', 'noindex, nofollow');
+        return new Response(response.body, { status: response.status, headers });
+      }
+      return response;
     }
     return new Response('not found', { status: 404 });
   },
