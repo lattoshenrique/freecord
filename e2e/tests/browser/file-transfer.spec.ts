@@ -252,6 +252,37 @@ test.describe('peer-to-peer file transfer', () => {
     await expect(bubble).toHaveCount(1);
   });
 
+  test('an image pasted into the field goes out as a transfer', async ({ browser }) => {
+    const { slug } = await createRoom('files-paste');
+    handles = await joinMany(browser, slug, 2);
+    const [alice, bob] = handles;
+
+    await alice.page.locator('button[data-key="C"]').click();
+    await bob.page.locator('button[data-key="C"]').click();
+
+    // A paste event carrying a PNG, the way a screenshot on the clipboard
+    // arrives — no keyboard shortcut can reach the real clipboard headless.
+    const png = pngOf(320, 200).toString('base64');
+    await alice.page.locator('.chat-panel textarea').focus();
+    await alice.page.locator('.chat-panel textarea').evaluate((area, base64) => {
+      const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+      const dt = new DataTransfer();
+      dt.items.add(new File([bytes], 'image.png', { type: 'image/png' }));
+      area.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
+    }, png);
+
+    // Named by the moment, not "image.png"; the field stays empty.
+    const sent = alice.page.locator('.chat-file');
+    await expect(sent).toContainText(/pasted-\d{8}-\d{6}\.png/);
+    await expect(alice.page.locator('.chat-panel textarea')).toHaveValue('');
+
+    const received = bob.page.locator('.chat-file');
+    await expect(received).toContainText('Received', { timeout: 30_000 });
+    await expect
+      .poll(() => received.locator('.chat-file-thumb img').evaluate((img) => (img as HTMLImageElement).naturalWidth))
+      .toBe(320);
+  });
+
   test('a declined offer settles on both sides', async ({ browser }) => {
     const { slug } = await createRoom('files-decline');
     handles = await joinMany(browser, slug, 2);

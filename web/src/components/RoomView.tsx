@@ -1040,6 +1040,7 @@ export default function RoomView({
                 }
               }}
               onAttach={() => fileInputRef.current?.click()}
+              onPasteFiles={sendFiles}
               onCancelQuote={() => setReplyTo(null)}
             />
           </aside>

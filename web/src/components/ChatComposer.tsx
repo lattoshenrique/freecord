@@ -5,6 +5,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type ClipboardEvent,
   type ComponentType,
   type KeyboardEvent,
 } from 'react';
@@ -71,6 +72,19 @@ const SYNTAX: Record<MarkdownAction, (word: string) => string> = {
   quote: (word) => `> ${word}`,
 };
 
+/**
+ * Clipboard images arrive as "image.png" from every browser; a name with the
+ * moment in it tells two screenshots apart on the receiving end.
+ */
+function nameClipboardFile(file: File): File {
+  if (!/^image\.[a-z0-9]+$/i.test(file.name)) {
+    return file;
+  }
+  const ext = file.name.slice(file.name.lastIndexOf('.') + 1);
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..*/, '').replace('T', '-');
+  return new File([file], `pasted-${stamp}.${ext}`, { type: file.type, lastModified: file.lastModified });
+}
+
 const SHORTCUTS: Record<string, MarkdownAction> = {
   b: 'bold',
   i: 'italic',
@@ -93,6 +107,7 @@ export default function ChatComposer({
   onChange,
   onSend,
   onAttach,
+  onPasteFiles,
   onCancelQuote,
 }: {
   value: string;
@@ -105,6 +120,8 @@ export default function ChatComposer({
   onSend: () => void;
   /** Opens the file picker for a peer-to-peer transfer; absent = no button. */
   onAttach?: () => void;
+  /** Files pasted into the field (a screenshot on the clipboard) go out as transfers. */
+  onPasteFiles?: (files: File[]) => void;
   onCancelQuote?: () => void;
 }) {
   const { t } = useI18n();
@@ -207,6 +224,24 @@ export default function ChatComposer({
     pendingSelection.current = { start: caret, end: caret };
     setEmojiOpen(false);
     onChange(text);
+  }
+
+  function handlePaste(event: ClipboardEvent<HTMLTextAreaElement>): void {
+    if (!onPasteFiles) {
+      return;
+    }
+    // A screenshot or a copied image lands as a file item; plain text has
+    // none and falls through to the browser's own paste.
+    const files = [...event.clipboardData.items]
+      .filter((item) => item.kind === 'file')
+      .map((item) => item.getAsFile())
+      .filter((file): file is File => file !== null)
+      .map(nameClipboardFile);
+    if (files.length === 0) {
+      return;
+    }
+    event.preventDefault();
+    onPasteFiles(files);
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>): void {
@@ -332,6 +367,7 @@ export default function ChatComposer({
           aria-label={t('chat.messageLabel')}
           onChange={(event) => onChange(event.target.value)}
           onKeyDown={handleKeyDown}
+          onPaste={handlePaste}
         />
         <div className="chat-emoji-wrap" ref={emojiRef}>
           <button
