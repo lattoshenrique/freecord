@@ -13,6 +13,7 @@
   --radius: 14px;
   --shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --mono: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace;
   /* Header e dock flutuam sobre o palco; quem fica embaixo reserva esta folga.
      Estavam repetidas na mão em três lugares e desalinhavam juntas. */
   --header-clear: 4rem;
@@ -49,6 +50,11 @@ body {
 
 #root {
   height: 100dvh;
+}
+
+::selection {
+  background: rgba(88, 101, 242, 0.45);
+  color: var(--text);
 }
 
 button {
@@ -139,7 +145,8 @@ button {
 
 /* ---- home / pré-join ---- */
 
-.home,
+/* A home virou uma landing que rola e mora em pages/home.css;
+   aqui ficam só os blocos que o pré-join também usa (.home-card). */
 .centered,
 .prejoin {
   min-height: 100dvh;
@@ -163,6 +170,12 @@ button {
   width: 100%;
   box-shadow: var(--shadow), var(--glass-highlight);
   animation: rise-in 0.4s var(--ease) both;
+}
+
+.home-logo {
+  display: block;
+  margin: 0 auto 0.75rem;
+  filter: drop-shadow(0 6px 18px rgba(88, 101, 242, 0.35));
 }
 
 .home-card h1 {
@@ -1174,6 +1187,21 @@ button {
 :root:lang(ja) {
   word-break: normal;
   line-break: strict;
+}
+
+/*
+ * Japanese wraps per character by default, so a katakana loanword splits in
+ * half mid-word (ダウ/ンロード). `line-break: strict` does not govern that —
+ * it handles small kana and prolonged sound marks. Phrase-aware breaking does.
+ *
+ * Chromium-only today, and that is fine: browsers without it ignore the
+ * declaration and keep exactly today's behaviour. Rewriting the copy to dodge
+ * the break was the alternative, and it would be worse — where the line lands
+ * depends on the viewport, so the fix would hold at one width and fail at the
+ * next.
+ */
+:root:lang(ja) {
+  word-break: auto-phrase;
 }
 
 :lang(zh-CN) .chat-md p,
