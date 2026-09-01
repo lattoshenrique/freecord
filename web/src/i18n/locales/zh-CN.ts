@@ -135,7 +135,7 @@ export const zhCN: Catalog = {
   'community.promise.guest.body':
     '创建房间，发出链接。链接本身就是凭证 —— 一段无法被猜到的随机字符。没有账号要注册，没有邮箱要交出，也没有密码要记。',
   'community.promise.p2p.title':
-    '你的音视频从不经过我们的服务器',
+    '中间没有媒体服务器',
   'community.promise.p2p.body':
     '语音、视频和屏幕共享通过原生 WebRTC 在浏览器之间直接传输，默认端到端加密。服务器只负责信令和房间状态，就算想看也看不到。',
   'community.promise.chat.title':
@@ -145,7 +145,7 @@ export const zhCN: Catalog = {
   'community.promise.vendor.title':
     '没有服务商，没有 SDK',
   'community.promise.vendor.body':
-    '没有媒体服务商，没有第三方 SDK，没有外部凭证。整套协议都在仓库里，而且全部运行在免费的基础设施上。',
+    '没有媒体服务商，也没有第三方 SDK。整套协议都在仓库里，全部运行在免费的基础设施上。唯一的例外是 TURN —— 一个为封锁直连的网络准备的中继。它转发的是自己无法解密的加密流量，而且改一行就能换成自建的。',
   'community.source.title':
     '阅读源码',
   'community.source.body':

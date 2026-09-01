@@ -136,7 +136,7 @@ export const jaJP: Catalog = {
   'community.promise.guest.body':
     'ルームを作ってリンクを送るだけ。そのリンクが鍵です — 誰にも推測できないランダムな文字列。作るアカウントも、渡すメールアドレスも、忘れるパスワードもありません。',
   'community.promise.p2p.title':
-    'あなたのメディアはサーバーを通りません',
+    'あいだにメディアサーバーはありません',
   'community.promise.p2p.body':
     '音声・ビデオ・画面共有はネイティブ WebRTC でブラウザ間を直接流れ、既定でエンドツーエンド暗号化されます。サーバーが運ぶのはシグナリングとルームの状態だけ。覗こうとしても覗けません。',
   'community.promise.chat.title':
@@ -146,7 +146,7 @@ export const jaJP: Catalog = {
   'community.promise.vendor.title':
     'ベンダーなし、SDK なし',
   'community.promise.vendor.body':
-    'メディア事業者も、サードパーティ SDK も、外部の資格情報もありません。プロトコルはすべてリポジトリの中にあり、全体が無料のインフラで動いています。',
+    'メディア事業者もサードパーティ SDK もありません。プロトコルはすべてリポジトリにあり、全体が無料のインフラで動いています。唯一の例外は TURN です。直接接続を遮断するネットワーク向けの中継で、復号できない暗号化トラフィックをそのまま転送するだけ。自分で立てる場合も変更は 1 行です。',
   'community.source.title':
     'ソースを読む',
   'community.source.body':

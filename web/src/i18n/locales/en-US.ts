@@ -135,7 +135,8 @@ export const enUS = {
   'community.promise.guest.title': 'No signup, ever',
   'community.promise.guest.body':
     'Create a room, send the link. The link is the credential — an unguessable random slug. There is no account to create, no email to hand over, no password to forget.',
-  'community.promise.p2p.title': 'Your media never touches our server',
+  'community.promise.p2p.title':
+    'No media server in the middle',
   'community.promise.p2p.body':
     'Voice, video and screen sharing flow straight between browsers over native WebRTC, encrypted end to end by default. The server only carries signaling and room state — it could not watch you if it wanted to.',
   'community.promise.chat.title': 'Chat that leaves nothing behind',
@@ -143,7 +144,7 @@ export const enUS = {
     'Messages live in the room and disappear with it. Zero content storage, on purpose: nothing to leak, nothing to sell, nothing to hand over.',
   'community.promise.vendor.title': 'No vendor, no SDK',
   'community.promise.vendor.body':
-    'No media provider, no third-party SDK, no external credential. The entire protocol lives in the repository, and the whole thing runs on free infrastructure.',
+    'No media provider and no third-party SDK. The entire protocol lives in the repository and the whole thing runs on free infrastructure. The one exception is TURN, a relay for networks that block direct connections — it forwards encrypted traffic it cannot read, and self-hosting it is a one-line change.',
 
   'community.source.title': 'Read the source',
   'community.source.body':

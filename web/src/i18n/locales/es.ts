@@ -136,7 +136,7 @@ export const esES: Catalog = {
   'community.promise.guest.body':
     'Crea una sala y envía el enlace. El enlace es la credencial: un código aleatorio que nadie puede adivinar. No hay cuenta que crear, correo que entregar ni contraseña que olvidar.',
   'community.promise.p2p.title':
-    'Tus medios nunca pasan por nuestro servidor',
+    'Sin servidor de medios en medio',
   'community.promise.p2p.body':
     'La voz, el vídeo y la pantalla van directos entre navegadores por WebRTC nativo, cifrados de extremo a extremo por defecto. El servidor solo transporta la señalización y el estado de la sala: no podría espiarte aunque quisiera.',
   'community.promise.chat.title':
@@ -146,7 +146,7 @@ export const esES: Catalog = {
   'community.promise.vendor.title':
     'Sin proveedor, sin SDK',
   'community.promise.vendor.body':
-    'Ningún proveedor de medios, ningún SDK de terceros, ninguna credencial externa. Todo el protocolo está en el repositorio, y el conjunto funciona sobre infraestructura gratuita.',
+    'Ningún proveedor de medios y ningún SDK de terceros. Todo el protocolo está en el repositorio y el conjunto funciona sobre infraestructura gratuita. La única excepción es TURN, un relé para redes que bloquean la conexión directa: reenvía tráfico cifrado que no puede leer, y alojarlo tú mismo es cambiar una línea.',
   'community.source.title':
     'Lee el código',
   'community.source.body':
