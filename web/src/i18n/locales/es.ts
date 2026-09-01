@@ -4,6 +4,7 @@ export const esES: Catalog = {
   'app.name': 'Freecord',
   'app.tagline':
     'Voz, vídeo, chat y pantalla en una malla P2P. Sin servidor de medios en medio.',
+  'app.buildInfo': 'Versión {version} · build {build}',
 
   'home.roomName': 'Nombre de la sala',
   'home.roomNamePlaceholder': 'Nombre de la sala — o pega un enlace de invitación',

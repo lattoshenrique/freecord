@@ -8,6 +8,7 @@ export const enUS = {
   'app.name': 'Freecord',
   'app.tagline':
     'Voice, video, chat and screen sharing over a P2P mesh. No media server in the middle.',
+  'app.buildInfo': 'Version {version} · build {build}',
 
   'home.roomName': 'Room name',
   'home.roomNamePlaceholder': 'Room name — or paste an invite link',

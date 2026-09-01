@@ -4,6 +4,7 @@ export const zhCN: Catalog = {
   'app.name': 'Freecord',
   'app.tagline':
     '语音、视频、聊天和屏幕共享，跑在 P2P 网状网络上。中间没有媒体服务器。',
+  'app.buildInfo': '版本 {version} · 构建 {build}',
 
   'home.roomName': '房间名称',
   'home.roomNamePlaceholder': '房间名称 — 或粘贴邀请链接',

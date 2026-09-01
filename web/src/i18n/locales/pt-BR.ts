@@ -4,6 +4,7 @@ export const ptBR: Catalog = {
   'app.name': 'Freecord',
   'app.tagline':
     'Voz, vídeo, chat e tela numa malha P2P. Sem servidor de mídia no meio.',
+  'app.buildInfo': 'Versão {version} · build {build}',
 
   'home.roomName': 'Nome da sala',
   'home.roomNamePlaceholder': 'Nome da sala — ou cole um link de convite',

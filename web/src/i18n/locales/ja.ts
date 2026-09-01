@@ -4,6 +4,7 @@ export const jaJP: Catalog = {
   'app.name': 'Freecord',
   'app.tagline':
     '音声・ビデオ・チャット・画面共有を P2P メッシュで。あいだにメディアサーバーはありません。',
+  'app.buildInfo': 'バージョン {version} · ビルド {build}',
 
   'home.roomName': 'ルーム名',
   'home.roomNamePlaceholder': 'ルーム名 — または招待リンクを貼り付け',

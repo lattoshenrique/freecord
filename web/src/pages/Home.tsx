@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { createRoom } from '../api';
+import { APP_BUILD, APP_VERSION } from '../lib/build-info';
 import { generateRoomKey } from '../lib/chat-crypto';
 import { looksLikeInvite, parseInvite } from '../lib/invite';
 import DownloadCard from '../components/DownloadCard';
@@ -148,6 +149,9 @@ export default function HomePage() {
             GitHub
           </a>
           <LanguagePicker />
+          <span className="start-build" title={t('app.buildInfo', { version: APP_VERSION, build: APP_BUILD })}>
+            v{APP_VERSION} · {APP_BUILD}
+          </span>
         </footer>
       </section>
 

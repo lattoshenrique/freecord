@@ -211,6 +211,15 @@
   transition: color 0.15s ease;
 }
 
+/* Version + build stamp: present, never loud. */
+.start-build {
+  color: var(--muted);
+  font-size: 0.78rem;
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+  user-select: text;
+}
+
 .start-foot a:hover,
 .start-foot select:hover {
   color: var(--text);

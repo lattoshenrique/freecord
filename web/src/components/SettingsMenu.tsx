@@ -11,6 +11,7 @@
  */
 import { useEffect, useState } from 'react';
 import { useI18n, type MessageKey } from '../i18n';
+import { APP_BUILD, APP_VERSION } from '../lib/build-info';
 import { SCREEN_QUALITY_PRESETS, type ScreenQualityId } from '../lib/screen-quality';
 import {
   CAMERA_PRESETS,
@@ -267,6 +268,10 @@ export default function SettingsMenu({
             />
           </section>
         )}
+
+        <p className="settings-build">
+          {t('app.buildInfo', { version: APP_VERSION, build: APP_BUILD })}
+        </p>
       </div>
     </>
   );

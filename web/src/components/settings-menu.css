@@ -197,3 +197,16 @@
   color: #111;
   background: #fff;
 }
+
+/* Version + build stamp at the foot of the menu: findable in-room without
+   leaving the call, quiet enough to ignore. */
+.settings-build {
+  margin: 0.35rem 0.6rem 0.3rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid var(--hud-border, rgba(255, 255, 255, 0.1));
+  font-family: var(--mono, monospace);
+  font-size: 0.66rem;
+  color: var(--muted, #98a0b3);
+  opacity: 0.8;
+  user-select: text;
+}
