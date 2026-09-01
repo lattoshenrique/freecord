@@ -9,6 +9,16 @@ import { AVATAR_GRID, avatarFrom, hashString } from '../lib/identity';
  */
 export default function Avatar({ name, className }: { name: string; className?: string }) {
   const { hue, cells } = useMemo(() => avatarFrom(name), [name]);
+  // The lowest lit row is the mouth: the speaking styles open and close it
+  // while the rest of the face holds still. Every glyph has one — avatarFrom
+  // never draws fewer than four cells.
+  const mouthRow = useMemo(() => {
+    let last = 0;
+    cells.forEach((on, index) => {
+      if (on) last = Math.floor(index / AVATAR_GRID);
+    });
+    return last;
+  }, [cells]);
   // Derived from the name, not from useId(): the gradient is the same drawing
   // for the same name, and the id must survive going into a url() reference.
   const gradientId = `avatar-${hashString(name).toString(36)}`;
@@ -45,6 +55,7 @@ export default function Avatar({ name, className }: { name: string; className?: 
             height="1"
             rx="0.26"
             fill="rgba(255, 255, 255, 0.9)"
+            data-part={Math.floor(index / AVATAR_GRID) === mouthRow ? 'mouth' : undefined}
           />
         ) : null,
       )}

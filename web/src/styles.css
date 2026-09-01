@@ -534,6 +534,7 @@ button {
   border-radius: 24%;
   border: 1px solid var(--hud-border);
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+  transition: border-color 0.3s ease, transform 0.3s ease;
 }
 
 .tile-name {
@@ -622,7 +623,71 @@ button {
   }
 }
 
-/* In the strip beside a shared screen the tiles are small: ring only. */
+/*
+ * The face talks too. With the camera off the avatar is the person, so its
+ * mouth — the lowest row of the glyph, marked by the Avatar component —
+ * opens and shuts in the uneven rhythm of a sentence, and the whole head
+ * leans a little with it. Only transforms move: the tile keeps its size,
+ * and the head's swing stays well inside the frame. The mouth cells scale
+ * about their own centre (transform-box) so each tooth opens in place
+ * instead of sliding off the grid.
+ */
+.tile[data-speaking='true'] .tile-avatar {
+  border-color: var(--accent);
+  transform-origin: 50% 80%;
+  animation: avatar-talking 1.4s ease-in-out infinite;
+}
+
+.tile-avatar rect[data-part='mouth'] {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.tile[data-speaking='true'] .tile-avatar rect[data-part='mouth'] {
+  animation: avatar-mouth 0.7s ease-in-out infinite;
+}
+
+@keyframes avatar-mouth {
+  0% {
+    transform: scaleY(1);
+  }
+  22% {
+    transform: scaleY(0.35) scaleX(1.12);
+  }
+  40% {
+    transform: scaleY(1.1);
+  }
+  58% {
+    transform: scaleY(0.55) scaleX(1.06);
+  }
+  74% {
+    transform: scaleY(1.2) scaleX(0.96);
+  }
+  100% {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes avatar-talking {
+  0% {
+    transform: translateY(0) rotate(0deg);
+  }
+  30% {
+    transform: translateY(-1.5px) rotate(-1deg);
+  }
+  55% {
+    transform: translateY(0.5px) rotate(0.6deg);
+  }
+  80% {
+    transform: translateY(-1px) rotate(1deg);
+  }
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+}
+
+/* In the strip beside a shared screen the tiles are small: ring only on the
+   tile; the avatar still nods, since that stays inside the frame. */
 .tiles-strip .tile[data-speaking='true'] {
   animation: var(--tile-enter);
 }
