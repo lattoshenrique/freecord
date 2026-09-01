@@ -13,7 +13,12 @@ import {
   type ScreenQualityId,
 } from './screen-quality';
 import { ScreenRelayController, extractRelayNote, makeRelayNote } from './screen-relay';
-import { desktopSystemAudio } from './platform';
+import {
+  loadMediaSettings,
+  saveMediaSettings,
+  screenAudioConstraints,
+  type MediaSettings,
+} from './media-settings';
 import { StatsSampler, type PeerLatency, type ScreenStats } from './stats';
 
 export interface JoinOptions {
@@ -96,6 +101,8 @@ export function useRoomSession(options: JoinOptions) {
   /** A camera-denied just landed: the UI shows why the toggle did nothing. */
   const [camDenied, setCamDenied] = useState(false);
   const [screenQuality, setScreenQualityState] = useState<ScreenQualityId>(loadQuality);
+  /** User-tunable media prefs (mic profile, camera ceiling, screen audio). */
+  const [mediaSettings, setMediaSettings] = useState<MediaSettings>(loadMediaSettings);
   const [peerLatency, setPeerLatency] = useState<Map<string, PeerLatency>>(new Map());
   const [signalRttMs, setSignalRttMs] = useState<number | null>(null);
   const [screenStats, setScreenStats] = useState<ScreenStats | null>(null);
@@ -110,6 +117,8 @@ export function useRoomSession(options: JoinOptions) {
   const pendingScreenRef = useRef<MediaStream | null>(null);
   const localScreenRef = useRef<MediaStream | null>(null);
   const qualityRef = useRef<ScreenQualityId>(screenQuality);
+  /** Mirror for callbacks (share start) that must not close over state. */
+  const mediaSettingsRef = useRef<MediaSettings>(mediaSettings);
   const viewerCountRef = useRef(0);
   /** The user's intent: camera wanted on. Survives the request round-trip. */
   const camWantedRef = useRef(options.camEnabled);
@@ -790,6 +799,18 @@ export function useRoomSession(options: JoinOptions) {
     [screenEncoding],
   );
 
+  /**
+   * Constraint: persists and stores the choice only. Live re-application
+   * of mic/camera constraints to already-acquired tracks is the follow-up
+   * seam (owned by the settings track); today the only setting that takes
+   * effect mid-call is screen audio, read at the next share start.
+   */
+  const updateMediaSettings = useCallback((next: MediaSettings) => {
+    mediaSettingsRef.current = next;
+    setMediaSettings(next);
+    saveMediaSettings(next);
+  }, []);
+
   const sendChat = useCallback((text: string) => {
     const key = chatKeyRef.current;
     if (!key) {
@@ -849,10 +870,10 @@ export function useRoomSession(options: JoinOptions) {
       const preset = presetById(qualityRef.current);
       const stream = await navigator.mediaDevices.getDisplayMedia({
         video: screenConstraints(preset),
-        // Only where the desktop shell says the OS can loop system audio
-        // back (Windows): elsewhere the request adds a confusing checkbox
-        // or silently yields nothing.
-        audio: desktopSystemAudio(),
+        // Opt-in via settings, off by default. In Chromium browsers the
+        // picker offers tab/system audio; Firefox/Safari return video-only,
+        // which is harmless. The capture rides raw (no processing chain).
+        audio: mediaSettingsRef.current.screenAudio ? screenAudioConstraints() : false,
       });
       pendingScreenRef.current = stream;
       const track = stream.getVideoTracks()[0];
@@ -913,11 +934,13 @@ export function useRoomSession(options: JoinOptions) {
     cameraSlotsFull,
     camDenied,
     screenQuality,
+    mediaSettings,
     peerLatency,
     signalRttMs,
     screenStats,
     mesh: meshRef.current,
     setScreenQuality,
+    updateMediaSettings,
     sendChat,
     toggleMic,
     toggleCam,

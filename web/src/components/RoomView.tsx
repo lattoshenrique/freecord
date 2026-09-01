@@ -4,14 +4,17 @@ import { Link } from 'react-router-dom';
 import type { RoomSummary } from '../api';
 import { renderMarkdown } from '../lib/markdown';
 import { playMessageChime } from '../lib/notification-sound';
-import { useI18n, type MessageKey, type Translate } from '../i18n';
+import { useI18n } from '../i18n';
+import { desktopSystemAudio, isDesktopApp } from '../lib/platform';
 import { MAX_PARTICIPANTS } from '../lib/protocol';
-import { SCREEN_QUALITY_PRESETS, type ScreenQualityId } from '../lib/screen-quality';
+import { SCREEN_QUALITY_PRESETS } from '../lib/screen-quality';
 import type { ScreenStats } from '../lib/stats';
 import { useRoomSession, type JoinOptions } from '../lib/use-room';
+import { useSpeaking } from '../lib/use-speaking';
 import Avatar from './Avatar';
 import ChatComposer from './ChatComposer';
 import InviteButton from './InviteButton';
+import SettingsMenu from './SettingsMenu';
 import {
   CamIcon,
   CamOffIcon,
@@ -79,42 +82,6 @@ function ScreenStatsBar({ stats }: { stats: ScreenStats }) {
         </>
       )}
     </span>
-  );
-}
-
-function QualityMenu({
-  value,
-  onChange,
-  onClose,
-}: {
-  value: ScreenQualityId;
-  onChange: (id: ScreenQualityId) => void;
-  onClose: () => void;
-}) {
-  const { t } = useI18n();
-  return (
-    <>
-      <button type="button" className="menu-backdrop" aria-label={t('controls.closeMenu')} onClick={onClose} />
-      <div className="quality-menu" role="menu">
-        <p className="quality-menu-title">{t('quality.title')}</p>
-        {SCREEN_QUALITY_PRESETS.map((preset) => (
-          <button
-            key={preset.id}
-            type="button"
-            role="menuitemradio"
-            aria-checked={preset.id === value}
-            className={`quality-option ${preset.id === value ? 'selected' : ''}`}
-            onClick={() => {
-              onChange(preset.id);
-              onClose();
-            }}
-          >
-            <span className="quality-option-label">{t(`quality.${preset.id}.label` as MessageKey)}</span>
-            <span className="quality-option-hint">{t(`quality.${preset.id}.hint` as MessageKey)}</span>
-          </button>
-        ))}
-      </div>
-    </>
   );
 }
 
@@ -298,6 +265,7 @@ function Tile({
   name,
   isSelf,
   micOff,
+  speaking,
   stream,
   latencyMs,
   latencyTitle,
@@ -306,6 +274,7 @@ function Tile({
   name: string;
   isSelf: boolean;
   micOff: boolean;
+  speaking: boolean;
   stream: MediaStream | null;
   latencyMs: number | null;
   latencyTitle: string;
@@ -314,7 +283,7 @@ function Tile({
   const { t } = useI18n();
   const showVideo = stream !== null && hasLiveVideo(stream);
   return (
-    <div className="tile" style={style}>
+    <div className="tile" data-speaking={speaking ? 'true' : undefined} style={style}>
       <LatencyChip ms={latencyMs} title={latencyTitle} />
       {showVideo ? (
         <MediaView stream={stream} muted={isSelf} className={`tile-video ${isSelf ? 'mirrored' : ''}`} />
@@ -348,10 +317,11 @@ export default function RoomView({
 }) {
   const { t } = useI18n();
   const session = useRoomSession(options);
+  const speaking = useSpeaking(session);
   const [chatOpen, setChatOpen] = useState(false);
   const [draft, setDraft] = useState('');
   const [unread, setUnread] = useState(0);
-  const [qualityOpen, setQualityOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [chipLeft, setChipLeft] = useState<number | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const footerRef = useRef<HTMLElement>(null);
@@ -413,6 +383,65 @@ export default function RoomView({
   const screenVideoRef = useRef<HTMLVideoElement>(null);
   const fullscreen = useFullscreen(stageRef, screenVideoRef);
 
+  // The listener registers once; the session object is a fresh literal per
+  // render, so the handler reads the latest one through a ref.
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.ctrlKey || event.metaKey || event.altKey || event.repeat) {
+        return;
+      }
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
+      ) {
+        return;
+      }
+      const current = sessionRef.current;
+      switch (event.key.toLowerCase()) {
+        case 'm':
+          current.toggleMic();
+          return;
+        case 'v':
+          // Same path as the button — the server's slot request flow,
+          // never the track directly; mirrors the button's disabled state.
+          if (!current.cameraSlotsFull) {
+            current.toggleCam();
+          }
+          return;
+        case 's': {
+          const sharing = current.screen !== null && current.screen.id === current.selfId;
+          if (sharing) {
+            current.stopScreenShare();
+          } else if (current.screen === null) {
+            void current.startScreenShare();
+          }
+          return;
+        }
+        case 'c':
+          setChatOpen((open) => !open);
+          return;
+        case 'q': {
+          // Only while sharing: cycling a preset nobody is sending is invisible.
+          if (current.screen === null || current.screen.id !== current.selfId) {
+            return;
+          }
+          const index = SCREEN_QUALITY_PRESETS.findIndex((p) => p.id === current.screenQuality);
+          const next = SCREEN_QUALITY_PRESETS[(index + 1) % SCREEN_QUALITY_PRESETS.length];
+          if (next) {
+            current.setScreenQuality(next.id);
+          }
+          return;
+        }
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
   // Computado a cada render de propósito: streams remotos chegam por
   // a mesh notification (a re-render with no React state change) — a
   // useMemo aqui devolveria o valor cacheado e nunca veria o stream.
@@ -429,10 +458,12 @@ export default function RoomView({
         : null;
 
   const participantCount = session.peers.length + 1;
-  // Only real faces get a tile: the grid gives each one as much room as it
-  // can. Capacity is a number, not a layout — the seat counter in the header
-  // carries it. With a screen on stage the tiles collapse to the strip.
-  const grid = useTileGrid(screenStream ? 0 : participantCount);
+  // The grid lays out all 12 seats, occupied or not: capacity is something
+  // you can see, not a number to look up. Ghost seats cost tile size in a
+  // near-empty room — the deliberate trade. With a screen on stage the tiles
+  // collapse to the strip and only real faces ride it.
+  const grid = useTileGrid(screenStream ? 0 : MAX_PARTICIPANTS);
+  const openSeats = screenStream ? 0 : Math.max(0, MAX_PARTICIPANTS - participantCount);
 
   if (status.kind === 'ended' && status.reason !== 'left') {
     const message =
@@ -476,6 +507,35 @@ export default function RoomView({
   // the display stream announced by screen-started — even when the video
   // comes through a relay. The stage <video> is muted, so the audio needs
   // its own audible sink.
+  // HUD telemetry: language-neutral technical tokens, deliberately not
+  // i18n'd. Metrics without a reading yet are simply absent.
+  const hudMetrics: { label: string; value: string }[] = [];
+  const rtts = [...session.peerLatency.values()]
+    .map((latency) => latency.rttMs)
+    .filter((rtt): rtt is number => rtt !== null);
+  if (rtts.length > 0) {
+    // The worst pair: one number that still points at whoever the call drags for.
+    hudMetrics.push({ label: 'rtt', value: `${Math.max(...rtts)} ms` });
+  }
+  const hudStats = session.screenStats;
+  if (hudStats?.kbps != null) {
+    hudMetrics.push({
+      label: hudStats.direction === 'sending' ? '↑' : '↓',
+      value: formatBitrate(hudStats.kbps),
+    });
+  }
+  if (hudStats?.fps != null) {
+    hudMetrics.push({ label: 'fps', value: `${Math.round(hudStats.fps)}` });
+  }
+  if (hudStats?.width != null && hudStats?.height != null) {
+    hudMetrics.push({ label: 'res', value: `${hudStats.width}×${hudStats.height}` });
+  }
+  // Relaying ourselves: the forwarding mode; fed through a relay: its name.
+  const hudRelay = session.screen ? (hudStats?.relayMode ?? relayName) : null;
+  if (hudRelay) {
+    hudMetrics.push({ label: 'relay', value: hudRelay });
+  }
+
   const screenAudioStream = someoneElseSharing
     ? (session.mesh
         ?.getPeerStreams(session.screen!.id)
@@ -507,6 +567,16 @@ export default function RoomView({
 
       <div className="room-body">
         <div className="stage-area">
+          {hudMetrics.length > 0 && (
+            <div className="hud-bar">
+              {hudMetrics.map((metric) => (
+                <span key={metric.label} className="hud-metric">
+                  <b>{metric.label}</b>
+                  <i>{metric.value}</i>
+                </span>
+              ))}
+            </div>
+          )}
           {screenStream && (
             <div
               className={`screen-stage fade-in ${fullscreen.active ? 'is-fullscreen' : ''}`}
@@ -550,6 +620,7 @@ export default function RoomView({
               name={options.name}
               isSelf
               micOff={!session.micOn}
+              speaking={session.selfId !== null && speaking.has(session.selfId)}
               stream={session.localMedia && session.camOn ? session.localMedia : null}
               latencyMs={session.signalRttMs}
               latencyTitle={t('latency.signal')}
@@ -569,6 +640,7 @@ export default function RoomView({
                   name={peer.name}
                   isSelf={false}
                   micOff={false}
+                  speaking={speaking.has(peer.id)}
                   stream={cameraStream}
                   latencyMs={session.peerLatency.get(peer.id)?.rttMs ?? null}
                   latencyTitle={t('latency.peer', { name: peer.name })}
@@ -576,6 +648,15 @@ export default function RoomView({
                 />
               );
             })}
+            {Array.from({ length: openSeats }, (_, i) => (
+              <div
+                key={`seat-${i}`}
+                className="tile-seat"
+                style={tileStyle}
+                title={t('room.seatOpen')}
+                aria-hidden="true"
+              />
+            ))}
           </div>
         </div>
 
@@ -634,14 +715,19 @@ export default function RoomView({
             {t('room.camDenied')}
           </p>
         )}
-        {!chatOpen && unread > 0 && !qualityOpen && (
+        {!chatOpen && unread > 0 && !settingsOpen && (
           <ChatUnreadChip count={unread} left={chipLeft} onOpen={() => setChatOpen(true)} />
         )}
-        {qualityOpen && (
-          <QualityMenu
-            value={session.screenQuality}
-            onChange={session.setScreenQuality}
-            onClose={() => setQualityOpen(false)}
+        {settingsOpen && (
+          <SettingsMenu
+            screenQuality={session.screenQuality}
+            onScreenQuality={session.setScreenQuality}
+            settings={session.mediaSettings}
+            onSettings={session.updateMediaSettings}
+            // In a browser the picker itself decides (Chromium offers tab or
+            // system audio); only the desktop shell can rule it out upfront.
+            screenAudioSupported={!isDesktopApp() || desktopSystemAudio()}
+            onClose={() => setSettingsOpen(false)}
           />
         )}
         <LiquidGlass
@@ -659,6 +745,7 @@ export default function RoomView({
             type="button"
             className={`control ${session.micOn ? '' : 'control-off'}`}
             aria-pressed={!session.micOn}
+            data-key="M"
             title={session.micOn ? t('controls.muteMic') : t('controls.unmuteMic')}
             onClick={session.toggleMic}
           >
@@ -671,6 +758,7 @@ export default function RoomView({
             className={`control ${session.camOn || session.cameraSlotsFull ? '' : 'control-off'}`}
             aria-pressed={!session.camOn}
             disabled={session.cameraSlotsFull}
+            data-key="V"
             data-camera-slots={session.cameraSlotsFull ? 'full' : undefined}
             title={
               session.cameraSlotsFull
@@ -695,6 +783,7 @@ export default function RoomView({
             className={`control ${iAmSharing ? 'control-active' : ''}`}
             aria-pressed={iAmSharing}
             disabled={someoneElseSharing}
+            data-key="S"
             title={
               someoneElseSharing
                 ? t('controls.someoneSharing')
@@ -714,11 +803,12 @@ export default function RoomView({
           </button>
           <button
             type="button"
-            className={`control ${qualityOpen ? 'control-active' : ''}`}
+            className={`control ${settingsOpen ? 'control-active' : ''}`}
             aria-haspopup="menu"
-            aria-expanded={qualityOpen}
+            aria-expanded={settingsOpen}
+            data-key="Q"
             title={t('controls.quality')}
-            onClick={() => setQualityOpen((open) => !open)}
+            onClick={() => setSettingsOpen((open) => !open)}
           >
             <SlidersIcon />
           </button>
@@ -727,6 +817,7 @@ export default function RoomView({
             type="button"
             className={`control ${chatOpen ? 'control-active' : ''}`}
             aria-pressed={chatOpen}
+            data-key="C"
             title={chatOpen ? t('controls.closeChat') : t('controls.openChat')}
             onClick={() => setChatOpen((open) => !open)}
           >

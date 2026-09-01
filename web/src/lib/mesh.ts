@@ -36,11 +36,15 @@ interface SignalPayload {
   candidate?: RTCIceCandidateInit;
 }
 
-/** A track's send cap — applied identically across all peers. */
+/**
+ * A track's send cap — applied identically across all peers. Only the
+ * bitrate is mandatory: an audio cap (mic profile) has no framerate or
+ * degradation axis, and an absent field leaves the browser's value alone.
+ */
 export interface TrackEncoding {
   maxBitrate: number;
-  maxFramerate: number;
-  degradationPreference: RTCDegradationPreference;
+  maxFramerate?: number;
+  degradationPreference?: RTCDegradationPreference;
   /**
    * >1 shrinks the encode before it leaves. Used when a sender's encoder
    * output is discarded (encoded-relay passthrough): the encoder keeps
@@ -95,16 +99,37 @@ export class Mesh {
    */
   private readonly encodingOverrides = new Map<MediaStreamTrack, Map<string, TrackEncoding>>();
   private readonly listeners = new Set<() => void>();
+  /**
+   * Rewrites every REMOTE description's SDP before it is applied (offers
+   * and answers alike) — the seam for wire-invisible upgrades such as
+   * lifting the Opus receive ceiling. Never sees rollbacks: those carry
+   * no SDP and must reach the negotiation state machine untouched.
+   */
+  private readonly remoteSdpTransform: ((sdp: string) => string) | null;
   private closed = false;
 
   constructor(
     selfId: string,
     sendSignal: (to: string, data: SignalPayload) => void,
     iceServers?: RTCIceServer[],
+    remoteSdpTransform?: (sdp: string) => string,
   ) {
     this.selfId = selfId;
     this.sendSignal = sendSignal;
     this.iceServers = iceServers && iceServers.length > 0 ? iceServers : DEFAULT_ICE_SERVERS;
+    this.remoteSdpTransform = remoteSdpTransform ?? null;
+  }
+
+  /** A throwing transform must cost a missed upgrade, not the negotiation. */
+  private transformRemote(description: RTCSessionDescriptionInit): RTCSessionDescriptionInit {
+    if (!this.remoteSdpTransform || description.type === 'rollback' || !description.sdp) {
+      return description;
+    }
+    try {
+      return { ...description, sdp: this.remoteSdpTransform(description.sdp) };
+    } catch {
+      return description;
+    }
   }
 
   subscribe(listener: () => void): () => void {
@@ -289,19 +314,59 @@ export class Mesh {
     }
     for (const layer of parameters.encodings as PriorityEncoding[]) {
       layer.maxBitrate = encoding.maxBitrate;
-      layer.maxFramerate = encoding.maxFramerate;
-      layer.scaleResolutionDownBy = encoding.scaleResolutionDownBy ?? 1;
+      if (encoding.maxFramerate !== undefined) {
+        layer.maxFramerate = encoding.maxFramerate;
+      }
+      if (track.kind === 'video') {
+        // Video-only knob: `?? 1` clears a stale crush when an override lifts.
+        layer.scaleResolutionDownBy = encoding.scaleResolutionDownBy ?? 1;
+      }
       if (encoding.priority) {
         layer.priority = encoding.priority;
         layer.networkPriority = encoding.priority;
       }
     }
-    parameters.degradationPreference = encoding.degradationPreference;
+    if (encoding.degradationPreference !== undefined) {
+      parameters.degradationPreference = encoding.degradationPreference;
+    }
     try {
       await sender.setParameters(parameters);
     } catch {
       // parameters rejected (peer going down): the next application retries
     }
+  }
+
+  /**
+   * Live source swap (picking another microphone mid-call): the senders keep
+   * their negotiated m-line, so no renegotiation and no glare — only the
+   * bytes change. Bookkeeping moves to the new track so per-track encodings
+   * and per-peer overrides survive the swap.
+   */
+  async replaceLocalTrack(oldTrack: MediaStreamTrack, newTrack: MediaStreamTrack): Promise<void> {
+    const local = this.localTracks.get(oldTrack);
+    if (!local) {
+      return;
+    }
+    this.localTracks.delete(oldTrack);
+    this.localTracks.set(newTrack, local);
+    const overrides = this.encodingOverrides.get(oldTrack);
+    if (overrides) {
+      this.encodingOverrides.delete(oldTrack);
+      this.encodingOverrides.set(newTrack, overrides);
+    }
+    await Promise.all(
+      [...this.peers.values()].map(async (state) => {
+        const sender = state.pc.getSenders().find((s) => s.track === oldTrack);
+        if (!sender) {
+          return;
+        }
+        try {
+          await sender.replaceTrack(newTrack);
+        } catch {
+          // peer tearing down: its next negotiation re-adds the track
+        }
+      }),
+    );
   }
 
   removeLocalTrack(track: MediaStreamTrack): void {
@@ -406,7 +471,7 @@ export class Mesh {
 
     try {
       if (payload.description) {
-        const description = payload.description;
+        const description = this.transformRemote(payload.description);
         const offerCollision =
           description.type === 'offer' && (state.makingOffer || pc.signalingState !== 'stable');
         state.ignoreOffer = !state.polite && offerCollision;

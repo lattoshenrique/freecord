@@ -7,6 +7,7 @@
  * that adapts to room size.
  */
 
+import type { SenderCaps } from './media-settings';
 import type { TrackEncoding } from './mesh';
 
 /** Assumed upload budget for the camera (bps), across all its copies. */
@@ -42,5 +43,22 @@ export function cameraEncoding(peerCount: number): TrackEncoding {
     maxFramerate: CAMERA_MAX_FRAMERATE,
     degradationPreference: 'balanced',
     priority: 'low',
+  };
+}
+
+/**
+ * Room policy merged with the user's chosen ceiling (media-settings).
+ * Invariant: user caps may only LOWER what the policy allows, never raise
+ * it, and never touch priority — congestion ordering stays the room's.
+ */
+export function composeCameraEncoding(policy: TrackEncoding, userCaps: SenderCaps): TrackEncoding {
+  return {
+    ...policy,
+    maxBitrate: Math.min(policy.maxBitrate, userCaps.maxBitrate),
+    maxFramerate:
+      policy.maxFramerate !== undefined && userCaps.maxFramerate !== undefined
+        ? Math.min(policy.maxFramerate, userCaps.maxFramerate)
+        : (userCaps.maxFramerate ?? policy.maxFramerate),
+    degradationPreference: userCaps.degradationPreference ?? policy.degradationPreference,
   };
 }
