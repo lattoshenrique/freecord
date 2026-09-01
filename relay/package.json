@@ -1,6 +1,6 @@
 {
   "name": "@freecord/encoded-relay",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Encoded-frame passthrough relaying for WebRTC forwarding trees — skip the decode/re-encode at every hop",
   "license": "MIT",
   "type": "module",
