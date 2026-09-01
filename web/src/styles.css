@@ -643,9 +643,33 @@ button {
   animation: avatar-talking 1.4s ease-in-out infinite;
 }
 
-.tile-avatar rect[data-part='mouth'] {
+.tile-avatar rect[data-part='mouth'],
+.tile-avatar rect[data-part='eye'] {
   transform-box: fill-box;
   transform-origin: center;
+}
+
+/*
+ * The eyes blink whether or not anyone is talking: a face that only moves
+ * mid-sentence looks switched off between them. Shut for a tenth of the
+ * cycle, on a delay the Avatar component varies per name.
+ */
+.tile-avatar rect[data-part='eye'] {
+  animation: avatar-blink 4.2s ease-in-out infinite;
+}
+
+@keyframes avatar-blink {
+  0%,
+  91% {
+    transform: scaleY(1);
+  }
+  94% {
+    transform: scaleY(0.12);
+  }
+  97%,
+  100% {
+    transform: scaleY(1);
+  }
 }
 
 .tile[data-speaking='true'] .tile-avatar rect[data-part='mouth'] {

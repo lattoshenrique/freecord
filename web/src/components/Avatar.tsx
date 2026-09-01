@@ -19,6 +19,21 @@ export default function Avatar({ name, className }: { name: string; className?: 
     });
     return last;
   }, [cells]);
+  // The eyes: the highest row above the mouth with a lit cell off the centre
+  // column, and that cell plus its mirror. The glyph is symmetric, so the
+  // pair is always level. A glyph with no such row simply has no eyes.
+  const eyes = useMemo(() => {
+    for (let row = 0; row < mouthRow; row++) {
+      for (let col = 0; col < Math.floor(AVATAR_GRID / 2); col++) {
+        if (cells[row * AVATAR_GRID + col]) {
+          return [row * AVATAR_GRID + col, row * AVATAR_GRID + (AVATAR_GRID - 1 - col)];
+        }
+      }
+    }
+    return [];
+  }, [cells, mouthRow]);
+  // Blinks fall out of step across a room: each face waits its own while.
+  const blinkDelay = `${-((hashString(name) >>> 3) % 4000)}ms`;
   // Derived from the name, not from useId(): the gradient is the same drawing
   // for the same name, and the id must survive going into a url() reference.
   const gradientId = `avatar-${hashString(name).toString(36)}`;
@@ -55,7 +70,14 @@ export default function Avatar({ name, className }: { name: string; className?: 
             height="1"
             rx="0.26"
             fill="rgba(255, 255, 255, 0.9)"
-            data-part={Math.floor(index / AVATAR_GRID) === mouthRow ? 'mouth' : undefined}
+            data-part={
+              eyes.includes(index)
+                ? 'eye'
+                : Math.floor(index / AVATAR_GRID) === mouthRow
+                  ? 'mouth'
+                  : undefined
+            }
+            style={eyes.includes(index) ? { animationDelay: blinkDelay } : undefined}
           />
         ) : null,
       )}
