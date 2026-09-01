@@ -151,7 +151,7 @@ export const zhCN: Catalog = {
   'community.promise.chat.title':
     '不留痕迹的聊天',
   'community.promise.chat.body':
-    '消息只存在于房间里，随房间一起消失。刻意做到零内容存储：没有可泄露的，没有可出售的，也没有可交出的。',
+    '消息在你的浏览器里加密，密钥就存在房间链接中。浏览器从不把 URL 的片段发给服务器，所以我们的服务器转发的是自己读不懂的文本，也不会保存任何内容 —— 聊天随房间一起消失。另一面同样坦白：拿到链接的人都能一起读，就像他们能直接进来一样。',
   'community.promise.vendor.title':
     '没有服务商，没有 SDK',
   'community.promise.vendor.body':
