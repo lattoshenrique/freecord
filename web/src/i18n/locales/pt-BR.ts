@@ -12,6 +12,34 @@ export const ptBR: Catalog = {
   'home.createFailed': 'Não foi possível criar a sala. Tente novamente.',
   'home.community': 'Comunidade',
 
+  'home.chip.opensource': 'Open source · MIT',
+  'home.chip.p2p': 'WebRTC P2P nativo',
+  'home.chip.nosignup': 'Sem cadastro',
+
+  'home.card.title': 'Comece uma sala',
+  'home.card.hint': 'Grátis e na hora — sem conta. O link é o único convite de que você precisa.',
+
+  'home.dev.title': 'Para devs',
+  'home.dev.lead':
+    'Sem vendor de mídia, sem SDK, sem credencial externa — o protocolo inteiro mora no repositório, e Node 20 com dois comandos é todo o setup.',
+  'home.dev.copy': 'Copiar comandos',
+  'home.dev.copied': 'Copiado!',
+  'home.dev.p2p.title': 'A mídia nunca toca o servidor',
+  'home.dev.p2p.body':
+    'Voz, vídeo e tela fluem de navegador a navegador por WebRTC nativo, numa malha P2P. O servidor só carrega sinalização e estado da sala.',
+  'home.dev.selfhost.title': 'Self-host num processo só',
+  'home.dev.selfhost.body':
+    'Um único processo Node serve a API, o WebSocket e o frontend buildado. Ou publique o mesmo protocolo na Cloudflare Workers, tudo em plano grátis.',
+  'home.dev.protocol.title': 'O protocolo é seu',
+  'home.dev.protocol.body':
+    'Sinalização WebSocket própria — salas, relay de SDP/ICE, chat e a trava de tela num lugar só. Faça um fork e mude as regras.',
+  'home.dev.light.title': 'Absurdamente leve',
+  'home.dev.light.body':
+    'O bundle da sala tem ~14 kB. React + Vite por fora, todo o resto feito à mão — até o i18n.',
+  'home.dev.github': 'Estrela no GitHub',
+  'home.dev.architecture': 'Ler a arquitetura',
+  'home.dev.contribute': 'Guia de contribuição',
+
   'invite.copy': 'Convidar',
   'invite.copied': 'Link copiado!',
   'invite.manualCopy': 'Copie o link da sala:',
@@ -153,6 +181,50 @@ export const ptBR: Catalog = {
     'Um app para macOS, Windows e Linux embrulha esta mesma página e acrescenta o que o navegador não dá: seletor de tela nativo e permissões de mídia de verdade do sistema. O download está na página inicial.',
   'community.footer':
     'Publicado sob a licença MIT. Feito por Henrique Brito e colaboradores.',
+
+  // Desktop download card. Target ids mirror DesktopTarget in the domain.
+  'download.target.mac-arm64':
+    'macOS · Apple Silicon',
+  'download.target.mac-x64':
+    'macOS · Intel',
+  'download.target.windows-x64':
+    'Windows · 64 bits',
+  'download.target.linux-appimage':
+    'Linux · AppImage',
+  'download.target.linux-deb':
+    'Linux · .deb',
+  'download.hint.mac-arm64':
+    'M1 em diante',
+  'download.hint.mac-x64':
+    'Macs Intel, até 2020',
+  'download.hint.windows-x64':
+    'Windows 10 e 11',
+  'download.hint.linux-appimage':
+    'Qualquer distro, sem instalar nada',
+  'download.hint.linux-deb':
+    'Debian, Ubuntu e derivados',
+  'download.cta':
+    'Baixar o app para {os}',
+  'download.also':
+    'O Freecord também tem app para computador — com seletor de tela nativo.',
+  'download.firstRun.mac':
+    'O app não é assinado por um certificado da Apple, então o macOS bloqueia na primeira abertura. Vá em Ajustes do Sistema → Privacidade e Segurança e clique em “Abrir Mesmo Assim” — no macOS 14 ou anterior, clique no app com o botão direito e escolha Abrir.',
+  'download.firstRun.windows':
+    'O Windows vai avisar que o editor é desconhecido (o app não é assinado): clique em Mais informações → Executar assim mesmo.',
+  'download.firstRun.linux':
+    'Dê permissão de execução ao AppImage antes de abrir: chmod +x freecord-linux-x86_64.AppImage',
+  'download.macOtherConfident':
+    'Seu Mac é do outro tipo?',
+  'download.macOtherUnsure':
+    'Não conseguimos identificar seu Mac.',
+  'download.macOtherArm':
+    'Baixar a versão Apple Silicon',
+  'download.macOtherIntel':
+    'Baixar a versão Intel',
+  'download.showOthers':
+    'Outras plataformas',
+  'download.hideOthers':
+    'Ocultar outras plataformas',
 
   'language.picker': 'Idioma',
 };

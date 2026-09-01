@@ -12,6 +12,34 @@ export const jaJP: Catalog = {
   'home.createFailed': 'ルームを作成できませんでした。もう一度お試しください。',
   'home.community': 'コミュニティ',
 
+  'home.chip.opensource': 'オープンソース · MIT',
+  'home.chip.p2p': 'ネイティブ WebRTC P2P',
+  'home.chip.nosignup': '登録不要',
+
+  'home.card.title': 'ルームを始める',
+  'home.card.hint': '無料ですぐ使える、アカウント不要——リンクが唯一の招待状です。',
+
+  'home.dev.title': '開発者向け',
+  'home.dev.lead':
+    'メディアベンダーも SDK も外部認証情報もなし——プロトコルはすべてリポジトリの中にあり、Node 20 とコマンド2つで環境構築は完了です。',
+  'home.dev.copy': 'コマンドをコピー',
+  'home.dev.copied': 'コピーしました！',
+  'home.dev.p2p.title': 'メディアはサーバーを経由しない',
+  'home.dev.p2p.body':
+    '音声・映像・画面共有はネイティブ WebRTC の P2P メッシュでブラウザ間を直接流れます。サーバーが扱うのはシグナリングとルームの状態だけです。',
+  'home.dev.selfhost.title': '1プロセスでセルフホスト',
+  'home.dev.selfhost.body':
+    '単一の Node プロセスが API・WebSocket・ビルド済みフロントエンドを配信します。同じプロトコルを Cloudflare Workers に無料プランのままデプロイすることもできます。',
+  'home.dev.protocol.title': 'プロトコルはあなたのもの',
+  'home.dev.protocol.body':
+    '自前の WebSocket シグナリング——ルーム、SDP/ICE の中継、チャット、画面ロックがひとつの場所に。フォークしてルールを変えてください。',
+  'home.dev.light.title': '圧倒的に軽量',
+  'home.dev.light.body':
+    'ルームのバンドルは約 14 kB。外側は React + Vite、それ以外はすべて手書き——i18n さえも。',
+  'home.dev.github': 'GitHub でスターを',
+  'home.dev.architecture': 'アーキテクチャを読む',
+  'home.dev.contribute': 'コントリビュートガイド',
+
   'invite.copy': '招待',
   'invite.copied': 'リンクをコピーしました',
   'invite.manualCopy': 'ルームのリンクをコピーしてください:',
@@ -153,6 +181,50 @@ export const jaJP: Catalog = {
     'macOS・Windows・Linux 向けのアプリが同じページを包み、ブラウザにはできないことを足します。ネイティブの画面選択と、本物のシステムメディア権限です。ダウンロードはホームページにあります。',
   'community.footer':
     'MIT ライセンスで公開。Henrique Brito とコントリビューターが作りました。',
+
+  // Desktop download card. Target ids mirror DesktopTarget in the domain.
+  'download.target.mac-arm64':
+    'macOS · Apple シリコン',
+  'download.target.mac-x64':
+    'macOS · Intel',
+  'download.target.windows-x64':
+    'Windows · 64 ビット',
+  'download.target.linux-appimage':
+    'Linux · AppImage',
+  'download.target.linux-deb':
+    'Linux · .deb',
+  'download.hint.mac-arm64':
+    'M1 以降',
+  'download.hint.mac-x64':
+    'Intel 搭載 Mac（2020 年まで）',
+  'download.hint.windows-x64':
+    'Windows 10 と 11',
+  'download.hint.linux-appimage':
+    'どのディストロでも、インストール不要',
+  'download.hint.linux-deb':
+    'Debian、Ubuntu とその派生',
+  'download.cta':
+    '{os} 版アプリをダウンロード',
+  'download.also':
+    'Freecord にはデスクトップアプリもあります — ネイティブの画面選択つき。',
+  'download.firstRun.mac':
+    'アプリは Apple の証明書で署名されていないため、初回起動時に macOS がブロックします。「システム設定」→「プライバシーとセキュリティ」で「このまま開く」を選んでください。macOS 14 以前では、アプリを右クリックして「開く」を選びます。',
+  'download.firstRun.windows':
+    'Windows は発行元が不明だと警告します（アプリは署名されていません）。「詳細情報」→「実行」を選んでください。',
+  'download.firstRun.linux':
+    'AppImage は開く前に実行権限を付けてください: chmod +x freecord-linux-x86_64.AppImage',
+  'download.macOtherConfident':
+    'お使いの Mac はもう一方のタイプですか？',
+  'download.macOtherUnsure':
+    'お使いの Mac を判別できませんでした。',
+  'download.macOtherArm':
+    'Apple シリコン版をダウンロード',
+  'download.macOtherIntel':
+    'Intel 版をダウンロード',
+  'download.showOthers':
+    'ほかのプラットフォーム',
+  'download.hideOthers':
+    'ほかのプラットフォームを隠す',
 
   'language.picker': '言語',
 };

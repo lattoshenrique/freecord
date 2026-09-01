@@ -16,6 +16,34 @@ export const enUS = {
   'home.createFailed': "Couldn't create the room. Please try again.",
   'home.community': 'Community',
 
+  'home.chip.opensource': 'Open source · MIT',
+  'home.chip.p2p': 'Native WebRTC P2P',
+  'home.chip.nosignup': 'No signup',
+
+  'home.card.title': 'Start a room',
+  'home.card.hint': 'Free and instant — no account. The link is the only invite you need.',
+
+  'home.dev.title': 'For devs',
+  'home.dev.lead':
+    'No media vendor, no SDK, no external credential — the entire protocol lives in the repo, and Node 20 with two commands is the whole setup.',
+  'home.dev.copy': 'Copy commands',
+  'home.dev.copied': 'Copied!',
+  'home.dev.p2p.title': 'Media never touches the server',
+  'home.dev.p2p.body':
+    'Voice, video and screen sharing flow browser to browser over native WebRTC in a P2P mesh. The server only carries signaling and room state.',
+  'home.dev.selfhost.title': 'Self-host in one process',
+  'home.dev.selfhost.body':
+    'A single Node process serves the API, the WebSocket and the built frontend. Or deploy the same protocol to Cloudflare Workers, entirely on free plans.',
+  'home.dev.protocol.title': 'The protocol is yours',
+  'home.dev.protocol.body':
+    'Our own WebSocket signaling — rooms, SDP/ICE relay, chat and the screen lock in one place. Fork it and change the rules.',
+  'home.dev.light.title': 'Absurdly light',
+  'home.dev.light.body':
+    'The room bundle is ~14 kB. React + Vite on the outside, hand-rolled everything else — even the i18n.',
+  'home.dev.github': 'Star on GitHub',
+  'home.dev.architecture': 'Read the architecture',
+  'home.dev.contribute': 'Contributing guide',
+
   'invite.copy': 'Invite',
   'invite.copied': 'Link copied!',
   'invite.manualCopy': 'Copy the room link:',
@@ -143,6 +171,50 @@ export const enUS = {
     'A desktop app for macOS, Windows and Linux wraps the same page and adds what a browser will not: a native screen picker and real system media permissions. The download is on the home page.',
 
   'community.footer': 'Released under the MIT license. Built by Henrique Brito and contributors.',
+
+  // Desktop download card. Target ids mirror DesktopTarget in the domain.
+  'download.target.mac-arm64':
+    'macOS · Apple Silicon',
+  'download.target.mac-x64':
+    'macOS · Intel',
+  'download.target.windows-x64':
+    'Windows · 64-bit',
+  'download.target.linux-appimage':
+    'Linux · AppImage',
+  'download.target.linux-deb':
+    'Linux · .deb',
+  'download.hint.mac-arm64':
+    'M1 and newer',
+  'download.hint.mac-x64':
+    'Intel Macs, up to 2020',
+  'download.hint.windows-x64':
+    'Windows 10 and 11',
+  'download.hint.linux-appimage':
+    'Any distro, nothing to install',
+  'download.hint.linux-deb':
+    'Debian, Ubuntu and derivatives',
+  'download.cta':
+    'Download the app for {os}',
+  'download.also':
+    'Freecord also has a desktop app — with a native screen picker.',
+  'download.firstRun.mac':
+    'The app is not signed with an Apple certificate, so macOS blocks it on first launch. Open System Settings → Privacy & Security and click “Open Anyway” — on macOS 14 and earlier, right-click the app and choose Open.',
+  'download.firstRun.windows':
+    'Windows will warn that the publisher is unknown (the app is unsigned): click More info → Run anyway.',
+  'download.firstRun.linux':
+    'Make the AppImage executable before opening it: chmod +x freecord-linux-x86_64.AppImage',
+  'download.macOtherConfident':
+    'Is your Mac the other kind?',
+  'download.macOtherUnsure':
+    'We could not identify your Mac.',
+  'download.macOtherArm':
+    'Download the Apple Silicon version',
+  'download.macOtherIntel':
+    'Download the Intel version',
+  'download.showOthers':
+    'Other platforms',
+  'download.hideOthers':
+    'Hide other platforms',
 
   'language.picker': 'Language',
 } as const;

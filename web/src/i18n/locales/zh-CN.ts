@@ -11,6 +11,34 @@ export const zhCN: Catalog = {
   'home.createFailed': '无法创建房间，请重试。',
   'home.community': '社区',
 
+  'home.chip.opensource': '开源 · MIT',
+  'home.chip.p2p': '原生 WebRTC P2P',
+  'home.chip.nosignup': '无需注册',
+
+  'home.card.title': '开个房间',
+  'home.card.hint': '免费即开，无需账号——链接就是唯一的邀请。',
+
+  'home.dev.title': '写给开发者',
+  'home.dev.lead':
+    '没有媒体服务商、没有 SDK、没有外部凭证——整个协议都在仓库里，Node 20 加两条命令就是全部环境。',
+  'home.dev.copy': '复制命令',
+  'home.dev.copied': '已复制！',
+  'home.dev.p2p.title': '媒体从不经过服务器',
+  'home.dev.p2p.body':
+    '语音、视频和屏幕共享通过原生 WebRTC 的 P2P 网状网络在浏览器之间直接传输。服务器只负责信令和房间状态。',
+  'home.dev.selfhost.title': '单进程自托管',
+  'home.dev.selfhost.body':
+    '一个 Node 进程同时提供 API、WebSocket 和构建好的前端。也可以把同一协议部署到 Cloudflare Workers，全程免费方案。',
+  'home.dev.protocol.title': '协议归你所有',
+  'home.dev.protocol.body':
+    '自研 WebSocket 信令——房间、SDP/ICE 转发、聊天和屏幕锁都在一处。Fork 之后规则由你定。',
+  'home.dev.light.title': '极致轻量',
+  'home.dev.light.body':
+    '房间包只有约 14 kB。外层是 React + Vite，其余全部手写——连 i18n 也是。',
+  'home.dev.github': '去 GitHub 点星',
+  'home.dev.architecture': '阅读架构文档',
+  'home.dev.contribute': '贡献指南',
+
   'invite.copy': '邀请',
   'invite.copied': '链接已复制！',
   'invite.manualCopy': '复制房间链接：',
@@ -151,6 +179,50 @@ export const zhCN: Catalog = {
     'macOS、Windows 和 Linux 的桌面应用包裹着同一个页面，并补上浏览器给不了的东西：原生屏幕选择器和真正的系统媒体权限。下载入口在首页。',
   'community.footer':
     '基于 MIT 许可发布。由 Henrique Brito 和贡献者共同打造。',
+
+  // Desktop download card. Target ids mirror DesktopTarget in the domain.
+  'download.target.mac-arm64':
+    'macOS · Apple 芯片',
+  'download.target.mac-x64':
+    'macOS · Intel',
+  'download.target.windows-x64':
+    'Windows · 64 位',
+  'download.target.linux-appimage':
+    'Linux · AppImage',
+  'download.target.linux-deb':
+    'Linux · .deb',
+  'download.hint.mac-arm64':
+    'M1 及更新机型',
+  'download.hint.mac-x64':
+    'Intel 芯片的 Mac，2020 年以前',
+  'download.hint.windows-x64':
+    'Windows 10 和 11',
+  'download.hint.linux-appimage':
+    '适用于任何发行版，无需安装',
+  'download.hint.linux-deb':
+    'Debian、Ubuntu 及衍生版',
+  'download.cta':
+    '下载 {os} 版应用',
+  'download.also':
+    'Freecord 也有桌面应用 —— 带原生屏幕选择器。',
+  'download.firstRun.mac':
+    '应用没有使用 Apple 证书签名，首次打开时会被 macOS 拦截。请前往“系统设置”→“隐私与安全性”，点按“仍要打开”；macOS 14 及更早版本请右键点按应用并选择“打开”。',
+  'download.firstRun.windows':
+    'Windows 会提示发布者未知（应用未签名）：点击“更多信息”→“仍要运行”。',
+  'download.firstRun.linux':
+    '打开 AppImage 前先赋予执行权限：chmod +x freecord-linux-x86_64.AppImage',
+  'download.macOtherConfident':
+    '你的 Mac 是另一种芯片？',
+  'download.macOtherUnsure':
+    '无法识别你的 Mac。',
+  'download.macOtherArm':
+    '下载 Apple 芯片版',
+  'download.macOtherIntel':
+    '下载 Intel 版',
+  'download.showOthers':
+    '其他平台',
+  'download.hideOthers':
+    '收起其他平台',
 
   'language.picker': '语言',
 };

@@ -12,6 +12,34 @@ export const esES: Catalog = {
   'home.createFailed': 'No se pudo crear la sala. Inténtalo de nuevo.',
   'home.community': 'Comunidad',
 
+  'home.chip.opensource': 'Open source · MIT',
+  'home.chip.p2p': 'WebRTC P2P nativo',
+  'home.chip.nosignup': 'Sin registro',
+
+  'home.card.title': 'Empieza una sala',
+  'home.card.hint': 'Gratis y al instante — sin cuenta. El enlace es la única invitación que necesitas.',
+
+  'home.dev.title': 'Para devs',
+  'home.dev.lead':
+    'Sin proveedor de medios, sin SDK, sin credenciales externas — todo el protocolo vive en el repositorio, y Node 20 con dos comandos es toda la configuración.',
+  'home.dev.copy': 'Copiar comandos',
+  'home.dev.copied': '¡Copiado!',
+  'home.dev.p2p.title': 'Los medios nunca tocan el servidor',
+  'home.dev.p2p.body':
+    'Voz, vídeo y pantalla fluyen de navegador a navegador por WebRTC nativo, en una malla P2P. El servidor solo lleva la señalización y el estado de la sala.',
+  'home.dev.selfhost.title': 'Self-host en un solo proceso',
+  'home.dev.selfhost.body':
+    'Un único proceso de Node sirve la API, el WebSocket y el frontend compilado. O despliega el mismo protocolo en Cloudflare Workers, todo en planes gratuitos.',
+  'home.dev.protocol.title': 'El protocolo es tuyo',
+  'home.dev.protocol.body':
+    'Señalización WebSocket propia — salas, relé de SDP/ICE, chat y el bloqueo de pantalla en un solo lugar. Haz un fork y cambia las reglas.',
+  'home.dev.light.title': 'Absurdamente ligero',
+  'home.dev.light.body':
+    'El bundle de la sala pesa ~14 kB. React + Vite por fuera, todo lo demás hecho a mano — hasta el i18n.',
+  'home.dev.github': 'Estrella en GitHub',
+  'home.dev.architecture': 'Leer la arquitectura',
+  'home.dev.contribute': 'Guía de contribución',
+
   'invite.copy': 'Invitar',
   'invite.copied': '¡Enlace copiado!',
   'invite.manualCopy': 'Copia el enlace de la sala:',
@@ -153,6 +181,50 @@ export const esES: Catalog = {
     'Una app para macOS, Windows y Linux envuelve esta misma página y añade lo que el navegador no da: un selector de pantalla nativo y permisos de medios reales del sistema. La descarga está en la página de inicio.',
   'community.footer':
     'Publicado bajo la licencia MIT. Hecho por Henrique Brito y colaboradores.',
+
+  // Desktop download card. Target ids mirror DesktopTarget in the domain.
+  'download.target.mac-arm64':
+    'macOS · Apple Silicon',
+  'download.target.mac-x64':
+    'macOS · Intel',
+  'download.target.windows-x64':
+    'Windows · 64 bits',
+  'download.target.linux-appimage':
+    'Linux · AppImage',
+  'download.target.linux-deb':
+    'Linux · .deb',
+  'download.hint.mac-arm64':
+    'M1 en adelante',
+  'download.hint.mac-x64':
+    'Mac con Intel, hasta 2020',
+  'download.hint.windows-x64':
+    'Windows 10 y 11',
+  'download.hint.linux-appimage':
+    'Cualquier distro, sin instalar nada',
+  'download.hint.linux-deb':
+    'Debian, Ubuntu y derivadas',
+  'download.cta':
+    'Descargar la app para {os}',
+  'download.also':
+    'Freecord también tiene app de escritorio — con selector de pantalla nativo.',
+  'download.firstRun.mac':
+    'La app no está firmada con un certificado de Apple, así que macOS la bloquea al abrirla por primera vez. Ve a Ajustes del Sistema → Privacidad y Seguridad y pulsa “Abrir igualmente”; en macOS 14 o anterior, haz clic derecho en la app y elige Abrir.',
+  'download.firstRun.windows':
+    'Windows avisará de que el editor es desconocido (la app no está firmada): pulsa Más información → Ejecutar de todas formas.',
+  'download.firstRun.linux':
+    'Da permiso de ejecución al AppImage antes de abrirlo: chmod +x freecord-linux-x86_64.AppImage',
+  'download.macOtherConfident':
+    '¿Tu Mac es del otro tipo?',
+  'download.macOtherUnsure':
+    'No pudimos identificar tu Mac.',
+  'download.macOtherArm':
+    'Descargar la versión Apple Silicon',
+  'download.macOtherIntel':
+    'Descargar la versión Intel',
+  'download.showOthers':
+    'Otras plataformas',
+  'download.hideOthers':
+    'Ocultar otras plataformas',
 
   'language.picker': 'Idioma',
 };
