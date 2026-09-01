@@ -36,7 +36,10 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     await app.register(fastifyStatic, { root: options.webDist, wildcard: false });
     // SPA fallback: /r/:slug lands on index.html.
     app.setNotFoundHandler((request, reply) => {
-      if (request.method === 'GET' && !request.url.startsWith('/api/')) {
+      if (
+        (request.method === 'GET' || request.method === 'HEAD') &&
+        !request.url.startsWith('/api/')
+      ) {
         // Room links stay out of search indexes (mirror of the Worker edge).
         if (request.url.startsWith('/r/')) {
           void reply.header('X-Robots-Tag', 'noindex, nofollow');

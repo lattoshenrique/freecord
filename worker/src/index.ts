@@ -813,8 +813,10 @@ export default {
       return json({ error: 'not_found' }, 404, env);
     }
 
-    // SPA fallback: /r/:slug lands on index.html.
-    if (request.method === 'GET') {
+    // SPA fallback: /r/:slug lands on index.html. HEAD included — preview
+    // bots and uptime monitors probe with it, and a 404 there reads as a
+    // dead link (the runtime drops the body on its own).
+    if (request.method === 'GET' || request.method === 'HEAD') {
       const response = await env.ASSETS.fetch(new Request(new URL('/', url), request));
       // The room link is the credential: an indexed slug would be a
       // world-readable room. The header reaches crawlers that never run
