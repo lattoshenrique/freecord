@@ -33,13 +33,10 @@ test.describe('cameras in the browser', () => {
     // Turning one off reverts the SENDER's own tile to the avatar.
     await cameraButton(handles[0].page).click();
     await expect(handles[0].page.locator('.tile video')).toHaveCount(1, { timeout: 20_000 });
-    // FINDING (2026-09-01): viewers keep a black <video> for a peer that
-    // turned its camera off — the client only disables the track (black
-    // frames keep flowing) and Tile's hasLiveVideo checks `enabled`, which
-    // is a receiver-LOCAL property (always true for remote tracks). The
-    // `cameras` roster (camera-stopped) is not consulted for remote tiles.
-    // Once the UI keys remote tiles off the roster, tighten this to:
-    //   await expect(viewer.locator('.tile video')).toHaveCount(1)
+    // Viewers must drop the tile too: the remote track stays `enabled` on
+    // the receiver (black frames keep flowing), so the tile keys off the
+    // camera roster — this assertion is what caught the original bug.
+    await expect(viewer.locator('.tile video')).toHaveCount(1, { timeout: 20_000 });
   });
 
   test('room of 7: four cameras fill the slots; the rest see the full state', async ({ browser }) => {

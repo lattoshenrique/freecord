@@ -5,6 +5,7 @@
   "type": "module",
   "description": "End-to-end and load tests for the Freecord signaling edge and web app",
   "scripts": {
+    "typecheck": "tsc --noEmit",
     "test": "playwright test",
     "test:protocol": "playwright test --project=protocol",
     "test:browser": "playwright test --project=browser",

@@ -280,6 +280,7 @@ function Tile({
   isSelf,
   micOff,
   speaking,
+  cameraOn,
   stream,
   latencyMs,
   latencyTitle,
@@ -290,6 +291,12 @@ function Tile({
   isSelf: boolean;
   micOff: boolean;
   speaking: boolean;
+  /**
+   * The room's word, not the track's: a remote track stays `enabled` on the
+   * receiver even after the sender turns its camera off (black frames keep
+   * flowing), so only the camera roster can say whether this tile has a face.
+   */
+  cameraOn: boolean;
   stream: MediaStream | null;
   latencyMs: number | null;
   latencyTitle: string;
@@ -298,7 +305,7 @@ function Tile({
   sinkId?: string | null;
 }) {
   const { t } = useI18n();
-  const showVideo = stream !== null && hasLiveVideo(stream);
+  const showVideo = cameraOn && stream !== null && hasLiveVideo(stream);
   return (
     <div className="tile" data-speaking={speaking ? 'true' : undefined} style={style}>
       <LatencyChip ms={latencyMs} title={latencyTitle} />
@@ -645,6 +652,7 @@ export default function RoomView({
               isSelf
               micOff={!session.micOn}
               speaking={session.selfId !== null && speaking.has(session.selfId)}
+              cameraOn={session.camOn}
               stream={session.localMedia && session.camOn ? session.localMedia : null}
               latencyMs={session.signalRttMs}
               latencyTitle={t('latency.signal')}
@@ -665,6 +673,7 @@ export default function RoomView({
                   isSelf={false}
                   micOff={false}
                   speaking={speaking.has(peer.id)}
+                  cameraOn={session.cameras.has(peer.id)}
                   stream={cameraStream}
                   latencyMs={session.peerLatency.get(peer.id)?.rttMs ?? null}
                   latencyTitle={t('latency.peer', { name: peer.name })}
