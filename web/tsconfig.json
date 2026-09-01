@@ -12,7 +12,10 @@
     "noEmit": true,
     "isolatedModules": true,
     "useDefineForClassFields": true,
-    "types": ["vite/client"]
+    "types": ["vite/client"],
+    "paths": {
+      "@freecord/encoded-relay": ["../relay/src/index.ts"]
+    }
   },
   "include": ["src"]
 }

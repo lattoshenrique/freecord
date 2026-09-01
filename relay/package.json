@@ -1,17 +1,48 @@
 {
   "name": "@freecord/encoded-relay",
-  "private": true,
   "version": "0.2.0",
   "description": "Encoded-frame passthrough relaying for WebRTC forwarding trees — skip the decode/re-encode at every hop",
   "license": "MIT",
   "type": "module",
-  "types": "./src/index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lattoshenrique/freecord.git",
+    "directory": "relay"
+  },
+  "homepage": "https://github.com/lattoshenrique/freecord/tree/main/relay#readme",
+  "bugs": "https://github.com/lattoshenrique/freecord/issues",
+  "keywords": [
+    "webrtc",
+    "encoded-transform",
+    "rtcrtpscripttransform",
+    "relay",
+    "p2p",
+    "screen-share",
+    "forwarding-tree",
+    "sfu"
+  ],
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json && node scripts/postbuild.mjs",
+    "prepublishOnly": "npm run typecheck && npm run test && npm run build"
   },
   "devDependencies": {
     "typescript": "^5.8.3",

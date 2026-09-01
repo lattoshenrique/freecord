@@ -4,6 +4,17 @@ Encoded-frame passthrough relaying for WebRTC forwarding trees, built on
 [WebRTC Encoded Transforms](https://www.w3.org/TR/webrtc-encoded-transform/)
 (`RTCRtpScriptTransform`). MIT, zero dependencies, TypeScript source.
 
+## Install
+
+```sh
+npm install @freecord/encoded-relay
+```
+
+Ships compiled ESM plus type declarations (and the TypeScript source, for
+source maps and for bundler setups that prefer it). The worker module is a
+sibling file resolved via `new URL('./relay-worker.js', import.meta.url)`,
+which every modern bundler — and the bare browser — understands.
+
 ## Why
 
 In an application-level forwarding tree (or P2P CDN), a relay peer receives a
