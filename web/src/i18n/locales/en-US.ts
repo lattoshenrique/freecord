@@ -34,7 +34,7 @@ export const enUS = {
   'home.dev.copied': 'Copied!',
   'home.dev.p2p.title': 'Media never touches the server',
   'home.dev.p2p.body':
-    'Voice, video and screen sharing flow browser to browser over native WebRTC in a P2P mesh. The server only carries signaling and room state.',
+    'Voice, video and screen sharing flow browser to browser over native WebRTC in a P2P mesh. The server only carries signaling and room state. Direct connection works on most networks; we run no TURN relay, so a few restrictive ones — corporate Wi-Fi, some mobile carriers — will not connect media.',
   'home.dev.selfhost.title': 'Self-host in one process',
   'home.dev.selfhost.body':
     'A single Node process serves the API, the WebSocket and the built frontend. Or deploy the same protocol to Cloudflare Workers, entirely on free plans.',

@@ -30,7 +30,7 @@ export const jaJP: Catalog = {
   'home.dev.copied': 'コピーしました！',
   'home.dev.p2p.title': 'メディアはサーバーを経由しない',
   'home.dev.p2p.body':
-    '音声・映像・画面共有はネイティブ WebRTC の P2P メッシュでブラウザ間を直接流れます。サーバーが扱うのはシグナリングとルームの状態だけです。',
+    '音声・映像・画面共有はネイティブ WebRTC の P2P メッシュでブラウザ間を直接流れます。サーバーが扱うのはシグナリングとルームの状態だけです。直接接続はほとんどのネットワークで確立します。TURN リレーは使っていないため、企業 Wi-Fi や一部のモバイル回線など制限の厳しい環境ではメディアが繋がりません。',
   'home.dev.selfhost.title': '1プロセスでセルフホスト',
   'home.dev.selfhost.body':
     '単一の Node プロセスが API・WebSocket・ビルド済みフロントエンドを配信します。同じプロトコルを Cloudflare Workers に無料プランのままデプロイすることもできます。',

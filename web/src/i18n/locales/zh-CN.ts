@@ -30,7 +30,7 @@ export const zhCN: Catalog = {
   'home.dev.copied': '已复制！',
   'home.dev.p2p.title': '媒体从不经过服务器',
   'home.dev.p2p.body':
-    '语音、视频和屏幕共享通过原生 WebRTC 的 P2P 网状网络在浏览器之间直接传输。服务器只负责信令和房间状态。',
+    '语音、视频和屏幕共享通过原生 WebRTC 的 P2P 网状网络在浏览器之间直接传输。服务器只负责信令和房间状态。直连在大多数网络下都能建立；我们没有启用 TURN 中继，因此在少数受限网络（企业 Wi-Fi、部分移动运营商）中媒体无法连通。',
   'home.dev.selfhost.title': '单进程自托管',
   'home.dev.selfhost.body':
     '一个 Node 进程同时提供 API、WebSocket 和构建好的前端。也可以把同一协议部署到 Cloudflare Workers，全程免费方案。',

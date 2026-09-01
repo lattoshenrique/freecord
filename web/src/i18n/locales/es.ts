@@ -30,7 +30,7 @@ export const esES: Catalog = {
   'home.dev.copied': '¡Copiado!',
   'home.dev.p2p.title': 'Los medios nunca tocan el servidor',
   'home.dev.p2p.body':
-    'Voz, vídeo y pantalla fluyen de navegador a navegador por WebRTC nativo, en una malla P2P. El servidor solo lleva la señalización y el estado de la sala.',
+    'Voz, vídeo y pantalla fluyen de navegador a navegador por WebRTC nativo, en una malla P2P. El servidor solo lleva la señalización y el estado de la sala. La conexión directa funciona en la mayoría de las redes; no usamos relay TURN, así que algunas más restrictivas — wifi corporativo, ciertas operadoras móviles — no conectan el medio.',
   'home.dev.selfhost.title': 'Self-host en un solo proceso',
   'home.dev.selfhost.body':
     'Un único proceso de Node sirve la API, el WebSocket y el frontend compilado. O despliega el mismo protocolo en Cloudflare Workers, todo en planes gratuitos.',

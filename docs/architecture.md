@@ -76,9 +76,9 @@ same `welcome.ice` field) stays real. With no `TURN_KEY_ID`/`TURN_API_TOKEN`
 configured (dev default), joins get an empty list and the client falls back to
 public STUN, exactly as before.
 
-That dev default is also production's state today: the hosted service runs
-with no TURN credentials set, so every call is direct P2P or does not
-connect. Whoever flips the secrets on owns a coupled edit in the same
+That dev default is also production's state, and the intended one: the hosted
+service runs with no TURN credentials set, so every call is direct P2P or does
+not connect at all. Whoever flips the secrets on owns a coupled edit in the same
 movement — several public strings are written to be literally true only
 while TURN is off (the "no TURN configured" notes in `llms.txt`, the JSON-LD
 FAQ answer in `web/index.html`, one CONTRIBUTING paragraph, and the
@@ -212,11 +212,15 @@ re-parent on every WS-only blip.
 1. **Today (validation, ~US$ 0–6/month)**: one Node process on a free
    VPS/PaaS serving API + WS + static files. It supports thousands of
    concurrent users in small rooms (the server only signals).
-2. **TURN** — *done, in production*: ephemeral credentials from Cloudflare
-   Realtime's anycast TURN, handed out in `welcome.ice` (free up to 1 TB/month;
-   see "TURN" above for why this vendor exception is acceptable). The
-   self-owned variant (coturn on a small VPS, ~+US$ 6/month) remains the
-   documented escape hatch behind the same protocol field.
+2. **TURN** — *built, deliberately switched off*: the credential path exists
+   end to end (`welcome.ice`, `app/turn.ts`), but no provider is configured and
+   none is planned for now. That is a product decision, not an oversight: the
+   free tier would cover this stage, yet turning it on adds the project's first
+   vendor for media-adjacent traffic, and the failure it fixes has not been
+   reported by a real user yet. The cost of waiting is known and stated in the
+   public copy — the ~10–20% of peers on restrictive networks get chat but no
+   media. Flipping it on is two secrets; the self-owned variant (coturn on a
+   small VPS, ~+US$ 6/month) sits behind the same protocol field.
 3. **Multiple signaling instances** — *done, in production*: state is
    per-room → shard by slug. On Cloudflare that is one Durable Object per slug
    (`worker/`); on a Node cluster it would be sticky routing or Redis pub/sub.
@@ -318,6 +322,7 @@ process memory.
   someone runs a call through a real coturn, that claim is a design, not a
   fact.
 
-Two debts graduated into features: **TURN** (ephemeral credentials in
-`welcome.ice`) and **WS reconnect** (session resume with the same peerId) —
-see the sections above.
+One debt graduated into a feature — **WS reconnect** (session resume with the
+same peerId) — and one graduated into a *switch*: **TURN** is implemented and
+left off, so the debt it was meant to pay is still outstanding by choice. See
+the sections above.
