@@ -33,17 +33,20 @@ const joinQuery = z.object({
  * the cache a single process has at hand. A failed read serves the stale
  * catalog — `latest/download` links do not expire (see domain/downloads.ts).
  */
-let desktopCache: { catalog: DesktopCatalog; at: number } | null = null;
+let desktopCache: { catalog: DesktopCatalog; until: number } | null = null;
 
 async function desktopCatalog(): Promise<DesktopCatalog> {
-  if (desktopCache && Date.now() - desktopCache.at < DESKTOP_CATALOG_TTL_MS) {
+  if (desktopCache && Date.now() < desktopCache.until) {
     return desktopCache.catalog;
   }
   const catalog = await fetchDesktopCatalog();
   if (!catalog) {
     return desktopCache?.catalog ?? EMPTY_DESKTOP_CATALOG;
   }
-  desktopCache = { catalog, at: Date.now() };
+  // "No release yet" flips the moment a release lands: hold it for a minute,
+  // not half an hour.
+  const ttl = catalog.builds.length > 0 ? DESKTOP_CATALOG_TTL_MS : 60_000;
+  desktopCache = { catalog, until: Date.now() + ttl };
   return catalog;
 }
 
