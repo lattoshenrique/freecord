@@ -152,7 +152,7 @@ export const esES: Catalog = {
   'community.promise.chat.title':
     'Un chat que no deja rastro',
   'community.promise.chat.body':
-    'Los mensajes viven en la sala y desaparecen con ella. Cero almacenamiento de contenido, a propósito: nada que filtrar, nada que vender, nada que entregar.',
+    'Los mensajes se cifran en tu navegador con una clave que vive en el enlace de la sala. Ningún navegador envía el fragmento de la URL al servidor, así que el nuestro reenvía un texto que no puede leer, y tampoco guarda nada: el chat desaparece con la sala. La otra cara es honesta: quien tenga el enlace lee contigo, igual que puede entrar.',
   'community.promise.vendor.title':
     'Sin proveedor, sin SDK',
   'community.promise.vendor.body':
