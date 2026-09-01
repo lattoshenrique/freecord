@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- The Freecord mark (P2P mesh) on a dark tile so it reads on both
+       light and dark browser tabs. Strokes are thicker than Logo.tsx
+       because a favicon lives at 16-32 px. -->
+  <defs>
+    <linearGradient id="g" x1="14" y1="14" x2="50" y2="50" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5865f2"/>
+      <stop offset="1" stop-color="#a855f7"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#14171f"/>
+  <g transform="translate(8 8) scale(0.75)">
+    <path d="M40.1 14.4 49.5 49.5 14.4 40.1Z" fill="none" stroke="url(#g)" stroke-width="7" stroke-linejoin="round"/>
+    <circle cx="40.1" cy="14.4" r="8.5" fill="url(#g)"/>
+    <circle cx="49.5" cy="49.5" r="8.5" fill="url(#g)"/>
+    <circle cx="14.4" cy="40.1" r="8.5" fill="url(#g)"/>
+  </g>
+</svg>

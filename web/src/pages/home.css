@@ -1,0 +1,298 @@
+/*
+ * Styles for the home landing page.
+ *
+ * Outside styles.css by the same convention as community.css and download.css:
+ * a self-contained block cannot be clobbered by another session editing the
+ * global sheet. It consumes the global tokens (--glass-*, --mono, --ease) and
+ * .home-card, which the pré-join screen also uses, stays global.
+ */
+
+.home {
+  min-height: 100dvh;
+  /* The landing scrolls; room pages don't. #root is a fixed 100dvh box. */
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 3rem 1.5rem;
+  text-align: center;
+}
+
+/* ---- hero ---- */
+
+.home-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: min(6vh, 3.5rem);
+  animation: rise-in 0.4s var(--ease) both;
+}
+
+.home-brand {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.home-brand .home-logo {
+  margin: 0;
+}
+
+.home-brand h1 {
+  margin: 0;
+  font-size: clamp(2.4rem, 6vw, 3.1rem);
+  letter-spacing: -0.02em;
+}
+
+.home-hero .tagline {
+  margin: 0.75rem 0 0;
+  max-width: 30rem;
+  font-size: 1.05rem;
+  line-height: 1.6;
+}
+
+.home-chips {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0;
+  margin: 1.1rem 0 0.5rem;
+}
+
+.home-chips li {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--muted);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+}
+
+/* ---- create-room card (.home-card itself is global: the pre-join screen uses it) ---- */
+
+.home .home-card {
+  padding: 1.9rem 2rem 2rem;
+}
+
+.home-create-title {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.home-create-hint {
+  margin: 0.4rem 0 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.home .home-card form {
+  margin-top: 1.1rem;
+}
+
+/* The page's primary CTA wears the brand gradient. */
+.home .home-card button[type='submit'] {
+  background: linear-gradient(135deg, var(--accent), #a855f7);
+  transition:
+    filter 0.15s ease,
+    transform 0.15s var(--ease);
+}
+
+.home .home-card button[type='submit']:hover:not(:disabled) {
+  background: linear-gradient(135deg, var(--accent), #a855f7);
+  filter: brightness(1.12);
+}
+
+/* ---- for devs ---- */
+
+.home-dev {
+  width: 100%;
+  max-width: 46rem;
+  margin-top: 2.5rem;
+  padding: 1.75rem;
+  text-align: left;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: 20px;
+  box-shadow: var(--shadow), var(--glass-highlight);
+  animation: rise-in 0.5s var(--ease) both;
+  animation-delay: 0.15s;
+}
+
+.home-dev h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.25rem;
+}
+
+.home-dev-prompt {
+  font-family: var(--mono);
+  color: var(--accent);
+}
+
+.home-dev-lead {
+  margin: 0 0 1.25rem;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+/* ---- terminal ---- */
+
+.home-terminal {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.home-terminal-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.8rem;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.home-terminal-bar > span {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 50%;
+  background: var(--border);
+}
+
+.home-terminal-copy {
+  margin-left: auto;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.home-terminal-copy:hover {
+  color: var(--text);
+}
+
+.home-terminal-code {
+  margin: 0;
+  padding: 0.9rem 1rem;
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  line-height: 1.8;
+  overflow-x: auto;
+}
+
+.home-terminal-line {
+  white-space: pre;
+}
+
+.home-terminal-prompt {
+  color: var(--accent);
+  user-select: none;
+}
+
+.home-terminal-note {
+  color: var(--muted);
+}
+
+/* ---- pillars ---- */
+
+.home-dev-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 1.25rem;
+  margin-top: 1.5rem;
+}
+
+.home-dev-pillar h3 {
+  margin: 0 0 0.4rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.home-dev-pillar p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+/* ---- link pills ---- */
+
+.home-dev-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1.5rem;
+}
+
+.home-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.6rem 1rem;
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  background: var(--glass-bg);
+  color: var(--text);
+  font-size: 0.92rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.15s var(--ease);
+}
+
+.home-link:hover {
+  background: var(--glass-bg-strong);
+  border-color: var(--text);
+}
+
+.home-link:active {
+  transform: translateY(1px);
+}
+
+.home-link-primary {
+  background: var(--accent);
+  border-color: transparent;
+  color: white;
+}
+
+.home-link-primary:hover {
+  background: var(--accent-hover);
+  border-color: transparent;
+}
+
+.home-footer {
+  margin: 1.5rem 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+@media (max-width: 480px) {
+  .home {
+    padding: 2rem 1rem;
+  }
+
+  .home-dev {
+    padding: 1.35rem;
+  }
+
+  /* At 390px the commands already fill the width; notes would only force scrolling. */
+  .home-terminal-note {
+    display: none;
+  }
+
+  .home-terminal-code {
+    font-size: 0.78rem;
+  }
+}
