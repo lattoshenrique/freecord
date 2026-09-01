@@ -67,7 +67,8 @@ Public STUN handles address discovery on most networks; the ~10–20% that
 cannot connect directly (restrictive corporate networks, symmetric CGNAT) fall
 back to TURN. The edge hands ephemeral credentials to each join inside
 `welcome.ice` (`app/turn.ts` talks to Cloudflare Realtime's anycast TURN and
-caches one credential set for 6 h; the free tier is 1 TB/month). The tradeoff
+caches one credential set for 6 h; the free tier is 1 TB/month at the time of
+writing — a vendor number, unlike the rest of this doc's). The tradeoff
 is deliberate and narrow: a TURN relay forwards DTLS-SRTP bytes it cannot
 decrypt, which is a categorically smaller exposure than a media vendor — and
 TURN is an open protocol, so the escape hatch (self-hosted coturn behind the
@@ -274,6 +275,11 @@ process memory.
   in the creator's localStorage).
 - **Observability**: structured Fastify logs; metrics land alongside the first
   serious deploy.
+- **The coturn escape hatch is argued for, never exercised**: the TURN section
+  claims a self-hosted relay can replace the vendor behind the same
+  `welcome.ice` field, and nothing has ever proven it end to end. Until
+  someone runs a call through a real coturn, that claim is a design, not a
+  fact.
 
 Two debts graduated into features: **TURN** (ephemeral credentials in
 `welcome.ice`) and **WS reconnect** (session resume with the same peerId) —
