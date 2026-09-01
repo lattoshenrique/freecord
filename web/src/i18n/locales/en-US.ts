@@ -228,6 +228,9 @@ export const enUS = {
   'file.status.failed': 'Transfer failed — the other person left or the connection dropped.',
   'file.preview': 'Open image at full size',
   'file.closePreview': 'Close image',
+  'file.toMany': { one: 'to {count} person', other: 'to {count} people' },
+  'file.status.summary': 'Received by {done} of {total}',
+  'file.status.declinedCount': { one: '{count} declined', other: '{count} declined' },
 
   'latency.signal': 'Latency to the signaling server',
   'latency.peer': 'Direct latency with {name}',

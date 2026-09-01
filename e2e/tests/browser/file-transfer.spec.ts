@@ -222,6 +222,36 @@ test.describe('peer-to-peer file transfer', () => {
     await expect(watcher.page.locator('.chat-file')).toContainText('notes.txt');
   });
 
+  test('a file sent to a full room is one bubble for the sender', async ({ browser }) => {
+    const { slug } = await createRoom('files-batch');
+    handles = await joinMany(browser, slug, 3);
+    const [sender, ...receivers] = handles;
+
+    await sender.page.locator('button[data-key="C"]').click();
+    await sender.page.locator('.chat-panel input[type="file"]').setInputFiles({
+      name: 'notes.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('hello room'),
+    });
+
+    // One bubble standing for two recipients, with a tally instead of a name.
+    const bubble = sender.page.locator('.chat-file');
+    await expect(bubble).toHaveCount(1);
+    await expect(bubble).toHaveAttribute('data-batch-size', '2');
+    await expect(bubble).toContainText('to 2 people');
+    await expect(bubble).toContainText('Received by 0 of 2');
+
+    for (const receiver of receivers) {
+      await receiver.page.locator('button[data-key="C"]').click();
+      const offered = receiver.page.locator('.chat-file');
+      await expect(offered).toContainText('notes.txt', { timeout: 20_000 });
+      await offered.getByRole('button', { name: 'Accept' }).click();
+      await expect(offered).toContainText('Received', { timeout: 30_000 });
+    }
+    await expect(bubble).toContainText('Sent', { timeout: 30_000 });
+    await expect(bubble).toHaveCount(1);
+  });
+
   test('a declined offer settles on both sides', async ({ browser }) => {
     const { slug } = await createRoom('files-decline');
     handles = await joinMany(browser, slug, 2);

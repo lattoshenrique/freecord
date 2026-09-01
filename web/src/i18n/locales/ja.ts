@@ -224,6 +224,9 @@ export const jaJP: Catalog = {
   'file.status.failed': '転送に失敗しました。相手が退出したか、接続が切れました。',
   'file.preview': '画像を原寸で開く',
   'file.closePreview': '画像を閉じる',
+  'file.toMany': { other: '{count} 人へ' },
+  'file.status.summary': '{total} 人中 {done} 人が受信',
+  'file.status.declinedCount': { other: '{count} 人が断りました' },
 
   'latency.signal': 'シグナリングサーバーまでの遅延',
   'latency.peer': '{name} との直接遅延',

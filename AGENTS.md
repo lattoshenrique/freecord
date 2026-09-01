@@ -85,6 +85,15 @@ and its installers are built by GitHub Actions on a `desktop-v*` tag.
   one session's whole-file write silently erased another's edits, and a deploy
   once shipped someone's half-done WIP. A commit on main is the only durable
   place; do not hold work back "for review".
+- **The index is one per repo, shared by every session.** A commit
+  photographs whatever is staged at that instant, including hunks a peer
+  staged a second ago. So commits go through an announced **window**: message
+  the coordinator "requesting window" with your path/hunk list, wait for
+  "window yours", check `git diff --cached` is empty and `HEAD == origin/main`,
+  stage by explicit path (or by hunk in shared files — locale catalogs,
+  styles.css, RoomView.tsx, icons.tsx), verify `git show --stat` after the
+  commit, push, mirror develop by SHA, and announce "released". One window at
+  a time; re-diff shared files if main moved while you held it.
 - Announce which files you're editing before you start; a file has one owner at
   a time. `ListAgents` + `SendMessage` are how you talk.
 - Never "fix" a red typecheck in a file you don't own — it's probably another

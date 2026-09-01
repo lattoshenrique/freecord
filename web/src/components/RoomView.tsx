@@ -531,15 +531,26 @@ export default function RoomView({
   const timeline = useMemo(() => {
     type Entry =
       | { kind: 'text'; key: string; ts: number; message: (typeof session.chat)[number] }
-      | { kind: 'file'; key: string; ts: number; transfer: (typeof session.transfers)[number] };
+      | { kind: 'file'; key: string; ts: number; transfers: (typeof session.transfers)[number][] };
     const entries: Entry[] = session.chat.map((message, index) => ({
       kind: 'text',
       key: `${message.ts}-${index}`,
       ts: message.ts,
       message,
     }));
+    // A file sent to the whole room is one bubble: every recipient's copy
+    // shares the batch. Incoming files are one bubble each already.
+    const batches = new Map<string, (typeof session.transfers)[number][]>();
     for (const transfer of session.transfers) {
-      entries.push({ kind: 'file', key: transfer.key, ts: transfer.ts, transfer });
+      const group = batches.get(transfer.batch);
+      if (group) {
+        group.push(transfer);
+      } else {
+        batches.set(transfer.batch, [transfer]);
+      }
+    }
+    for (const [batch, transfers] of batches) {
+      entries.push({ kind: 'file', key: `file-${batch}`, ts: transfers[0]!.ts, transfers });
     }
     return entries.sort((a, b) => a.ts - b.ts);
   }, [session.chat, session.transfers]);
@@ -952,12 +963,11 @@ export default function RoomView({
               )}
               {timeline.map((entry) => {
                 if (entry.kind === 'file') {
-                  const { transfer } = entry;
                   return (
                     <FileTransferBubble
-                      key={transfer.key}
-                      transfer={transfer}
-                      peerName={peerName(transfer.peerId)}
+                      key={entry.key}
+                      transfers={entry.transfers}
+                      peerName={peerName}
                       onAccept={session.acceptTransfer}
                       onDecline={session.declineTransfer}
                       onCancel={session.cancelTransfer}

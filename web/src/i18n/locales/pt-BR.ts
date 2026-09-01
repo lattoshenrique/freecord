@@ -223,6 +223,9 @@ export const ptBR: Catalog = {
   'file.status.failed': 'A transferência falhou — a outra pessoa saiu ou a conexão caiu.',
   'file.preview': 'Abrir imagem em tamanho real',
   'file.closePreview': 'Fechar imagem',
+  'file.toMany': { one: 'para {count} pessoa', other: 'para {count} pessoas' },
+  'file.status.summary': 'Recebido por {done} de {total}',
+  'file.status.declinedCount': { one: '{count} recusou', other: '{count} recusaram' },
 
   'latency.signal': 'Latência até o servidor de sinalização',
   'latency.peer': 'Latência direta com {name}',

@@ -1146,8 +1146,10 @@ export function useRoomSession(options: JoinOptions) {
       return 0;
     }
     let offered = 0;
+    // One batch per file: the sender's chat shows one bubble for the room.
+    const batch = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     for (const peerId of mesh.peerIds()) {
-      if (ledger.offer(peerId, file) !== null) {
+      if (ledger.offer(peerId, file, batch) !== null) {
         offered++;
       }
     }

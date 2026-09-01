@@ -224,6 +224,9 @@ export const esES: Catalog = {
   'file.status.failed': 'La transferencia falló: la otra persona salió o se cayó la conexión.',
   'file.preview': 'Abrir imagen a tamaño real',
   'file.closePreview': 'Cerrar imagen',
+  'file.toMany': { one: 'para {count} persona', other: 'para {count} personas' },
+  'file.status.summary': 'Recibido por {done} de {total}',
+  'file.status.declinedCount': { one: '{count} rechazó', other: '{count} rechazaron' },
 
   'latency.signal': 'Latencia con el servidor de señalización',
   'latency.peer': 'Latencia directa con {name}',

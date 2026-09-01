@@ -49,6 +49,12 @@ export type TransferStatus =
 export interface FileTransfer {
   /** Unique across the room: `${peerId}:${direction}:${id}`. */
   key: string;
+  /**
+   * One file offered to several people is one batch: the sender's chat
+   * shows it once, with every recipient's state folded in. Incoming
+   * transfers are their own batch.
+   */
+  batch: string;
   id: number;
   peerId: string;
   direction: TransferDirection;
@@ -253,8 +259,11 @@ export class FileTransfers {
     }
   }
 
-  /** Offers a file to one peer. Returns the transfer key, or null if refused locally. */
-  offer(peerId: string, file: File): string | null {
+  /**
+   * Offers a file to one peer. Returns the transfer key, or null if refused
+   * locally. `batch` groups the offers of one file to many peers.
+   */
+  offer(peerId: string, file: File, batch?: string): string | null {
     const link = this.links.get(peerId);
     if (this.closed || !link || file.size > MAX_FILE_BYTES) {
       return null;
@@ -264,6 +273,7 @@ export class FileTransfers {
     const name = sanitizeName(file.name);
     this.transfers.set(key, {
       key,
+      batch: batch ?? key,
       id,
       peerId,
       direction: 'out',
@@ -390,6 +400,7 @@ export class FileTransfers {
         }
         this.transfers.set(key, {
           key,
+          batch: key,
           id: frame.id,
           peerId,
           direction: 'in',

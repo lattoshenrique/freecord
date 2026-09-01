@@ -297,6 +297,31 @@ describe('image previews', () => {
   });
 });
 
+describe('batches', () => {
+  it('offers of one file to many peers share the batch; incoming ones stand alone', async () => {
+    const [a, b] = pair();
+    const [c, d] = pair();
+    const alice = new FileTransfers();
+    const bob = new FileTransfers();
+    const carol = new FileTransfers();
+    alice.attach('bob', a);
+    bob.attach('alice', b);
+    alice.attach('carol', c);
+    carol.attach('alice', d);
+
+    const file = makeFile(10);
+    const toBob = alice.offer('bob', file, 'batch-1')!;
+    const toCarol = alice.offer('carol', file, 'batch-1')!;
+    expect(alice.get(toBob)?.batch).toBe('batch-1');
+    expect(alice.get(toCarol)?.batch).toBe('batch-1');
+    const solo = alice.offer('bob', makeFile(5))!;
+    expect(alice.get(solo)?.batch).toBe(solo);
+
+    await settle(2);
+    expect(bob.list().map((item) => item.batch)).toEqual(bob.list().map((item) => item.key));
+  });
+});
+
 describe('formatBytes', () => {
   it('picks the unit and keeps one decimal only under ten', () => {
     expect(formatBytes(0, 'en-US')).toBe('0 B');

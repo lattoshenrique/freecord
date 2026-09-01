@@ -222,6 +222,9 @@ export const zhCN: Catalog = {
   'file.status.failed': '传输失败：对方已离开或连接中断。',
   'file.preview': '以原始尺寸查看图片',
   'file.closePreview': '关闭图片',
+  'file.toMany': { other: '发给 {count} 人' },
+  'file.status.summary': '{total} 人中 {done} 人已接收',
+  'file.status.declinedCount': { other: '{count} 人拒绝' },
 
   'latency.signal': '到信令服务器的延迟',
   'latency.peer': '与 {name} 的直连延迟',
