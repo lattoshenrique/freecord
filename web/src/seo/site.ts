@@ -25,7 +25,7 @@ export interface RouteSeo {
 const HOME: RouteSeo = {
   title: 'Freecord — free group voice, video and screen sharing, no signup',
   description:
-    'Create a room, share the link, talk. Freecord is free and open source group voice, video, chat and screen sharing that works in the browser with no account. Media is peer-to-peer and end-to-end encrypted — it never touches a server.',
+    'Create a room, share the link, talk. Freecord is free and open source group voice, video, chat and screen sharing that works in the browser with no account. Media is peer-to-peer and end-to-end encrypted — there is no media server.',
   path: '/',
   indexable: true,
 };

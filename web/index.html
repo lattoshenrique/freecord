@@ -16,7 +16,7 @@
     <title>Freecord — free group voice, video and screen sharing, no signup</title>
     <meta
       name="description"
-      content="Create a room, share the link, talk. Freecord is free and open source group voice, video, chat and screen sharing that works in the browser with no account. Media is peer-to-peer and end-to-end encrypted — it never touches a server."
+      content="Create a room, share the link, talk. Freecord is free and open source group voice, video, chat and screen sharing that works in the browser with no account. Media is peer-to-peer and end-to-end encrypted — there is no media server."
     />
     <link rel="canonical" href="https://freecord.lattoshenrique.workers.dev/" />
     <meta name="robots" content="index, follow, max-image-preview:large" />
@@ -30,7 +30,7 @@
     <meta property="og:title" content="Freecord — free group voice, video and screen sharing, no signup" />
     <meta
       property="og:description"
-      content="Create a room, share the link, talk. Free and open source, no account, and your voice, video and screen never touch a server."
+      content="Create a room, share the link, talk. Free and open source, no account, and no media server between you and your friends."
     />
     <meta property="og:url" content="https://freecord.lattoshenrique.workers.dev/" />
     <meta property="og:image" content="https://freecord.lattoshenrique.workers.dev/og.png" />
@@ -52,7 +52,7 @@
     <meta name="twitter:title" content="Freecord — free group voice, video and screen sharing, no signup" />
     <meta
       name="twitter:description"
-      content="Create a room, share the link, talk. Free and open source, no account, and your media never touches a server."
+      content="Create a room, share the link, talk. Free and open source, no account, and no media server in the middle."
     />
     <meta name="twitter:image" content="https://freecord.lattoshenrique.workers.dev/og.png" />
 
@@ -94,7 +94,7 @@
             "license": "https://opensource.org/licenses/MIT",
             "isAccessibleForFree": true,
             "author": { "@id": "https://freecord.lattoshenrique.workers.dev/#person" },
-            "description": "Free and open source group voice, video, text chat and screen sharing in the browser. Anyone creates a room and shares the link; guests join with no account. Media travels peer-to-peer over WebRTC and is end-to-end encrypted, so it never passes through a server. Rooms hold up to 8 people, chat is ephemeral, and one person shares their screen at a time.",
+            "description": "Free and open source group voice, video, text chat and screen sharing in the browser. Anyone creates a room and shares the link; guests join with no account. Media travels peer-to-peer over WebRTC and is end-to-end encrypted; there is no media server, only signaling. Rooms hold up to 8 people, chat is ephemeral, and one person shares their screen at a time.",
             "featureList": [
               "Group voice calls with no signup",
               "Group video calls in the browser",
@@ -136,7 +136,7 @@
                 "name": "Does my voice or video go through a server?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "No. Voice, video and screen sharing travel directly between browsers over WebRTC in a peer-to-peer mesh, encrypted end to end by default. The server only carries signaling and room state, so it could not watch or record you even if it wanted to."
+                  "text": "There is no media server. Voice, video and screen sharing travel directly between browsers over WebRTC in a peer-to-peer mesh, encrypted end to end by default. Our server only carries signaling and room state, so it could not watch or record you even if it wanted to. On networks that cannot establish a direct path, traffic is relayed by a TURN server, which forwards encrypted bytes it is unable to decrypt."
                 }
               },
               {
