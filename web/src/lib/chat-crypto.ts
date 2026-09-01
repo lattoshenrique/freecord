@@ -15,6 +15,11 @@
 /** Sealed envelope on the wire: `e2e:<iv base64url>.<ciphertext base64url>`. */
 const ENVELOPE = /^e2e:([A-Za-z0-9_-]{16})\.([A-Za-z0-9_-]+)$/;
 
+/** Whether a wire payload is a sealed envelope (as opposed to plaintext). */
+export function isSealedEnvelope(wire: string): boolean {
+  return ENVELOPE.test(wire);
+}
+
 const KEY_BYTES = 32;
 const IV_BYTES = 12;
 

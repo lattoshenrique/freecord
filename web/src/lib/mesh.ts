@@ -45,6 +45,8 @@ interface PeerState {
   lastIceRestartAt: number | null;
   /** The `files` data channel (see file-transfer.ts); closed with the peer. */
   files: RTCDataChannel;
+  /** The `chat` data channel (see chat-channel.ts); closed with the peer. */
+  chat: RTCDataChannel;
 }
 
 interface SignalPayload {
@@ -139,6 +141,12 @@ const WATCHDOG_INTERVAL_MS = 2_000;
  */
 const FILES_CHANNEL_LABEL = 'files';
 const FILES_CHANNEL_ID = 0;
+/**
+ * Chat gets a stream of its own, pre-negotiated the same way: text must
+ * not queue behind a file transfer's chunks on the ordered `files` stream.
+ */
+const CHAT_CHANNEL_LABEL = 'chat';
+const CHAT_CHANNEL_ID = 1;
 
 export class Mesh {
   private readonly selfId: string;
@@ -169,6 +177,8 @@ export class Mesh {
    * `ensurePeer`; peers created earlier are not replayed.
    */
   onDataChannel: ((peerId: string, channel: RTCDataChannel) => void) | null = null;
+  /** Same contract for each peer's `chat` data channel (chat-channel.ts). */
+  onChatChannel: ((peerId: string, channel: RTCDataChannel) => void) | null = null;
 
   constructor(
     selfId: string,
@@ -452,6 +462,11 @@ export class Mesh {
       id: FILES_CHANNEL_ID,
       ordered: true,
     });
+    const chat = pc.createDataChannel(CHAT_CHANNEL_LABEL, {
+      negotiated: true,
+      id: CHAT_CHANNEL_ID,
+      ordered: true,
+    });
     const state: PeerState = {
       pc,
       polite: this.selfId < peerId,
@@ -464,9 +479,11 @@ export class Mesh {
       iceRestarts: 0,
       lastIceRestartAt: null,
       files,
+      chat,
     };
     this.peers.set(peerId, state);
     this.onDataChannel?.(peerId, files);
+    this.onChatChannel?.(peerId, chat);
     this.watchdog ??= setInterval(() => this.healAll(false), WATCHDOG_INTERVAL_MS);
 
     for (const [track, local] of this.localTracks) {
@@ -704,6 +721,7 @@ export class Mesh {
     const state = this.peers.get(peerId);
     if (state) {
       state.files.close();
+      state.chat.close();
       state.pc.close();
       this.peers.delete(peerId);
       for (const overrides of this.encodingOverrides.values()) {
@@ -721,6 +739,7 @@ export class Mesh {
     }
     for (const state of this.peers.values()) {
       state.files.close();
+      state.chat.close();
       state.pc.close();
     }
     this.peers.clear();

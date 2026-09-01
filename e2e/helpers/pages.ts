@@ -15,8 +15,22 @@ export interface RoomPageHandle {
   name: string;
 }
 
+export interface JoinOptions {
+  /**
+   * Runs on the fresh page before it navigates — the place to hook
+   * `page.on('websocket')` or an init script, which miss anything that
+   * happens before they are installed.
+   */
+  prepare?: (page: Page) => Promise<void> | void;
+}
+
 /** Opens a fresh context, walks the prejoin form, and lands in the room. */
-export async function joinRoomPage(browser: Browser, slug: string, name: string): Promise<RoomPageHandle> {
+export async function joinRoomPage(
+  browser: Browser,
+  slug: string,
+  name: string,
+  options: JoinOptions = {},
+): Promise<RoomPageHandle> {
   const context = await browser.newContext({
     locale: 'en-US',
     permissions: ['camera', 'microphone'],
@@ -29,6 +43,7 @@ export async function joinRoomPage(browser: Browser, slug: string, name: string)
     }
   });
   const page = await context.newPage();
+  await options.prepare?.(page);
   await page.goto(`${baseUrl()}/r/${slug}`);
 
   // Prejoin: the guest-name field by its label — the room title is a

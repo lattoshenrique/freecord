@@ -16,6 +16,7 @@ import {
 } from './adaptive-policy';
 import { CAMERA_MIN_BITRATE, cameraEncoding, composeCameraEncoding } from './camera-quality';
 import { decodeChatBody, encodeChatBody, type ChatQuote } from './chat-body';
+import { ChatChannels, normalizeChatText } from './chat-channel';
 import { importRoomKey, openChat, sealChat } from './chat-crypto';
 import { FileTransfers, type FileTransfer } from './file-transfer';
 import { Mesh, type TrackEncoding } from './mesh';
@@ -162,6 +163,8 @@ export function useRoomSession(options: JoinOptions) {
   const meshRef = useRef<Mesh | null>(null);
   /** One per mesh: a fresh seat gets fresh channels and a fresh ledger. */
   const transfersRef = useRef<FileTransfers | null>(null);
+  /** Text over the mesh's `chat` channels; the server relays when a seat has none (chat-channel.ts). */
+  const chatChannelsRef = useRef<ChatChannels | null>(null);
   const localMediaRef = useRef<MediaStream | null>(null);
   const selfIdRef = useRef<string | null>(null);
   const pendingScreenRef = useRef<MediaStream | null>(null);
@@ -204,6 +207,29 @@ export function useRoomSession(options: JoinOptions) {
   const chatQueueRef = useRef<Promise<void>>(Promise.resolve());
   /** Mirror of chatLocked for callbacks that must not close over state. */
   const chatLockedRef = useRef(false);
+  /** Mirror of the roster for the same reason: the chat's "everyone reachable?" check. */
+  const peersRef = useRef<PeerInfo[]>([]);
+  useEffect(() => {
+    peersRef.current = peers;
+  }, [peers]);
+
+  /**
+   * Appends one line to the chat. `plain` is the decoded body, or null for
+   * a sealed line this client cannot read. `ts` is always this client's
+   * clock at arrival (or at send, for its own line): the timeline sorts by
+   * it, and lines that came over the mesh, lines the server relayed and
+   * file transfers must share one clock or a skewed peer's reply would
+   * sort ahead of the line it answers.
+   */
+  const appendChat = useCallback((from: PeerInfo, ts: number, plain: string | null) => {
+    const body = plain === null ? null : decodeChatBody(plain);
+    const entry: ChatMessage = !body
+      ? { from, ts, text: '', unreadable: true }
+      : body.quote
+        ? { from, ts, text: body.text, quote: body.quote }
+        : { from, ts, text: body.text };
+    setChat((current) => [...current.slice(-MAX_CHAT_MESSAGES + 1), entry]);
+  }, []);
   /**
    * Congestion ladders (adaptive-policy.ts): level 0 = the preset's full
    * cap. Applied inside the encoding funnels (roomCameraEncoding /
@@ -467,6 +493,26 @@ export function useRoomSession(options: JoinOptions) {
       });
     }
 
+    /**
+     * One door for text from either path — the server relay or a peer's
+     * chat channel. Opening the envelope is async; the queue keeps arrival
+     * order.
+     */
+    function deliverChat(from: PeerInfo, wire: string): void {
+      const ts = Date.now();
+      chatQueueRef.current = chatQueueRef.current.then(async () => {
+        const opened = await openChat(chatKeyRef.current, wire);
+        if (cancelled) {
+          return;
+        }
+        if (opened.unreadable && !chatKeyRef.current) {
+          chatLockedRef.current = true;
+          setChatLocked(true);
+        }
+        appendChat(from, ts, opened.unreadable ? null : opened.text);
+      });
+    }
+
     function handleMessage(message: ServerMessage): void {
       switch (message.t) {
         case 'welcome': {
@@ -533,6 +579,16 @@ export function useRoomSession(options: JoinOptions) {
             mesh.onDataChannel = (peerId, channel) => fileTransfers.attach(peerId, channel);
             transfersRef.current = fileTransfers;
             setTransfers([]);
+            chatChannelsRef.current?.close();
+            const chatChannels = new ChatChannels();
+            chatChannels.onMessage = ({ peerId, name, text }) => {
+              // The roster's name wins; the frame's covers a channel that
+              // came up ahead of its peer-joined.
+              const known = peersRef.current.find((peer) => peer.id === peerId);
+              deliverChat({ id: peerId, name: known?.name ?? name }, text);
+            };
+            mesh.onChatChannel = (peerId, channel) => chatChannels.attach(peerId, channel);
+            chatChannelsRef.current = chatChannels;
             meshRef.current = mesh;
             const media = localMediaRef.current;
             if (media) {
@@ -582,6 +638,7 @@ export function useRoomSession(options: JoinOptions) {
         case 'peer-left':
           meshRef.current?.removePeer(message.id);
           transfersRef.current?.detach(message.id);
+          chatChannelsRef.current?.detach(message.id);
           playLeaveChime();
           setPeers((current) => current.filter((p) => p.id !== message.id));
           // The seat took its camera slot along.
@@ -613,28 +670,9 @@ export function useRoomSession(options: JoinOptions) {
           void meshRef.current?.handleSignal(message.from, message.data);
           return;
         }
-        case 'chat': {
-          // Opening the envelope is async; the queue keeps arrival order.
-          const { from, ts } = message;
-          chatQueueRef.current = chatQueueRef.current.then(async () => {
-            const opened = await openChat(chatKeyRef.current, message.text);
-            if (cancelled) {
-              return;
-            }
-            if (opened.unreadable && !chatKeyRef.current) {
-              chatLockedRef.current = true;
-              setChatLocked(true);
-            }
-            const body = opened.unreadable ? null : decodeChatBody(opened.text);
-            const entry: ChatMessage = !body
-              ? { from, ts, text: '', unreadable: true }
-              : body.quote
-                ? { from, ts, text: body.text, quote: body.quote }
-                : { from, ts, text: body.text };
-            setChat((current) => [...current.slice(-MAX_CHAT_MESSAGES + 1), entry]);
-          });
+        case 'chat':
+          deliverChat(message.from, message.text);
           return;
-        }
         case 'screen-started': {
           setScreen({ id: message.id, streamId: message.streamId });
           if (message.id === selfIdRef.current) {
@@ -773,6 +811,8 @@ export function useRoomSession(options: JoinOptions) {
       meshRef.current = null;
       transfersRef.current?.close();
       transfersRef.current = null;
+      chatChannelsRef.current?.close();
+      chatChannelsRef.current = null;
       routeRef.current = null;
       teardownRelay();
       dropLocalScreen();
@@ -1116,24 +1156,50 @@ export function useRoomSession(options: JoinOptions) {
     });
   }, []);
 
-  const sendChat = useCallback((text: string, quote: ChatQuote | null = null) => {
-    // The quote travels inside the body, so a sealed room seals it too.
-    const body = encodeChatBody(text, quote);
-    const key = chatKeyRef.current;
-    if (!key) {
-      if (chatLockedRef.current) {
-        // The room is provably sealed and this client has no key:
-        // refuse the silent plaintext downgrade.
+  /**
+   * Routes one line. Over the mesh when every seat has an open chat channel
+   * to us — then we append our own line, since no server echoes it back —
+   * else through the server, which relays it to everyone including us, as
+   * before the channel existed. One path per message, never both.
+   */
+  const dispatchChat = useCallback(
+    (wire: string, body: string) => {
+      const selfId = selfIdRef.current;
+      const roster = peersRef.current.filter((peer) => peer.id !== selfId).map((peer) => peer.id);
+      if (selfId && chatChannelsRef.current?.sendToAll(roster, options.name, wire)) {
+        const from = { id: selfId, name: options.name };
+        const ts = Date.now();
+        chatQueueRef.current = chatQueueRef.current.then(() => appendChat(from, ts, body));
         return;
       }
-      // No key and no evidence of one (a pre-key room): plaintext relays.
-      signalingRef.current?.send({ t: 'chat', text: body });
-      return;
-    }
-    void sealChat(key, body).then((sealed) =>
-      signalingRef.current?.send({ t: 'chat', text: sealed }),
-    );
-  }, []);
+      signalingRef.current?.send({ t: 'chat', text: wire });
+    },
+    [appendChat, options.name],
+  );
+
+  const sendChat = useCallback(
+    (text: string, quote: ChatQuote | null = null) => {
+      // The quote travels inside the body, so a sealed room seals it too.
+      const body = encodeChatBody(text, quote);
+      const key = chatKeyRef.current;
+      if (!key) {
+        if (chatLockedRef.current) {
+          // The room is provably sealed and this client has no key:
+          // refuse the silent plaintext downgrade.
+          return;
+        }
+        // No key and no evidence of one (a pre-key room): plaintext, cut
+        // the way the server would cut it so both paths show the same.
+        const plain = normalizeChatText(body);
+        if (plain) {
+          dispatchChat(plain, plain);
+        }
+        return;
+      }
+      void sealChat(key, body).then((sealed) => dispatchChat(sealed, body));
+    },
+    [dispatchChat],
+  );
 
   /**
    * Offers a file to everyone in the room, one transfer per peer. Returns
