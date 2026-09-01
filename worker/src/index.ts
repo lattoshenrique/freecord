@@ -8,6 +8,7 @@
  */
 import {
   ROOM_LIMITS,
+  normalizeChatText,
   type IceServerConfig,
   type PeerInfo,
   type ScreenQuality,
@@ -326,7 +327,7 @@ export class RoomDurableObject {
         return;
       }
       case 'chat': {
-        const text = message.text.trim().slice(0, ROOM_LIMITS.chatMessageMaxLength);
+        const text = normalizeChatText(message.text);
         if (text) {
           this.broadcast({ t: 'chat', from: { id: peerId, name }, text, ts: Date.now() });
         }

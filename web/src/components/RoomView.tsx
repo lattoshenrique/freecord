@@ -106,10 +106,7 @@ function QualityMenu({
             <span className="quality-option-hint">{t(`quality.${preset.id}.hint` as MessageKey)}</span>
           </button>
         ))}
-        <p className="quality-menu-note">
-          Vale na hora, mesmo compartilhando. A tela é distribuída em árvore: cada pessoa envia
-          no máximo 3 cópias, então o teto não cai com o tamanho da sala.
-        </p>
+        <p className="quality-menu-note">{t('quality.note')}</p>
       </div>
     </>
   );
@@ -455,7 +452,7 @@ export default function RoomView({
         <h1>{t('room.leftTitle')}</h1>
         <p>{message}</p>
         <Link to="/" className="button-link">
-          Voltar ao início
+          {t('prejoin.backHome')}
         </Link>
       </main>
     );
@@ -591,7 +588,11 @@ export default function RoomView({
                 return (
                   <div key={`${message.ts}-${index}`} className={`chat-bubble ${mine ? 'mine' : ''}`}>
                     {!mine && <span className="chat-author">{message.from.name}</span>}
-                    <div className="chat-md">{renderMarkdown(message.text)}</div>
+                    {message.unreadable ? (
+                      <p className="chat-locked">{t('chat.locked')}</p>
+                    ) : (
+                      <div className="chat-md">{renderMarkdown(message.text)}</div>
+                    )}
                   </div>
                 );
               })}
@@ -600,6 +601,7 @@ export default function RoomView({
             <ChatComposer
               value={draft}
               maxLength={500}
+              locked={session.chatLocked}
               onChange={setDraft}
               onSend={() => {
                 const text = draft.trim();

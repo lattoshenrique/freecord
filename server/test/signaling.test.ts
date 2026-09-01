@@ -66,6 +66,29 @@ describe('SignalingSession', () => {
     expect(ana.last().t).toBe('chat');
   });
 
+  it('a sealed chat envelope passes through untouched — never trimmed or sliced', () => {
+    const { registry, slug } = setup();
+    const ana = connect(registry, slug, 'Ana');
+    const envelope = `e2e:${'A'.repeat(16)}.${'B'.repeat(2000)}`;
+
+    ana.session.handleMessage({ t: 'chat', text: envelope });
+    const received = ana.last();
+    expect(received.t).toBe('chat');
+    if (received.t === 'chat') {
+      expect(received.text).toBe(envelope);
+    }
+  });
+
+  it('an oversized sealed envelope is dropped whole, not cut into garbage', () => {
+    const { registry, slug } = setup();
+    const ana = connect(registry, slug, 'Ana');
+    const before = ana.inbox.length;
+    const envelope = `e2e:${'A'.repeat(16)}.${'B'.repeat(ROOM_LIMITS.chatEnvelopeMaxLength)}`;
+
+    ana.session.handleMessage({ t: 'chat', text: envelope });
+    expect(ana.inbox.length).toBe(before);
+  });
+
   it('ping is echoed as pong only to whoever asked', () => {
     const { registry, slug } = setup();
     const ana = connect(registry, slug, 'Ana');
