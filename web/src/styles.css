@@ -525,7 +525,10 @@ button {
   align-items: center;
   justify-content: center;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  animation: rise-in 0.35s var(--ease) both;
+  /* Named once and reused by every rule below that sets `animation`: see the
+     speaking ring for why dropping it from a list is not an option. */
+  --tile-enter: rise-in 0.35s var(--ease) both;
+  animation: var(--tile-enter);
   transition:
     width 0.25s var(--ease),
     height 0.25s var(--ease),
@@ -605,12 +608,20 @@ button {
  * the tile already has, never a size change: a tile that grows while someone
  * speaks makes the whole grid twitch on every syllable.
  *
+ * The entrance animation is carried along instead of being replaced. CSS
+ * matches running animations to the new list by name and position, so a list
+ * that drops `rise-in` ends it — and the moment the speaker goes quiet the
+ * tile falls back to the base rule, which starts `rise-in` again from zero.
+ * The card slid up and faded in on every pause in the sentence.
+ *
  * The attribute comes from the speaking-detector work; the global
  * prefers-reduced-motion rule already flattens the pulse to nothing.
  */
 .tile[data-speaking='true'] {
   border-color: var(--accent);
-  animation: tile-speaking 1.8s ease-out infinite;
+  animation:
+    var(--tile-enter),
+    tile-speaking 1.8s ease-out infinite;
 }
 
 @keyframes tile-speaking {
@@ -627,7 +638,7 @@ button {
 
 /* In the strip beside a shared screen the tiles are small: ring only. */
 .tiles-strip .tile[data-speaking='true'] {
-  animation: none;
+  animation: var(--tile-enter);
 }
 
 /*

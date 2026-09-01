@@ -81,4 +81,48 @@ test.describe('speaking indicator', () => {
     await alice.page.getByRole('button', { name: /unmute microphone/i }).click();
     await expect(selfTile).toHaveAttribute('data-speaking', 'true', { timeout: 20_000 });
   });
+
+  /**
+   * The ring is an animation ON the tile, and CSS matches running animations
+   * to the new list by name and position: a `data-speaking` rule that listed
+   * only the pulse ended the tile's entrance animation, and dropping the
+   * attribute started a fresh one — the card slid up and faded in again every
+   * time a speaker paused. The tile must stay put.
+   */
+  test('a tile does not replay its entrance when the speaker goes quiet', async ({ browser }) => {
+    const { slug } = await createRoom('speaking-anim');
+    const alice = await joinRoomPage(browser, slug, 'alice');
+    const bob = await joinRoomPage(browser, slug, 'bob');
+    handles = [alice, bob];
+
+    await alice.page.getByRole('button', { name: /unmute microphone/i }).click();
+    await expect(tileOf(alice.page, 'alice')).toHaveAttribute('data-speaking', 'true', {
+      timeout: 20_000,
+    });
+
+    // Counting starts with the tile already lit, so the entrance animation
+    // from the join itself is not in the sample.
+    await alice.page.evaluate(() => {
+      const counter = window as unknown as { __riseIn: number };
+      counter.__riseIn = 0;
+      for (const tile of document.querySelectorAll('.tile')) {
+        tile.addEventListener('animationstart', (event) => {
+          if ((event as AnimationEvent).animationName === 'rise-in') {
+            counter.__riseIn += 1;
+          }
+        });
+      }
+    });
+
+    await alice.page.getByRole('button', { name: /mute microphone/i }).click();
+    await expect(tileOf(alice.page, 'alice')).not.toHaveAttribute('data-speaking', 'true', {
+      timeout: 20_000,
+    });
+    await alice.page.waitForTimeout(1_000);
+
+    const replays = await alice.page.evaluate(
+      () => (window as unknown as { __riseIn: number }).__riseIn,
+    );
+    expect(replays).toBe(0);
+  });
 });
