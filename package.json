@@ -7,7 +7,8 @@
     "server",
     "web",
     "worker",
-    "relay"
+    "relay",
+    "e2e"
   ],
   "scripts": {
     "dev:server": "npm run dev --workspace server",
