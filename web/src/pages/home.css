@@ -90,56 +90,83 @@
 
 /* ---- the field ---- */
 
+/*
+ * A column, not a row: the button sits centred under the hero as the one
+ * thing to press, and the optional name is a single written line above it —
+ * no fill, no box, just text you can type over. Typing order matches reading
+ * order, so Enter still means "create".
+ */
+
 .start-form {
   display: flex;
-  gap: 0.6rem;
-  width: min(40rem, 100%);
-  margin-top: 0.5rem;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.1rem;
+  width: min(26rem, 100%);
+  margin-top: 0.75rem;
 }
 
+/*
+ * Square by design: the underline is the whole field, so there is no radius
+ * for a focus ring to follow into a strange shape — and the page autofocuses
+ * here, so that ring would be on screen from the first frame.
+ */
 .start-form input {
-  flex: 1;
-  min-width: 0;
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
-  border-radius: 16px;
+  width: 100%;
+  background: none;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0;
   color: var(--text);
-  padding: 1.15rem 1.35rem;
-  font-size: 1.15rem;
-  transition:
-    border-color 0.15s ease,
-    box-shadow 0.15s ease;
+  padding: 0.55rem 0.25rem;
+  font-size: 1rem;
+  text-align: center;
+  transition: border-color 0.15s ease;
 }
 
 .start-form input::placeholder {
-  color: var(--muted);
+  color: rgba(154, 160, 173, 0.55);
 }
 
-.start-form input:focus {
+.start-form input:hover {
+  border-bottom-color: rgba(255, 255, 255, 0.22);
+}
+
+/* The underline is the focus indicator: it brightens, nothing else moves. */
+.start-form input:focus,
+.start-form input:focus-visible {
   outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(88, 101, 242, 0.25);
+  border-bottom-color: rgba(255, 255, 255, 0.45);
 }
 
 .start-form button {
+  /* Wide enough to read as the anchor of the screen, not as a chip. */
+  min-width: 15rem;
   background: linear-gradient(135deg, var(--accent), #a855f7);
   border: none;
-  border-radius: 16px;
+  border-radius: 14px;
   color: white;
-  padding: 1.15rem 2rem;
-  font-size: 1.15rem;
+  padding: 1.15rem 2.3rem;
+  font-size: 1.1rem;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
+  /* The only lit thing on the screen. */
+  box-shadow: 0 12px 34px -12px rgba(88, 101, 242, 0.85);
   transition:
     filter 0.15s ease,
-    transform 0.15s var(--ease);
+    transform 0.15s var(--ease),
+    box-shadow 0.15s ease;
 }
 
 .start-form button:hover:not(:disabled) {
   filter: brightness(1.12);
+  box-shadow: 0 16px 40px -12px rgba(88, 101, 242, 1);
+}
+
+.start-form button:focus-visible {
+  outline: 2px solid white;
+  outline-offset: 3px;
 }
 
 .start-form button:active:not(:disabled) {
@@ -149,6 +176,7 @@
 .start-form button:disabled {
   opacity: 0.6;
   cursor: default;
+  box-shadow: none;
 }
 
 .start-hint,
@@ -216,8 +244,7 @@
   appearance: none;
   -webkit-appearance: none;
   /* Chevron drawn in the muted colour: a native arrow would be black on dark. */
-  background:
-    transparent
+  background: transparent
     url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='%239aa0ad' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 4.5 6 7.5 9 4.5'/%3E%3C/svg%3E")
     no-repeat right center;
   background-size: 0.7rem;
@@ -257,7 +284,7 @@
 }
 
 @media (max-width: 640px) {
-  .start-form {
-    flex-direction: column;
+  .start-form button {
+    width: 100%;
   }
 }
