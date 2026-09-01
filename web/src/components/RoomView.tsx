@@ -443,8 +443,17 @@ export default function RoomView({
     return entries.sort((a, b) => a.ts - b.ts);
   }, [session.chat, session.transfers]);
 
+  // Names outlive seats: a transfer bubble still says who sent the file
+  // after that person has left the room.
+  const knownNamesRef = useRef(new Map<string, string>());
+  for (const peer of session.peers) {
+    knownNamesRef.current.set(peer.id, peer.name);
+  }
   const peerName = useCallback(
-    (peerId: string) => session.peers.find((peer) => peer.id === peerId)?.name ?? '…',
+    (peerId: string) =>
+      session.peers.find((peer) => peer.id === peerId)?.name ??
+      knownNamesRef.current.get(peerId) ??
+      '…',
     [session.peers],
   );
 
