@@ -1,12 +1,15 @@
 /**
  * The dock's settings popover: screen-share preset, computer audio,
- * microphone profile and camera ceiling in one surface (it replaces the
- * old screen-only QualityMenu).
+ * microphone profile, camera ceiling and audio devices in one surface
+ * (it replaces the old screen-only QualityMenu).
  *
  * Props are deliberately narrow — values in, callbacks out — so this
  * component never depends on the room hook's shape; the wiring in
- * RoomView is owned by the media track.
+ * RoomView is owned by the media track. The device props are optional:
+ * without them the device pickers stay hidden, so the menu works before
+ * the session hook learns to switch devices.
  */
+import { useEffect, useState } from 'react';
 import { useI18n, type MessageKey } from '../i18n';
 import { SCREEN_QUALITY_PRESETS, type ScreenQualityId } from '../lib/screen-quality';
 import {
@@ -16,6 +19,13 @@ import {
   type MediaSettings,
   type MicProfileId,
 } from '../lib/media-settings';
+import {
+  listAudioDevices,
+  onDeviceChange,
+  supportsSpeakerSelection,
+  type AudioDeviceLists,
+  type AudioDevicePrefs,
+} from '../lib/audio-devices';
 import './settings-menu.css';
 
 function OptionRow({
@@ -73,12 +83,50 @@ function SwitchRow({
   );
 }
 
+function DeviceSelect({
+  label,
+  value,
+  devices,
+  defaultLabel,
+  fallbackLabel,
+  onChange,
+}: {
+  label: string;
+  value: string | null;
+  devices: MediaDeviceInfo[];
+  defaultLabel: string;
+  fallbackLabel: (number: number) => string;
+  onChange: (id: string | null) => void;
+}) {
+  // A saved device that is gone reads as the default instead of a blank box.
+  const known = value !== null && devices.some((device) => device.deviceId === value);
+  return (
+    <label className="settings-device">
+      <span className="settings-option-hint">{label}</span>
+      <select
+        className="settings-device-select"
+        value={known ? value : ''}
+        onChange={(event) => onChange(event.target.value === '' ? null : event.target.value)}
+      >
+        <option value="">{defaultLabel}</option>
+        {devices.map((device, index) => (
+          <option key={device.deviceId} value={device.deviceId}>
+            {device.label || fallbackLabel(index + 1)}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 export default function SettingsMenu({
   screenQuality,
   onScreenQuality,
   settings,
   onSettings,
   screenAudioSupported,
+  audioDevices,
+  onAudioDevices,
   onClose,
 }: {
   screenQuality: ScreenQualityId;
@@ -87,9 +135,34 @@ export default function SettingsMenu({
   onSettings: (next: MediaSettings) => void;
   /** False where the platform can never deliver it (desktop shell outside Windows). */
   screenAudioSupported: boolean;
+  /** Device prefs + callback; omit both to hide the device pickers. */
+  audioDevices?: AudioDevicePrefs;
+  onAudioDevices?: (next: AudioDevicePrefs) => void;
   onClose: () => void;
 }) {
   const { t } = useI18n();
+  const deviceControls = audioDevices !== undefined && onAudioDevices !== undefined;
+  const [deviceLists, setDeviceLists] = useState<AudioDeviceLists>({ mics: [], speakers: [] });
+
+  // Live list: a headset plugged in mid-call shows up without reopening.
+  useEffect(() => {
+    if (!deviceControls) {
+      return;
+    }
+    let cancelled = false;
+    const refresh = () =>
+      void listAudioDevices().then((lists) => {
+        if (!cancelled) {
+          setDeviceLists(lists);
+        }
+      });
+    refresh();
+    const off = onDeviceChange(refresh);
+    return () => {
+      cancelled = true;
+      off();
+    };
+  }, [deviceControls]);
 
   const setMicProfile = (profile: MicProfileId) =>
     onSettings({ ...settings, mic: micDefaults(profile) });
@@ -132,6 +205,16 @@ export default function SettingsMenu({
 
         <section className="settings-section">
           <p className="settings-section-title">{t('settings.mic.title')}</p>
+          {audioDevices && onAudioDevices && (
+            <DeviceSelect
+              label={t('settings.device.mic')}
+              value={audioDevices.micId}
+              devices={deviceLists.mics}
+              defaultLabel={t('settings.device.default')}
+              fallbackLabel={(number) => t('settings.device.mic.fallback', { number })}
+              onChange={(micId) => onAudioDevices({ ...audioDevices, micId })}
+            />
+          )}
           {(['voice', 'music'] as const).map((profile) => (
             <OptionRow
               key={profile}
@@ -170,6 +253,20 @@ export default function SettingsMenu({
             />
           ))}
         </section>
+
+        {audioDevices && onAudioDevices && supportsSpeakerSelection() && (
+          <section className="settings-section">
+            <p className="settings-section-title">{t('settings.device.speaker')}</p>
+            <DeviceSelect
+              label={t('settings.device.speaker')}
+              value={audioDevices.speakerId}
+              devices={deviceLists.speakers}
+              defaultLabel={t('settings.device.default')}
+              fallbackLabel={(number) => t('settings.device.speaker.fallback', { number })}
+              onChange={(speakerId) => onAudioDevices({ ...audioDevices, speakerId })}
+            />
+          </section>
+        )}
       </div>
     </>
   );

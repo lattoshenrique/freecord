@@ -99,6 +99,11 @@ export const enUS = {
   'settings.camera.standard.hint': 'Up to 720p at 30 fps — the default',
   'settings.camera.high.label': 'High',
   'settings.camera.high.hint': 'Up to 1080p at 30 fps — needs a strong connection',
+  'settings.device.mic': 'Microphone device',
+  'settings.device.speaker': 'Sound output',
+  'settings.device.default': 'System default',
+  'settings.device.mic.fallback': 'Microphone {number}',
+  'settings.device.speaker.fallback': 'Speaker {number}',
 
   'controls.muteMic': 'Mute microphone',
   'controls.unmuteMic': 'Unmute microphone',

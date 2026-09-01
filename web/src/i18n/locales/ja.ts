@@ -94,6 +94,11 @@ export const jaJP: Catalog = {
   'settings.camera.standard.hint': '最大 720p 30 fps — 標準',
   'settings.camera.high.label': '高画質',
   'settings.camera.high.hint': '最大 1080p 30 fps — 安定した回線向け',
+  'settings.device.mic': 'マイクデバイス',
+  'settings.device.speaker': '音声の出力先',
+  'settings.device.default': 'システム既定',
+  'settings.device.mic.fallback': 'マイク {number}',
+  'settings.device.speaker.fallback': 'スピーカー {number}',
 
   'controls.muteMic': 'マイクをミュート',
   'controls.unmuteMic': 'ミュートを解除',

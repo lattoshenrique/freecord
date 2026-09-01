@@ -93,6 +93,11 @@ export const zhCN: Catalog = {
   'settings.camera.standard.hint': '最高 720p 30 fps —— 默认',
   'settings.camera.high.label': '高清',
   'settings.camera.high.hint': '最高 1080p 30 fps —— 需要较好的网络',
+  'settings.device.mic': '麦克风设备',
+  'settings.device.speaker': '声音输出',
+  'settings.device.default': '系统默认',
+  'settings.device.mic.fallback': '麦克风 {number}',
+  'settings.device.speaker.fallback': '扬声器 {number}',
 
   'controls.muteMic': '静音麦克风',
   'controls.unmuteMic': '取消静音',

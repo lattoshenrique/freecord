@@ -94,6 +94,11 @@ export const ptBR: Catalog = {
   'settings.camera.standard.hint': 'Até 720p a 30 fps — o padrão',
   'settings.camera.high.label': 'Alta',
   'settings.camera.high.hint': 'Até 1080p a 30 fps — exige conexão forte',
+  'settings.device.mic': 'Dispositivo do microfone',
+  'settings.device.speaker': 'Saída de som',
+  'settings.device.default': 'Padrão do sistema',
+  'settings.device.mic.fallback': 'Microfone {number}',
+  'settings.device.speaker.fallback': 'Alto-falante {number}',
 
   'controls.muteMic': 'Silenciar microfone',
   'controls.unmuteMic': 'Ativar microfone',

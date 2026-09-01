@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
-import { cameraEncoding } from './camera-quality';
+import {
+  loadAudioDevicePrefs,
+  micDeviceConstraint,
+  saveAudioDevicePrefs,
+  type AudioDevicePrefs,
+} from './audio-devices';
+import { cameraEncoding, composeCameraEncoding } from './camera-quality';
 import { importRoomKey, openChat, sealChat } from './chat-crypto';
 import { Mesh, type TrackEncoding } from './mesh';
 import { Signaling } from './signaling';
@@ -14,7 +20,14 @@ import {
 } from './screen-quality';
 import { ScreenRelayController, extractRelayNote, makeRelayNote } from './screen-relay';
 import {
+  allowHiFiOpus,
+  cameraConstraints,
+  cameraEncoding as cameraUserCaps,
+  cameraPresetById,
   loadMediaSettings,
+  micConstraints,
+  micContentHint,
+  micEncoding,
   saveMediaSettings,
   screenAudioConstraints,
   type MediaSettings,
@@ -103,6 +116,8 @@ export function useRoomSession(options: JoinOptions) {
   const [screenQuality, setScreenQualityState] = useState<ScreenQualityId>(loadQuality);
   /** User-tunable media prefs (mic profile, camera ceiling, screen audio). */
   const [mediaSettings, setMediaSettings] = useState<MediaSettings>(loadMediaSettings);
+  /** Per-machine device choice: which mic captures, where playback goes. */
+  const [audioDevices, setAudioDevices] = useState<AudioDevicePrefs>(loadAudioDevicePrefs);
   const [peerLatency, setPeerLatency] = useState<Map<string, PeerLatency>>(new Map());
   const [signalRttMs, setSignalRttMs] = useState<number | null>(null);
   const [screenStats, setScreenStats] = useState<ScreenStats | null>(null);
@@ -119,6 +134,10 @@ export function useRoomSession(options: JoinOptions) {
   const qualityRef = useRef<ScreenQualityId>(screenQuality);
   /** Mirror for callbacks (share start) that must not close over state. */
   const mediaSettingsRef = useRef<MediaSettings>(mediaSettings);
+  /** Mirror of audioDevices for the same reason. */
+  const audioDevicesRef = useRef<AudioDevicePrefs>(audioDevices);
+  /** Serializes live mic swaps so two quick picks cannot interleave. */
+  const micSwapRef = useRef<Promise<void>>(Promise.resolve());
   const viewerCountRef = useRef(0);
   /** The user's intent: camera wanted on. Survives the request round-trip. */
   const camWantedRef = useRef(options.camEnabled);
@@ -292,14 +311,25 @@ export function useRoomSession(options: JoinOptions) {
     }
   }, [screenEncoding, relayEncoding, teardownRelay]);
 
+  /** Room policy composed with the user's ceiling: caps only lower, never raise. */
+  const roomCameraEncoding = useCallback((peerCount: number): TrackEncoding => {
+    return composeCameraEncoding(
+      cameraEncoding(peerCount),
+      cameraUserCaps(cameraPresetById(mediaSettingsRef.current.camera)),
+    );
+  }, []);
+
   /** Grant in hand: acquire the camera now and put it on the mesh. */
   const acquireCamera = useCallback(async () => {
     try {
-      const cam = await navigator.mediaDevices.getUserMedia({ video: true });
+      const cam = await navigator.mediaDevices.getUserMedia({
+        video: cameraConstraints(cameraPresetById(mediaSettingsRef.current.camera)),
+      });
       const track = cam.getVideoTracks()[0];
       if (!track) {
         return;
       }
+      track.contentHint = 'motion';
       const media = localMediaRef.current;
       const target = media ?? new MediaStream();
       target.addTrack(track);
@@ -307,7 +337,7 @@ export function useRoomSession(options: JoinOptions) {
         localMediaRef.current = target;
       }
       setLocalMedia(target);
-      meshRef.current?.addLocalTrack(track, target, cameraEncoding(viewerCountRef.current));
+      meshRef.current?.addLocalTrack(track, target, roomCameraEncoding(viewerCountRef.current));
       setCamOn(true);
       bumpVersion();
     } catch {
@@ -315,7 +345,7 @@ export function useRoomSession(options: JoinOptions) {
       camWantedRef.current = false;
       signalingRef.current?.send({ t: 'camera-stop' });
     }
-  }, []);
+  }, [roomCameraEncoding]);
 
   useEffect(() => {
     let cancelled = false;
@@ -323,15 +353,24 @@ export function useRoomSession(options: JoinOptions) {
     async function connect() {
       // Key first: chat can arrive right behind the welcome.
       chatKeyRef.current = options.roomKey ? await importRoomKey(options.roomKey) : null;
+      // Profile and device from the saved settings; every constraint is
+      // soft (ideal), so a missing device degrades instead of blocking.
+      const settings = mediaSettingsRef.current;
+      const audioConstraints: MediaTrackConstraints = {
+        ...micConstraints(settings.mic),
+        ...micDeviceConstraint(audioDevicesRef.current.micId, false),
+      };
       let media: MediaStream | null = null;
       try {
         media = await navigator.mediaDevices.getUserMedia({
-          audio: true,
-          video: options.camEnabled,
+          audio: audioConstraints,
+          video: options.camEnabled
+            ? cameraConstraints(cameraPresetById(settings.camera))
+            : false,
         });
       } catch {
         try {
-          media = await navigator.mediaDevices.getUserMedia({ audio: true });
+          media = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
         } catch {
           media = null; // join as listener/viewer only
         }
@@ -345,9 +384,13 @@ export function useRoomSession(options: JoinOptions) {
           track.enabled = false;
         });
       }
+      media?.getAudioTracks().forEach((track) => {
+        track.contentHint = micContentHint(settings.mic);
+      });
       // The camera slot belongs to the server: the track is acquired now
       // (one permission prompt) but stays dark until camera-started grants.
       media?.getVideoTracks().forEach((track) => {
+        track.contentHint = 'motion';
         track.enabled = false;
       });
       localMediaRef.current = media;
@@ -406,19 +449,24 @@ export function useRoomSession(options: JoinOptions) {
               message.selfId,
               (to, data) => signalingRef.current?.send({ t: 'signal', to, data }),
               message.ice,
+              // Lifts what peers let us SEND (Opus stereo + hi-fi ceiling);
+              // spending it stays a sender-side choice (mic profile).
+              allowHiFiOpus,
             );
             mesh.subscribe(bumpVersion);
             meshRef.current = mesh;
             const media = localMediaRef.current;
             if (media) {
               for (const track of media.getTracks()) {
-                // Video is the camera: capped by the adaptive budget split
-                // across the connected peers. Audio rides uncapped (the
-                // mesh pins its priority high).
+                // Video is the camera: the adaptive split composed with the
+                // user's ceiling. Audio gets the profile's Opus cap; its
+                // priority stays pinned high by the mesh.
                 mesh.addLocalTrack(
                   track,
                   media,
-                  track.kind === 'video' ? cameraEncoding(message.peers.length) : undefined,
+                  track.kind === 'video'
+                    ? roomCameraEncoding(message.peers.length)
+                    : micEncoding(mediaSettingsRef.current.mic),
                 );
               }
             }
@@ -756,9 +804,9 @@ export function useRoomSession(options: JoinOptions) {
     }
     const camTrack = localMediaRef.current?.getVideoTracks()[0];
     if (camTrack) {
-      meshRef.current?.setTrackEncoding(camTrack, cameraEncoding(peers.length));
+      meshRef.current?.setTrackEncoding(camTrack, roomCameraEncoding(peers.length));
     }
-  }, [peers.length, screenEncoding]);
+  }, [peers.length, screenEncoding, roomCameraEncoding]);
 
   // The parent's track may arrive AFTER the route (negotiation still in
   // flight): every mesh notification re-evaluates this peer's tree role.
@@ -800,15 +848,95 @@ export function useRoomSession(options: JoinOptions) {
   );
 
   /**
-   * Constraint: persists and stores the choice only. Live re-application
-   * of mic/camera constraints to already-acquired tracks is the follow-up
-   * seam (owned by the settings track); today the only setting that takes
-   * effect mid-call is screen audio, read at the next share start.
+   * Persists the choice and re-applies it to whatever is live right now:
+   * the mic's processing chain, hint and Opus cap; the camera's capture
+   * constraints and its composed send cap. Screen audio stays read at the
+   * next share start. Never touches camera on/off — that is the server's
+   * slot flow.
    */
-  const updateMediaSettings = useCallback((next: MediaSettings) => {
-    mediaSettingsRef.current = next;
-    setMediaSettings(next);
-    saveMediaSettings(next);
+  const updateMediaSettings = useCallback(
+    (next: MediaSettings) => {
+      mediaSettingsRef.current = next;
+      setMediaSettings(next);
+      saveMediaSettings(next);
+      const mic = localMediaRef.current?.getAudioTracks()[0];
+      if (mic) {
+        mic.contentHint = micContentHint(next.mic);
+        void mic.applyConstraints(micConstraints(next.mic)).catch(() => {
+          // a browser that cannot retoggle processing live: the cap still applies
+        });
+        meshRef.current?.setTrackEncoding(mic, micEncoding(next.mic));
+      }
+      const cam = localMediaRef.current?.getVideoTracks()[0];
+      if (cam) {
+        void cam.applyConstraints(cameraConstraints(cameraPresetById(next.camera))).catch(() => {
+          // the device rejects the resolution: the send cap still applies
+        });
+        meshRef.current?.setTrackEncoding(cam, roomCameraEncoding(viewerCountRef.current));
+      }
+    },
+    [roomCameraEncoding],
+  );
+
+  /**
+   * Device change: persists, then swaps the live mic capture without
+   * renegotiation (replaceTrack keeps the m-line; encodings and priority
+   * ride along in the mesh's bookkeeping). The speaker side has no work
+   * here — RoomView routes its sinks from the returned prefs. A failed
+   * swap (device unplugged mid-pick) reverts the pref, so the menu shows
+   * what is actually capturing.
+   */
+  const updateAudioDevices = useCallback((next: AudioDevicePrefs) => {
+    const previous = audioDevicesRef.current;
+    audioDevicesRef.current = next;
+    setAudioDevices(next);
+    saveAudioDevicePrefs(next);
+    if (next.micId === previous.micId) {
+      return;
+    }
+    micSwapRef.current = micSwapRef.current.then(async () => {
+      // A newer pick may have superseded this one while queued.
+      if (audioDevicesRef.current.micId !== next.micId) {
+        return;
+      }
+      const media = localMediaRef.current;
+      const oldTrack = media?.getAudioTracks()[0];
+      if (!media || !oldTrack) {
+        return; // no live mic (listener): the pref applies at the next acquisition
+      }
+      try {
+        const settings = mediaSettingsRef.current;
+        const capture = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            ...micConstraints(settings.mic),
+            // Strict: the user just picked it — failing visibly beats silence.
+            ...micDeviceConstraint(next.micId, true),
+          },
+        });
+        const newTrack = capture.getAudioTracks()[0];
+        if (!newTrack) {
+          return;
+        }
+        if (!meshRef.current) {
+          // Left the room while the picker was answering.
+          newTrack.stop();
+          return;
+        }
+        newTrack.enabled = oldTrack.enabled; // the mute state survives the swap
+        newTrack.contentHint = micContentHint(settings.mic);
+        await meshRef.current.replaceLocalTrack(oldTrack, newTrack);
+        media.removeTrack(oldTrack);
+        media.addTrack(newTrack);
+        oldTrack.stop();
+        setLocalMedia(media);
+        bumpVersion();
+      } catch {
+        // device gone or permission refused: the old mic keeps flowing
+        audioDevicesRef.current = { ...audioDevicesRef.current, micId: previous.micId };
+        setAudioDevices((current) => ({ ...current, micId: previous.micId }));
+        saveAudioDevicePrefs(audioDevicesRef.current);
+      }
+    });
   }, []);
 
   const sendChat = useCallback((text: string) => {
@@ -935,12 +1063,14 @@ export function useRoomSession(options: JoinOptions) {
     camDenied,
     screenQuality,
     mediaSettings,
+    audioDevices,
     peerLatency,
     signalRttMs,
     screenStats,
     mesh: meshRef.current,
     setScreenQuality,
     updateMediaSettings,
+    updateAudioDevices,
     sendChat,
     toggleMic,
     toggleCam,

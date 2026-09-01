@@ -94,6 +94,11 @@ export const esES: Catalog = {
   'settings.camera.standard.hint': 'Hasta 720p a 30 fps — la predeterminada',
   'settings.camera.high.label': 'Alta',
   'settings.camera.high.hint': 'Hasta 1080p a 30 fps — exige buena conexión',
+  'settings.device.mic': 'Dispositivo del micrófono',
+  'settings.device.speaker': 'Salida de sonido',
+  'settings.device.default': 'Predeterminado del sistema',
+  'settings.device.mic.fallback': 'Micrófono {number}',
+  'settings.device.speaker.fallback': 'Altavoz {number}',
 
   'controls.muteMic': 'Silenciar micrófono',
   'controls.unmuteMic': 'Activar micrófono',

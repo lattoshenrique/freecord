@@ -155,3 +155,45 @@
   left: calc(100% - 0.72rem - 2px);
   background: #fff;
 }
+
+/* ---- device selects ---- */
+
+.settings-device {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.45rem 0.6rem;
+}
+
+.settings-device-select {
+  width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+  font-family: var(--mono, monospace);
+  font-size: 0.78rem;
+  color: var(--text, #e6e8ee);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--hud-border, rgba(255, 255, 255, 0.1));
+  border-radius: calc(var(--hud-radius, 8px) - 2px);
+  padding: 0.4rem 1.6rem 0.4rem 0.55rem;
+  cursor: pointer;
+  /* Hairline chevron, inline so no asset request leaves the page. */
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%2398a0b3' stroke-width='1.2'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.55rem center;
+}
+
+.settings-device-select:hover {
+  border-color: var(--hud-border-strong, rgba(255, 255, 255, 0.2));
+}
+
+.settings-device-select:focus-visible {
+  outline: none;
+  border-color: var(--accent, #7c9cf5);
+}
+
+/* The popup list is native; keep the options readable on dark themes. */
+.settings-device-select option {
+  color: #111;
+  background: #fff;
+}

@@ -15,6 +15,7 @@ import Avatar from './Avatar';
 import ChatComposer from './ChatComposer';
 import InviteButton from './InviteButton';
 import SettingsMenu from './SettingsMenu';
+import { applySinkId } from '../lib/audio-devices';
 import {
   CamIcon,
   CamOffIcon,
@@ -120,11 +121,14 @@ function MediaView({
   muted,
   className,
   videoRef,
+  sinkId,
 }: {
   stream: MediaStream;
   muted: boolean;
   className?: string;
   videoRef?: RefObject<HTMLVideoElement | null>;
+  /** Playback device; remote cameras sound through the <video> itself. */
+  sinkId?: string | null;
 }) {
   const ownRef = useRef<HTMLVideoElement>(null);
   const ref = videoRef ?? ownRef;
@@ -133,16 +137,26 @@ function MediaView({
       ref.current.srcObject = stream;
     }
   }, [stream]);
+  useEffect(() => {
+    if (ref.current && sinkId !== undefined) {
+      void applySinkId(ref.current, sinkId);
+    }
+  }, [sinkId, stream]);
   return <video ref={ref} autoPlay playsInline muted={muted} className={className} />;
 }
 
-function AudioSink({ stream }: { stream: MediaStream }) {
+function AudioSink({ stream, sinkId }: { stream: MediaStream; sinkId?: string | null }) {
   const ref = useRef<HTMLAudioElement>(null);
   useEffect(() => {
     if (ref.current && ref.current.srcObject !== stream) {
       ref.current.srcObject = stream;
     }
   }, [stream]);
+  useEffect(() => {
+    if (ref.current && sinkId !== undefined) {
+      void applySinkId(ref.current, sinkId);
+    }
+  }, [sinkId, stream]);
   return <audio ref={ref} autoPlay />;
 }
 
@@ -270,6 +284,7 @@ function Tile({
   latencyMs,
   latencyTitle,
   style,
+  sinkId,
 }: {
   name: string;
   isSelf: boolean;
@@ -279,6 +294,8 @@ function Tile({
   latencyMs: number | null;
   latencyTitle: string;
   style?: React.CSSProperties;
+  /** Playback device for a remote peer's audio; self tiles pass none. */
+  sinkId?: string | null;
 }) {
   const { t } = useI18n();
   const showVideo = stream !== null && hasLiveVideo(stream);
@@ -286,11 +303,16 @@ function Tile({
     <div className="tile" data-speaking={speaking ? 'true' : undefined} style={style}>
       <LatencyChip ms={latencyMs} title={latencyTitle} />
       {showVideo ? (
-        <MediaView stream={stream} muted={isSelf} className={`tile-video ${isSelf ? 'mirrored' : ''}`} />
+        <MediaView
+          stream={stream}
+          muted={isSelf}
+          className={`tile-video ${isSelf ? 'mirrored' : ''}`}
+          sinkId={isSelf ? undefined : sinkId}
+        />
       ) : (
         <>
           <Avatar name={name} className="tile-avatar" />
-          {!isSelf && stream && <AudioSink stream={stream} />}
+          {!isSelf && stream && <AudioSink stream={stream} sinkId={sinkId} />}
         </>
       )}
       <span className="tile-name">
@@ -548,7 +570,9 @@ export default function RoomView({
 
   return (
     <div className="room-layout">
-      {screenAudioStream && <AudioSink stream={screenAudioStream} />}
+      {screenAudioStream && (
+        <AudioSink stream={screenAudioStream} sinkId={session.audioDevices.speakerId} />
+      )}
       <header className="room-header">
         <div className="room-title">
           <h1>{room.displayName || t('room.unnamed')}</h1>
@@ -645,6 +669,7 @@ export default function RoomView({
                   latencyMs={session.peerLatency.get(peer.id)?.rttMs ?? null}
                   latencyTitle={t('latency.peer', { name: peer.name })}
                   style={tileStyle}
+                  sinkId={session.audioDevices.speakerId}
                 />
               );
             })}
@@ -727,6 +752,8 @@ export default function RoomView({
             // In a browser the picker itself decides (Chromium offers tab or
             // system audio); only the desktop shell can rule it out upfront.
             screenAudioSupported={!isDesktopApp() || desktopSystemAudio()}
+            audioDevices={session.audioDevices}
+            onAudioDevices={session.updateAudioDevices}
             onClose={() => setSettingsOpen(false)}
           />
         )}
