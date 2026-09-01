@@ -8,6 +8,7 @@
  */
 import {
   ROOM_LIMITS,
+  cameraSlotsFor,
   normalizeChatText,
   type IceServerConfig,
   type PeerInfo,
@@ -87,6 +88,8 @@ interface RoomMeta {
 type ScreenLock = { id: string; streamId: string; quality: ScreenQuality } | null;
 /** Screen-tree relays: relay peerId → forwarding streamId. */
 type ScreenRelays = Record<string, string>;
+/** Peers holding a camera slot — storage, so it survives hibernation. */
+type Cameras = string[];
 
 /** Zombie-sweep cadence while the room has people in it. */
 const SWEEP_INTERVAL_MS = Math.floor(ROOM_LIMITS.peerTimeoutMs / 2);
@@ -220,6 +223,7 @@ export class RoomDurableObject {
         ...Object.values(detached).map((seat) => ({ id: seat.peerId, name: seat.name })),
       ],
       screen: screen ? { id: screen.id, streamId: screen.streamId } : null,
+      cameras: await this.cameras(),
     });
     this.broadcast({ t: 'peer-joined', peer: { id: peerId, name } }, peerId);
     // Screen share in progress: the newcomer needs a route, and the tree changes.
@@ -291,6 +295,7 @@ export class RoomDurableObject {
         ...Object.values(detached).map((seat) => ({ id: seat.peerId, name: seat.name })),
       ],
       screen: screen ? { id: screen.id, streamId: screen.streamId } : null,
+      cameras: await this.cameras(),
     });
     // The seat was never vacated: no peer-joined. The tree may have changed
     // shape during the absence, so routes are re-emitted.
@@ -379,6 +384,33 @@ export class RoomDurableObject {
         }
         return;
       }
+      case 'camera-request': {
+        // Product rule enforced on the server, like the screen lock: live
+        // cameras are capped by room size. Only NEW activations count —
+        // a camera granted before the room grew keeps its slot
+        // (grandfathering). Detached seats still count as participants.
+        const cameras = await this.cameras();
+        const detached = await this.detachedPeers();
+        const seats = this.ctx.getWebSockets().length + Object.keys(detached).length;
+        if (!cameras.includes(peerId) && cameras.length >= cameraSlotsFor(seats)) {
+          this.send(ws, { t: 'camera-denied' });
+          return;
+        }
+        // A re-request by a holder (e.g. after a resume) is re-granted.
+        if (!cameras.includes(peerId)) {
+          await this.putCameras([...cameras, peerId]);
+        }
+        this.broadcast({ t: 'camera-started', id: peerId });
+        return;
+      }
+      case 'camera-stop': {
+        const cameras = await this.cameras();
+        if (cameras.includes(peerId)) {
+          await this.putCameras(cameras.filter((id) => id !== peerId));
+          this.broadcast({ t: 'camera-stopped', id: peerId });
+        }
+        return;
+      }
       case 'leave': {
         // Deliberate goodbye: vacate the seat now, no resume grace.
         await this.leave([ws]);
@@ -428,6 +460,16 @@ export class RoomDurableObject {
       disconnectedAt: Date.now(),
     };
     await this.putDetachedPeers(detached);
+    // The camera slot gets no grace, unlike the screen lock: a slot held
+    // through an outage blocks someone else's camera for nothing, while
+    // the resumer only pays a re-request (its welcome roster says the
+    // slot is gone). If that re-request is denied, the client turns the
+    // camera off then.
+    const cameras = await this.cameras();
+    if (cameras.includes(attachment.peerId)) {
+      await this.putCameras(cameras.filter((id) => id !== attachment.peerId));
+      this.broadcast({ t: 'camera-stopped', id: attachment.peerId });
+    }
     // The screen lock's grace is shorter than the sweep cadence: wake up
     // early enough to release an abandoned lock on time.
     await this.ensureAlarmWithin(ROOM_LIMITS.screenLockGraceMs);
@@ -516,6 +558,11 @@ export class RoomDurableObject {
       }
       await this.ctx.storage.put('screenRelays', relays);
     }
+    // Camera slots free with the seat; `peer-left` prunes the clients' rosters.
+    const cameras = await this.cameras();
+    if (cameras.some((id) => gone.has(id))) {
+      await this.putCameras(cameras.filter((id) => !gone.has(id)));
+    }
     for (const peerId of gone) {
       this.broadcast({ t: 'peer-left', id: peerId }, undefined, leaving);
     }
@@ -586,6 +633,18 @@ export class RoomDurableObject {
 
   private async detachedPeers(): Promise<DetachedPeers> {
     return (await this.ctx.storage.get<DetachedPeers>('detached')) ?? {};
+  }
+
+  private async cameras(): Promise<Cameras> {
+    return (await this.ctx.storage.get<Cameras>('cameras')) ?? [];
+  }
+
+  private async putCameras(cameras: Cameras): Promise<void> {
+    if (cameras.length === 0) {
+      await this.ctx.storage.delete('cameras');
+    } else {
+      await this.ctx.storage.put('cameras', cameras);
+    }
   }
 
   private async putDetachedPeers(detached: DetachedPeers): Promise<void> {

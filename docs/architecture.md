@@ -20,9 +20,15 @@ media: it owns room state and carries signaling envelopes. Consequences:
   deliberate exception is an optional TURN credential (see "TURN" below): a
   relay for peers that cannot connect directly, carrying encrypted bytes it
   cannot read. Unset, everything still works on public STUN.
-- The honest limit of a mesh: with video, past ~8 people **each participant's
-  upload** becomes the bottleneck (N−1 copies of every stream). That is why
-  `maxParticipants: 8` is both a product rule and a technical one.
+- The honest limit of a mesh: with video, **each participant's upload** is the
+  bottleneck (N−1 copies of every stream). `maxParticipants: 12` is that limit
+  priced honestly: audio and screen are the product's quality promise and do
+  not scale with room size (audio is cheap; the screen rides the relay tree),
+  while the camera is the variable that adapts — server-granted camera slots
+  shrink as the room grows (≤6 people: everyone; 7–9: four cameras; 10–12:
+  three), and each camera's bitrate is a fixed uplink budget divided by the
+  peer count, recomputed on every join and leave. Whoever already has a camera
+  on keeps it when the room crosses a threshold; only new activations wait.
 
 ## Server layers
 
@@ -48,6 +54,10 @@ src/
 - The "one screen at a time" lock lives on the server (`screen-request` →
   `screen-started`/`screen-denied`) and is released even on a dropped
   connection.
+- Camera slots follow the same shape (`camera-request` → grant/deny plus a
+  roster in `welcome`): the arithmetic is pure domain code shared by both
+  edges, and the server is the referee so twelve clients cannot race each
+  other into more cameras than the room can carry.
 
 ## Client (web/src/lib)
 
@@ -82,8 +92,9 @@ not connect at all. Whoever flips the secrets on owns a coupled edit in the same
 movement — several public strings are written to be literally true only
 while TURN is off (the "no TURN configured" notes in `llms.txt`, the JSON-LD
 FAQ answer in `web/index.html`, one CONTRIBUTING paragraph, and the
-`home.dev.p2p.title`/`home.dev.lead` catalog keys). Nothing breaks when this
-is missed, which is exactly why it gets missed.
+how-it-works copy in the locale catalogs — the landing page's `home.dev.*`
+tiles used to carry it and were retired with that page's redesign). Nothing
+breaks when this is missed, which is exactly why it gets missed.
 
 - `stats.ts` — reads `getStats()` from the mesh: the RTT of the candidate pair
   actually in use (the real latency between two people) and the effective
@@ -107,11 +118,16 @@ effect immediately — resending `screen-request` with a different `quality`
 renegotiates without restarting the share.
 
 A fifth lever is the codec: AV1's screen-content tools give sharper text at
-the same bitrate, but its software encoder is expensive — and in the relay
-tree a relay re-encodes for its whole subtree. So AV1 is offered first
-(`setCodecPreferences`) only where `MediaCapabilities` reports a
+the same bitrate, but its software encoder is expensive — and a relay that
+falls back to re-encoding pays that price for its whole subtree. So AV1 is
+offered first (`setCodecPreferences`) only where `MediaCapabilities` reports a
 power-efficient (hardware) encoder at the preset's load; every hop negotiates
-independently, so a weak laptop in the middle simply stays on VP9/H.264.
+independently, so a weak laptop in the middle simply stays on VP9/H.264. The
+passthrough path (next section) adds its own codec rule: forwarding bytes
+requires the same codec on both sides of the relay, so children are pinned to
+the upstream's active codec before promotion — and never pinned to AV1 unless
+the relay could re-encode it in hardware, because the fallback must stay
+affordable.
 
 ### The relay tree
 
@@ -127,7 +143,7 @@ The screen now propagates as a **tree**, not a star:
        /   |   \
     Ana  Bruno  Enzo        fanout 3
                 /   \
-             Duda   Caio     depth ≤ 2 with 8 people
+             Duda   Caio     depth ≤ 2 with 12 people (1 + 3 + 9 seats)
 ```
 
 - The server computes the tree (`computeScreenTree`: BFS, lexicographic order
@@ -143,11 +159,29 @@ The screen now propagates as a **tree**, not a star:
   under 6 s, and `mesh.ts`'s perfect negotiation absorbs the burst of
   renegotiation.
 
-The deliberate price: a relay **decodes and re-encodes** (this is not packet
-forwarding), so it spends CPU on everyone else's behalf, and every hop adds
-latency — which is why fanout 3 keeps the depth at 2. Relays are chosen
-lexicographically for determinism, not for capacity: a weak laptop can become a
-bottleneck. Picking relays by RTT/stability is the natural next step.
+The price a relay pays used to be fixed: it **decoded and re-encoded** for its
+children, spending a full encoder cycle of latency per hop and a generation of
+quality each time. That price is now the *fallback*, not the rule. Where the
+browser supports WebRTC Encoded Transforms, the relay forwards the received
+**encoded frames byte-for-byte** (`relay/`, the `@freecord/encoded-relay`
+workspace — a standalone, dependency-free package other projects can lift
+out): the relay's own encoder keeps running only as a cadence donor, crushed
+to 100 kbps and a quarter of the resolution, and its output bytes are replaced
+in the sender transform with the upstream frames. A hop then costs ~nothing in
+latency and nothing in quality — depth stops mattering.
+
+Passthrough is promoted per child, and only when it is provably safe: the
+upstream's *active* codec must match the child's, and frames must be flowing.
+Anything less demotes that child to the re-encode path — a viewer whose screen
+stalls says so through the opaque `signal` envelope (a versioned `relay` note
+the server relays without reading, so old clients interop untouched), and a
+demotion is sticky for the rest of the share: recovery beats optimism. The
+acceptance bar was that a passthrough failure must never be worse than
+yesterday's behavior, and the worst case is exactly yesterday's behavior.
+
+Relays are still chosen lexicographically for determinism, not for capacity: a
+weak laptop can become a bottleneck (much less of one now that forwarding does
+not encode). Picking relays by RTT/stability is the natural next step.
 
 A second deliberate price came with session resume: detached peers stay in the
 tree, so a relay that dies for real (transport AND media together) freezes its
@@ -158,11 +192,41 @@ it ever hurts in practice, the escape is to exclude detached peers from
 `computeScreenTree` and re-emit routes on detach/resume, paying an unnecessary
 re-parent on every WS-only blip.
 
+## The desktop shell's unfair advantages
+
+The Electron app loads the same remote page as the browser — byte-identical
+client, one deploy. What it adds is permission the browser cannot give
+(`desktop/src/main.ts`), all of it aimed at the media path:
+
+- **Real LAN candidates.** Chromium masks host ICE candidates behind mDNS
+  `.local` names, which degrades or breaks same-network calls on routers that
+  drop multicast. The shell disables the mask and pins the IP handling policy,
+  so two PCs on one LAN connect host-to-host — the router round-trip and the
+  NAT leave the path entirely. The privacy trade is stated, not hidden: media
+  here is P2P-direct by design and the product already says a peer sees your
+  IP.
+- **Hardware video on Linux.** VA-API encode/decode is off by default in
+  Chromium on Linux; the shell turns it on. Software encode was the CPU and
+  latency bottleneck for 1080p screen share.
+- **System audio in the share (Windows).** The display-media handler grants
+  `'loopback'` audio, and the sharer's client sends that track mesh-direct to
+  every viewer — not through the screen tree, because ~128 kbps of Opus times
+  eleven peers costs less than one hop of forwarding complexity. The stage
+  `<video>` stays muted; a dedicated audio sink plays the share.
+- **A bigger appetite.** An installed app can assume a real machine and a real
+  link, so the screen uplink budget rises from 10 to 25 Mbps and every preset's
+  bitrate ceiling doubles. Browsers keep the conservative numbers.
+
+The shell announces what it can do through one additive-safe surface
+(`window.freecordDesktop.capabilities`); the site treats a missing flag as
+`false`, so old shells and new pages keep working in both directions.
+
 ## Product decisions that control cost and complexity
 
 | Decision | Effect |
 | --- | --- |
-| Small rooms (≤ 8) | Keeps the mesh viable; upload per person ≤ 7 copies |
+| Small rooms (≤ 12) | Keeps the mesh viable; audio is cheap at 11 copies, cameras are rationed |
+| Camera slots shrink as the room grows | Audio and screen never pay for a full room; cameras do |
 | One screen at a time | The screen is the most expensive stream; locked on the server |
 | Video off by default | A Discord-style room is mostly voice |
 | Empty room expires in 15 min | Nothing sits in memory without people |
@@ -225,13 +289,17 @@ re-parent on every WS-only blip.
    per-room → shard by slug. On Cloudflare that is one Durable Object per slug
    (`worker/`); on a Node cluster it would be sticky routing or Redis pub/sub.
    The UI does not change.
-4. **Bigger rooms / millions of visits**: the relay tree pushes this frontier
-   out (the sharer no longer uploads N−1 copies), but does not remove it: the
-   audio/camera mesh is still the limit past ~8 with video. The next step is
-   **our own SFU** (e.g. on top of Pion/werift, or from scratch on libwebrtc)
-   behind the SAME signaling protocol — the client then sends 1 stream to the
-   SFU instead of N−1 to its peers. That frontier is already drawn: `mesh.ts`
-   is the only file that knows the topology is P2P.
+4. **Bigger rooms / millions of visits**: the relay tree pushed this frontier
+   out once (the sharer no longer uploads N−1 copies), and encoded passthrough
+   plus camera rationing pushed it again (12 seats with audio and screen at
+   full quality). What remains is structural: the audio/camera mesh still
+   costs N−1 uplinks per participant. The next step is **our own media node**
+   — either an SFU (e.g. on top of Pion/werift, or from scratch on libwebrtc)
+   behind the SAME signaling protocol, or its distributed cousin: a native
+   sidecar in the desktop app that does for every stream what
+   `@freecord/encoded-relay` already does for the screen, making each
+   installed app a packet relay for its room. That frontier is already drawn:
+   `mesh.ts` is the only file that knows the topology is P2P.
 
 ## Two edges over one core
 

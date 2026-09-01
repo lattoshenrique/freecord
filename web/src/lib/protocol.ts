@@ -10,6 +10,22 @@ export interface PeerInfo {
   name: string;
 }
 
+/** Mirror of ROOM_LIMITS.maxParticipants — the room's seat count. */
+export const MAX_PARTICIPANTS = 12;
+
+/**
+ * How many cameras may be live at once for a given room size — mirror of
+ * the server's cameraSlotsFor. The cap binds NEW activations only: a
+ * camera already live is never shut off by the room growing past a
+ * threshold; slots free up when someone turns the camera off or leaves.
+ */
+export function cameraSlotsFor(participantCount: number): number {
+  if (participantCount <= 6) {
+    return participantCount;
+  }
+  return participantCount <= 9 ? 4 : 3;
+}
+
 /** An ICE server handed out by the edge (STUN/TURN, ephemeral credentials). */
 export interface IceServerConfig {
   urls: string[];
@@ -28,6 +44,8 @@ export type ServerMessage =
       room: { slug: string; displayName: string };
       peers: PeerInfo[];
       screen: { id: string; streamId: string } | null;
+      /** Live cameras, so joiners and resumers see the slots in use. */
+      cameras: string[];
     }
   | { t: 'peer-joined'; peer: PeerInfo }
   | { t: 'peer-left'; id: string }
@@ -36,6 +54,10 @@ export type ServerMessage =
   | { t: 'screen-started'; id: string; streamId: string }
   | { t: 'screen-stopped' }
   | { t: 'screen-denied' }
+  /** A camera slot was granted (the requester hears this as its grant). */
+  | { t: 'camera-started'; id: string }
+  | { t: 'camera-stopped'; id: string }
+  | { t: 'camera-denied' }
   /**
    * This peer's role in the screen-forwarding tree: who I send to
    * (`children`) and who I receive from (`source`; null for the sharer or
@@ -58,6 +80,9 @@ export type ClientMessage =
   | { t: 'screen-stop' }
   /** A screen-tree relay announces the stream it uses for forwarding. */
   | { t: 'screen-relay'; streamId: string }
+  /** Camera slots mirror the screen lock: ask first, publish on grant. */
+  | { t: 'camera-request' }
+  | { t: 'camera-stop' }
   /**
    * Deliberate goodbye: leave immediately instead of holding the seat for
    * a resume. A bare transport close is treated as an accident.

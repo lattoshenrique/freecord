@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import { cameraEncoding } from './camera-quality';
 import { importRoomKey, openChat, sealChat } from './chat-crypto';
 import { Mesh, type TrackEncoding } from './mesh';
 import { Signaling } from './signaling';
-import type { PeerInfo, ServerMessage } from './protocol';
+import { cameraSlotsFor, type PeerInfo, type ServerMessage } from './protocol';
 import {
   DEFAULT_SCREEN_QUALITY,
   bitrateFor,
@@ -43,6 +44,8 @@ const HEARTBEAT_MS = 10_000;
 /** Mirrors ROOM_LIMITS.peerTimeoutMs: no pong within this and the session is over. */
 const PONG_TIMEOUT_MS = 35_000;
 const STATS_INTERVAL_MS = 2_000;
+/** How long the "camera denied" feedback stays up before clearing itself. */
+const CAM_DENIED_MS = 4_000;
 const QUALITY_STORAGE_KEY = 'freecord:screen-quality';
 /** Pre-rename storage: key from the guest-rooms era, values in Portuguese. */
 const LEGACY_QUALITY_STORAGE_KEY = 'guest-rooms:screen-quality';
@@ -85,7 +88,13 @@ export function useRoomSession(options: JoinOptions) {
   const [localMedia, setLocalMedia] = useState<MediaStream | null>(null);
   const [localScreen, setLocalScreen] = useState<MediaStream | null>(null);
   const [micOn, setMicOn] = useState(options.micEnabled);
-  const [camOn, setCamOn] = useState(options.camEnabled);
+  // Optimistic-off: the camera starts dark and lights up only on the
+  // server's grant (camera-started) — never before.
+  const [camOn, setCamOn] = useState(false);
+  /** Peers holding a camera slot right now (self included when granted). */
+  const [cameras, setCameras] = useState<Set<string>>(new Set());
+  /** A camera-denied just landed: the UI shows why the toggle did nothing. */
+  const [camDenied, setCamDenied] = useState(false);
   const [screenQuality, setScreenQualityState] = useState<ScreenQualityId>(loadQuality);
   const [peerLatency, setPeerLatency] = useState<Map<string, PeerLatency>>(new Map());
   const [signalRttMs, setSignalRttMs] = useState<number | null>(null);
@@ -102,6 +111,11 @@ export function useRoomSession(options: JoinOptions) {
   const localScreenRef = useRef<MediaStream | null>(null);
   const qualityRef = useRef<ScreenQualityId>(screenQuality);
   const viewerCountRef = useRef(0);
+  /** The user's intent: camera wanted on. Survives the request round-trip. */
+  const camWantedRef = useRef(options.camEnabled);
+  /** A camera-request is in flight: swallow double-clicks until it answers. */
+  const camPendingRef = useRef(false);
+  const camDeniedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastPongRef = useRef(0);
   /** Latest route received from the screen-forwarding tree. */
   const routeRef = useRef<{
@@ -156,6 +170,8 @@ export function useRoomSession(options: JoinOptions) {
       maxBitrate: bitrateFor(preset, receivers),
       maxFramerate: preset.frameRate,
       degradationPreference: preset.degradationPreference,
+      // Below audio, above camera: congestion sacrifices the camera first.
+      priority: 'medium',
     };
   }, []);
 
@@ -167,6 +183,7 @@ export function useRoomSession(options: JoinOptions) {
         maxBitrate: bitrateFor(preset, route.children.length),
         maxFramerate: preset.frameRate,
         degradationPreference: preset.degradationPreference,
+        priority: 'medium',
       };
     },
     [],
@@ -266,6 +283,31 @@ export function useRoomSession(options: JoinOptions) {
     }
   }, [screenEncoding, relayEncoding, teardownRelay]);
 
+  /** Grant in hand: acquire the camera now and put it on the mesh. */
+  const acquireCamera = useCallback(async () => {
+    try {
+      const cam = await navigator.mediaDevices.getUserMedia({ video: true });
+      const track = cam.getVideoTracks()[0];
+      if (!track) {
+        return;
+      }
+      const media = localMediaRef.current;
+      const target = media ?? new MediaStream();
+      target.addTrack(track);
+      if (!media) {
+        localMediaRef.current = target;
+      }
+      setLocalMedia(target);
+      meshRef.current?.addLocalTrack(track, target, cameraEncoding(viewerCountRef.current));
+      setCamOn(true);
+      bumpVersion();
+    } catch {
+      // permission denied: hand the granted slot back
+      camWantedRef.current = false;
+      signalingRef.current?.send({ t: 'camera-stop' });
+    }
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -294,7 +336,11 @@ export function useRoomSession(options: JoinOptions) {
           track.enabled = false;
         });
       }
-      setCamOn(media ? media.getVideoTracks().length > 0 : false);
+      // The camera slot belongs to the server: the track is acquired now
+      // (one permission prompt) but stays dark until camera-started grants.
+      media?.getVideoTracks().forEach((track) => {
+        track.enabled = false;
+      });
       localMediaRef.current = media;
       setLocalMedia(media);
 
@@ -319,6 +365,8 @@ export function useRoomSession(options: JoinOptions) {
           setSelfId(message.selfId);
           setPeers(message.peers);
           setScreen(message.screen);
+          const cameraRoster = new Set(message.cameras);
+          setCameras(cameraRoster);
           if (resumed) {
             // Same seat, mesh intact: reconcile who came and went during
             // the outage. We initiate toward newcomers; perfect
@@ -355,13 +403,33 @@ export function useRoomSession(options: JoinOptions) {
             const media = localMediaRef.current;
             if (media) {
               for (const track of media.getTracks()) {
-                mesh.addLocalTrack(track, media);
+                // Video is the camera: capped by the adaptive budget split
+                // across the connected peers. Audio rides uncapped (the
+                // mesh pins its priority high).
+                mesh.addLocalTrack(
+                  track,
+                  media,
+                  track.kind === 'video' ? cameraEncoding(message.peers.length) : undefined,
+                );
               }
             }
             // The newcomer initiates the connection with everyone already in.
             for (const peer of message.peers) {
               mesh.ensurePeer(peer.id);
             }
+          }
+          // Fresh join, or a resume whose slot was released on disconnect
+          // (the server gives cameras no grace): (re-)request. A fresh
+          // track stays dark until the grant; a resumed one keeps flowing
+          // and only goes dark if the re-request is denied.
+          if (
+            camWantedRef.current &&
+            localMediaRef.current?.getVideoTracks().length &&
+            !cameraRoster.has(message.selfId) &&
+            !camPendingRef.current
+          ) {
+            camPendingRef.current = true;
+            signalingRef.current?.send({ t: 'camera-request' });
           }
           lastPongRef.current = Date.now();
           setStatus({ kind: 'connected' });
@@ -374,6 +442,15 @@ export function useRoomSession(options: JoinOptions) {
         case 'peer-left':
           meshRef.current?.removePeer(message.id);
           setPeers((current) => current.filter((p) => p.id !== message.id));
+          // The seat took its camera slot along.
+          setCameras((current) => {
+            if (!current.has(message.id)) {
+              return current;
+            }
+            const next = new Set(current);
+            next.delete(message.id);
+            return next;
+          });
           return;
         case 'signal': {
           // Relay-health notes ride the same opaque envelope as SDP/ICE
@@ -458,6 +535,50 @@ export function useRoomSession(options: JoinOptions) {
         case 'screen-denied':
           dropLocalScreen();
           return;
+        case 'camera-started': {
+          setCameras((current) => {
+            const next = new Set(current);
+            next.add(message.id);
+            return next;
+          });
+          if (message.id === selfIdRef.current) {
+            // Our grant: only now does the camera light up.
+            camPendingRef.current = false;
+            const track = localMediaRef.current?.getVideoTracks()[0];
+            if (track) {
+              track.enabled = true;
+              setCamOn(true);
+            } else if (camWantedRef.current) {
+              void acquireCamera();
+            }
+          }
+          return;
+        }
+        case 'camera-stopped':
+          setCameras((current) => {
+            const next = new Set(current);
+            next.delete(message.id);
+            return next;
+          });
+          return;
+        case 'camera-denied': {
+          camPendingRef.current = false;
+          camWantedRef.current = false;
+          // A resume's re-request refused: the slot went to someone else
+          // while we were away — the camera goes dark now (a fresh
+          // request never lit it in the first place).
+          const track = localMediaRef.current?.getVideoTracks()[0];
+          if (track?.enabled) {
+            track.enabled = false;
+          }
+          setCamOn(false);
+          setCamDenied(true);
+          if (camDeniedTimerRef.current) {
+            clearTimeout(camDeniedTimerRef.current);
+          }
+          camDeniedTimerRef.current = setTimeout(() => setCamDenied(false), CAM_DENIED_MS);
+          return;
+        }
         case 'pong':
           lastPongRef.current = Date.now();
           setSignalRttMs(Math.max(0, Math.round(Date.now() - message.ts)));
@@ -477,6 +598,11 @@ export function useRoomSession(options: JoinOptions) {
 
     return () => {
       cancelled = true;
+      camPendingRef.current = false;
+      if (camDeniedTimerRef.current) {
+        clearTimeout(camDeniedTimerRef.current);
+        camDeniedTimerRef.current = null;
+      }
       signalingRef.current?.close();
       signalingRef.current = null;
       meshRef.current?.close();
@@ -611,12 +737,17 @@ export function useRoomSession(options: JoinOptions) {
 
   // The uplink split changes when someone joins or leaves (fallback until
   // the route arrives; with a route, the split is by children and the
-  // server re-emits the route).
+  // server re-emits the route). The camera has no tree: its budget always
+  // splits across the connected peers, so every join/leave recomputes it.
   useEffect(() => {
     viewerCountRef.current = peers.length;
     const track = localScreenRef.current?.getVideoTracks()[0];
     if (track) {
       meshRef.current?.setTrackEncoding(track, screenEncoding());
+    }
+    const camTrack = localMediaRef.current?.getVideoTracks()[0];
+    if (camTrack) {
+      meshRef.current?.setTrackEncoding(camTrack, cameraEncoding(peers.length));
     }
   }, [peers.length, screenEncoding]);
 
@@ -688,35 +819,26 @@ export function useRoomSession(options: JoinOptions) {
     setMicOn(next);
   }, []);
 
-  const toggleCam = useCallback(async () => {
-    const media = localMediaRef.current;
-    const videoTrack = media?.getVideoTracks()[0];
-    if (media && videoTrack) {
-      videoTrack.enabled = !videoTrack.enabled;
-      setCamOn(videoTrack.enabled);
+  const toggleCam = useCallback(() => {
+    const videoTrack = localMediaRef.current?.getVideoTracks()[0];
+    if (videoTrack?.enabled) {
+      // Off is unconditional and frees the slot for someone else.
+      videoTrack.enabled = false;
+      setCamOn(false);
+      camWantedRef.current = false;
+      signalingRef.current?.send({ t: 'camera-stop' });
       return;
     }
-    // Camera not requested at pre-join: acquire and renegotiate now.
-    try {
-      const cam = await navigator.mediaDevices.getUserMedia({ video: true });
-      const track = cam.getVideoTracks()[0];
-      if (!track) {
-        return;
-      }
-      const target = media ?? new MediaStream();
-      target.addTrack(track);
-      if (!media) {
-        localMediaRef.current = target;
-        setLocalMedia(target);
-      } else {
-        setLocalMedia(media);
-      }
-      meshRef.current?.addLocalTrack(track, target);
-      setCamOn(true);
-      bumpVersion();
-    } catch {
-      // permission denied: stay camera-less
+    // On goes through the server (optimistic-off): the track only lights
+    // up — or gets acquired — when camera-started answers; camera-denied
+    // surfaces as camDenied instead.
+    if (camPendingRef.current) {
+      return;
     }
+    camWantedRef.current = true;
+    camPendingRef.current = true;
+    setCamDenied(false);
+    signalingRef.current?.send({ t: 'camera-request' });
   }, []);
 
   const startScreenShare = useCallback(async () => {
@@ -766,6 +888,14 @@ export function useRoomSession(options: JoinOptions) {
     signalingRef.current?.close();
   }, []);
 
+  // No free slot for THIS peer to turn a camera on: live cameras fill the
+  // cap for the current room size, and none of them is ours. Grandfathered
+  // cameras can hold the roster above the cap; they still count.
+  const cameraSlotsFull =
+    !camOn &&
+    (selfId === null || !cameras.has(selfId)) &&
+    cameras.size >= cameraSlotsFor(peers.length + 1);
+
   return {
     status,
     reconnecting,
@@ -779,6 +909,9 @@ export function useRoomSession(options: JoinOptions) {
     localScreen,
     micOn,
     camOn,
+    cameras,
+    cameraSlotsFull,
+    camDenied,
     screenQuality,
     peerLatency,
     signalRttMs,

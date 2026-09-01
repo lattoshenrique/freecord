@@ -5,6 +5,7 @@ import type { RoomSummary } from '../api';
 import { renderMarkdown } from '../lib/markdown';
 import { playMessageChime } from '../lib/notification-sound';
 import { useI18n, type MessageKey, type Translate } from '../i18n';
+import { MAX_PARTICIPANTS } from '../lib/protocol';
 import { SCREEN_QUALITY_PRESETS, type ScreenQualityId } from '../lib/screen-quality';
 import type { ScreenStats } from '../lib/stats';
 import { useRoomSession, type JoinOptions } from '../lib/use-room';
@@ -428,6 +429,9 @@ export default function RoomView({
         : null;
 
   const participantCount = session.peers.length + 1;
+  // Only real faces get a tile: the grid gives each one as much room as it
+  // can. Capacity is a number, not a layout — the seat counter in the header
+  // carries it. With a screen on stage the tiles collapse to the strip.
   const grid = useTileGrid(screenStream ? 0 : participantCount);
 
   if (status.kind === 'ended' && status.reason !== 'left') {
@@ -490,6 +494,12 @@ export default function RoomView({
           <h1>{room.displayName || t('room.unnamed')}</h1>
           <span className="room-count">
             {t('room.participants', { count: participantCount })}
+          </span>
+          <span
+            className="seat-count"
+            aria-label={t('room.seatsAria', { count: participantCount, max: MAX_PARTICIPANTS })}
+          >
+            {participantCount}/{MAX_PARTICIPANTS}
           </span>
         </div>
         <InviteButton />
@@ -619,6 +629,11 @@ export default function RoomView({
       </div>
 
       <footer className="room-footer" ref={footerRef}>
+        {session.camDenied && (
+          <p className="cam-denied-note" role="status">
+            {t('room.camDenied')}
+          </p>
+        )}
         {!chatOpen && unread > 0 && !qualityOpen && (
           <ChatUnreadChip count={unread} left={chipLeft} onOpen={() => setChatOpen(true)} />
         )}
@@ -649,12 +664,29 @@ export default function RoomView({
           >
             {session.micOn ? <MicIcon /> : <MicOffIcon />}
           </button>
+          {/* The "no slot" state is its own thing, not the off style: it is
+              styled via [data-camera-slots="full"]. */}
           <button
             type="button"
-            className={`control ${session.camOn ? '' : 'control-off'}`}
+            className={`control ${session.camOn || session.cameraSlotsFull ? '' : 'control-off'}`}
             aria-pressed={!session.camOn}
-            title={session.camOn ? t('controls.camOff') : t('controls.camOn')}
-            onClick={() => void session.toggleCam()}
+            disabled={session.cameraSlotsFull}
+            data-camera-slots={session.cameraSlotsFull ? 'full' : undefined}
+            title={
+              session.cameraSlotsFull
+                ? t('room.camSlotsFull')
+                : session.camOn
+                  ? t('controls.camOff')
+                  : t('controls.camOn')
+            }
+            aria-label={
+              session.cameraSlotsFull
+                ? t('room.camSlotsFull')
+                : session.camOn
+                  ? t('controls.camOff')
+                  : t('controls.camOn')
+            }
+            onClick={session.toggleCam}
           >
             {session.camOn ? <CamIcon /> : <CamOffIcon />}
           </button>

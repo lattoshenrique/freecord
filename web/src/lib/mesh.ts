@@ -47,6 +47,17 @@ export interface TrackEncoding {
    * running as a cadence donor, so its cost is crushed instead of paid.
    */
   scaleResolutionDownBy?: number;
+  /**
+   * Where congestion cuts first. Audio always wins (see addSender): the
+   * camera rides 'low' and the screen 'medium', so a squeezed uplink
+   * sacrifices camera before screen and never the voice.
+   */
+  priority?: RTCPriorityType;
+}
+
+/** `networkPriority` (DSCP marking in Chromium) is not in every lib.dom yet. */
+interface PriorityEncoding extends RTCRtpEncodingParameters {
+  networkPriority?: RTCPriorityType;
 }
 
 interface LocalTrack {
@@ -162,7 +173,33 @@ export class Mesh {
         // codec list rejected by this browser: negotiation falls back
       }
     }
+    if (track.kind === 'audio') {
+      void this.applyAudioPriority(sender);
+    }
     void this.applyEncoding(peerId, pc, track);
+  }
+
+  /**
+   * Audio always wins: the mic (and the screen's system audio) rides
+   * priority 'high', so congestion sacrifices the camera ('low') and the
+   * screen ('medium') before a word is lost. Best effort, like
+   * applyEncoding — a browser that rejects pre-negotiation parameters
+   * just keeps its default.
+   */
+  private async applyAudioPriority(sender: RTCRtpSender): Promise<void> {
+    const parameters = sender.getParameters();
+    if (parameters.encodings.length === 0) {
+      parameters.encodings = [{}];
+    }
+    for (const layer of parameters.encodings as PriorityEncoding[]) {
+      layer.priority = 'high';
+      layer.networkPriority = 'high';
+    }
+    try {
+      await sender.setParameters(parameters);
+    } catch {
+      // parameters rejected: the default priority stands
+    }
   }
 
   /**
@@ -250,10 +287,14 @@ export class Mesh {
     if (parameters.encodings.length === 0) {
       parameters.encodings = [{}];
     }
-    for (const layer of parameters.encodings) {
+    for (const layer of parameters.encodings as PriorityEncoding[]) {
       layer.maxBitrate = encoding.maxBitrate;
       layer.maxFramerate = encoding.maxFramerate;
       layer.scaleResolutionDownBy = encoding.scaleResolutionDownBy ?? 1;
+      if (encoding.priority) {
+        layer.priority = encoding.priority;
+        layer.networkPriority = encoding.priority;
+      }
     }
     parameters.degradationPreference = encoding.degradationPreference;
     try {

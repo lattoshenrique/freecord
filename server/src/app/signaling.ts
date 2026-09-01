@@ -1,4 +1,5 @@
 import {
+  cameraSlotsFor,
   normalizeChatText,
   type ClientMessage,
   type IceServerConfig,
@@ -136,6 +137,7 @@ export class SignalingSession {
       screen: room.screenSharer
         ? { id: room.screenSharer.id, streamId: room.screenSharer.streamId }
         : null,
+      cameras: [...room.cameras],
     });
   }
 
@@ -214,6 +216,29 @@ export class SignalingSession {
         }
         return;
       }
+      case 'camera-request': {
+        // Product rule enforced on the server, like the screen lock: live
+        // cameras are capped by room size. Only NEW activations count —
+        // a camera granted before the room grew keeps its slot
+        // (grandfathering), so `cameras.size` may sit above the cap.
+        if (
+          !room.cameras.has(this.peerId) &&
+          room.cameras.size >= cameraSlotsFor(room.peers.size)
+        ) {
+          room.peers.get(this.peerId)?.channel.send({ t: 'camera-denied' });
+          return;
+        }
+        // A re-request by a holder (e.g. after a resume) is re-granted.
+        room.cameras.add(this.peerId);
+        broadcast(room, { t: 'camera-started', id: this.peerId });
+        return;
+      }
+      case 'camera-stop': {
+        if (room.cameras.delete(this.peerId)) {
+          broadcast(room, { t: 'camera-stopped', id: this.peerId });
+        }
+        return;
+      }
       case 'leave': {
         // Deliberate goodbye: vacate the seat now, no resume grace.
         this.terminate();
@@ -235,6 +260,22 @@ export class SignalingSession {
       return;
     }
     this.closed = true;
+    // The camera slot gets no grace, unlike the screen lock: a slot held
+    // through an outage blocks someone else's camera for nothing, while
+    // the resumer only pays a re-request (its welcome roster says the
+    // slot is gone). The P2P track keeps flowing meanwhile; if the
+    // re-request is denied, the client turns the camera off then. Only
+    // the peer's CURRENT channel may release — a close event from a
+    // socket already replaced by a resume must not free the fresh seat's
+    // slot (same guard as detachPeer).
+    const room = this.registry.getRoomSafe(this.slug);
+    if (
+      room &&
+      room.peers.get(this.peerId)?.channel === this.channel &&
+      room.cameras.delete(this.peerId)
+    ) {
+      broadcast(room, { t: 'camera-stopped', id: this.peerId });
+    }
     this.registry.detachPeer(this.slug, this.peerId, this.channel);
   }
 
@@ -324,6 +365,10 @@ export function parseClientMessage(raw: unknown): ClientMessage | null {
         : null;
     case 'screen-stop':
       return { t: 'screen-stop' };
+    case 'camera-request':
+      return { t: 'camera-request' };
+    case 'camera-stop':
+      return { t: 'camera-stop' };
     case 'leave':
       return { t: 'leave' };
     case 'ping':

@@ -5,7 +5,7 @@ import {
   parseClientMessage,
   sweepStalePeers,
 } from '../src/app/signaling.js';
-import { ROOM_LIMITS, type ServerMessage } from '../src/domain/room.js';
+import { ROOM_LIMITS, cameraSlotsFor, type ServerMessage } from '../src/domain/room.js';
 
 function connect(registry: RoomRegistry, slug: string, name: string) {
   const inbox: ServerMessage[] = [];
@@ -301,6 +301,123 @@ describe('screen relay tree', () => {
       expect(route.source).toEqual({ id: sharer.session.peerId, streamId: 's-1' });
       expect(route.quality).toBe('smooth');
     }
+  });
+});
+
+describe('camera slots', () => {
+  it('cameraSlotsFor: everyone up to 6 people, then 4, then 3', () => {
+    expect(cameraSlotsFor(2)).toBe(2);
+    expect(cameraSlotsFor(6)).toBe(6);
+    expect(cameraSlotsFor(7)).toBe(4);
+    expect(cameraSlotsFor(9)).toBe(4);
+    expect(cameraSlotsFor(10)).toBe(3);
+    expect(cameraSlotsFor(12)).toBe(3);
+  });
+
+  it('grant is broadcast to everyone — the requester hears it as its grant', () => {
+    const { registry, slug } = setup();
+    const ana = connect(registry, slug, 'Ana');
+    const bia = connect(registry, slug, 'Bia');
+
+    ana.session.handleMessage({ t: 'camera-request' });
+    expect(ana.last()).toEqual({ t: 'camera-started', id: ana.session.peerId });
+    expect(bia.last()).toEqual({ t: 'camera-started', id: ana.session.peerId });
+  });
+
+  it('welcome carries the live cameras, so joiners see the slots in use', () => {
+    const { registry, slug } = setup();
+    const ana = connect(registry, slug, 'Ana');
+    ana.session.handleMessage({ t: 'camera-request' });
+
+    const bia = connect(registry, slug, 'Bia');
+    const welcome = bia.inbox[0]!;
+    expect(welcome.t).toBe('welcome');
+    if (welcome.t === 'welcome') {
+      expect(welcome.cameras).toEqual([ana.session.peerId]);
+    }
+  });
+
+  it('denies the activation past the cap; a stop frees the slot', () => {
+    const { registry, slug } = setup();
+    // 7 people: at most 4 cameras live at once.
+    const people = ['A', 'B', 'C', 'D', 'E', 'F', 'G'].map((name) => connect(registry, slug, name));
+    for (const person of people.slice(0, 4)) {
+      person.session.handleMessage({ t: 'camera-request' });
+    }
+    const fifth = people[4]!;
+    fifth.session.handleMessage({ t: 'camera-request' });
+    expect(fifth.last()).toEqual({ t: 'camera-denied' });
+    // The denial goes only to whoever asked; no phantom camera-started.
+    expect(
+      people[0]!.inbox.filter((m) => m.t === 'camera-started'),
+    ).toHaveLength(4);
+
+    people[0]!.session.handleMessage({ t: 'camera-stop' });
+    expect(fifth.last()).toEqual({ t: 'camera-stopped', id: people[0]!.session.peerId });
+    fifth.session.handleMessage({ t: 'camera-request' });
+    expect(fifth.last()).toEqual({ t: 'camera-started', id: fifth.session.peerId });
+  });
+
+  it('grandfathering: growth past a threshold never turns a live camera off', () => {
+    const { registry, slug } = setup();
+    // 6 people: everyone may be live. Five turn the camera on.
+    const people = ['A', 'B', 'C', 'D', 'E', 'F'].map((name) => connect(registry, slug, name));
+    for (const person of people.slice(0, 5)) {
+      person.session.handleMessage({ t: 'camera-request' });
+    }
+
+    // The 7th person drops the cap to 4 — below the 5 already live.
+    const late = connect(registry, slug, 'G');
+    expect(people[0]!.inbox.some((m) => m.t === 'camera-stopped')).toBe(false);
+
+    // Only NEW activations are denied while at/over the limit.
+    late.session.handleMessage({ t: 'camera-request' });
+    expect(late.last()).toEqual({ t: 'camera-denied' });
+
+    // Two live cameras go dark: 3 < 4 — a slot opens again.
+    people[0]!.session.handleMessage({ t: 'camera-stop' });
+    people[1]!.session.handleMessage({ t: 'camera-stop' });
+    late.session.handleMessage({ t: 'camera-request' });
+    expect(late.last()).toEqual({ t: 'camera-started', id: late.session.peerId });
+  });
+
+  it('a leave frees the slot along with the seat', () => {
+    const { registry, slug } = setup();
+    const people = ['A', 'B', 'C', 'D', 'E', 'F', 'G'].map((name) => connect(registry, slug, name));
+    for (const person of people.slice(0, 4)) {
+      person.session.handleMessage({ t: 'camera-request' });
+    }
+    people[0]!.session.handleMessage({ t: 'leave' });
+
+    // 6 people, 3 cameras live: the room is back under every cap.
+    const fifth = people[4]!;
+    fifth.session.handleMessage({ t: 'camera-request' });
+    expect(fifth.last()).toEqual({ t: 'camera-started', id: fifth.session.peerId });
+  });
+
+  it('a disconnect releases the slot with no grace; a resume re-requests', () => {
+    const { registry, slug } = setup();
+    const ana = connect(registry, slug, 'Ana');
+    const bia = connect(registry, slug, 'Bia');
+    ana.session.handleMessage({ t: 'camera-request' });
+    const welcome = ana.inbox[0]!;
+    if (welcome.t !== 'welcome') throw new Error('no welcome');
+
+    // Transport drop, no goodbye: the seat stays, the camera slot does not.
+    ana.session.close();
+    expect(bia.last()).toEqual({ t: 'camera-stopped', id: ana.session.peerId });
+
+    const inbox: ServerMessage[] = [];
+    const channel = { send: (m: ServerMessage) => inbox.push(m), close() {} };
+    const resumed = SignalingSession.resume(registry, slug, welcome.resumeToken, channel);
+    expect(resumed).not.toBeNull();
+    const resumedWelcome = inbox[0]!;
+    if (resumedWelcome.t === 'welcome') {
+      // The roster says the slot is gone: the client re-requests.
+      expect(resumedWelcome.cameras).toEqual([]);
+    }
+    resumed!.handleMessage({ t: 'camera-request' });
+    expect(bia.last()).toEqual({ t: 'camera-started', id: ana.session.peerId });
   });
 });
 

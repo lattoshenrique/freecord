@@ -43,6 +43,7 @@ export class RoomRegistry {
       displayName,
       peers: new Map(),
       screenSharer: null,
+      cameras: new Set(),
       screenRelays: new Map(),
       emptyAt: this.now(),
     });
@@ -171,6 +172,7 @@ export class RoomRegistry {
       room.screenSharer = null;
       room.screenRelays.clear();
     }
+    room.cameras.delete(peerId);
     room.screenRelays.delete(peerId);
     if (room.peers.size === 0) {
       room.emptyAt = this.now();

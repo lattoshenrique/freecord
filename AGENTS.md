@@ -85,8 +85,11 @@ and its installers are built by GitHub Actions on a `desktop-v*` tag.
 
 ## Product rules that live in code
 
-- Room dies alone: 15 min empty. Max **8 participants** — a P2P mesh limit, not
-  a preference (each peer uploads N−1 copies).
+- Room dies alone: 15 min empty. Max **12 participants** — a P2P mesh limit
+  priced honestly (each peer uploads N−1 copies): audio and screen keep full
+  quality at any size, while **camera slots** shrink as the room grows (≤6:
+  everyone; 7–9: four; 10–12: three, server-granted) and camera bitrate splits
+  a fixed uplink budget across peers.
 - Screen share: **one at a time**, locked on the server, released even on a
   dropped connection. The sharer picks the quality preset; screen video
   propagates through a **relay tree** (fanout 3), not a star.

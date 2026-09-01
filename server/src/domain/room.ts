@@ -54,6 +54,8 @@ export interface Room {
   peers: Map<string, Peer>;
   /** Who holds the screen-share lock, if anyone. */
   screenSharer: { id: string; streamId: string; quality: ScreenQuality } | null;
+  /** Who holds a camera slot right now (see cameraSlotsFor). */
+  cameras: Set<string>;
   /**
    * Forwarding streams reported by the screen tree's relays:
    * relay peerId → streamId it uses to forward to its children.
@@ -65,11 +67,14 @@ export interface Room {
 
 export const ROOM_LIMITS = {
   /**
-   * P2P mesh: every peer keeps a connection to every other. With video,
-   * beyond ~8 the participants' upload becomes the bottleneck — a product
-   * AND technical limit.
+   * P2P mesh: every peer keeps a connection to every other. 12 holds
+   * because the variable cost adapts with size: cameras split a fixed
+   * uplink budget and are slot-limited past 6 people (cameraSlotsFor),
+   * the screen rides the forwarding tree, and audio is cheap. What
+   * remains is the connection and encoder count per peer — at 12 still
+   * within what a browser sustains.
    */
-  maxParticipants: 8,
+  maxParticipants: 12,
   /** An empty room expires after this (ms) — enough time for the link to circulate. */
   emptyTimeoutMs: 15 * 60 * 1000,
   /** Client ping cadence: measures latency and proves the peer is still alive. */
@@ -99,6 +104,24 @@ export const ROOM_LIMITS = {
    */
   chatEnvelopeMaxLength: 2800,
 } as const;
+
+/**
+ * How many cameras may be live at once for a given room size. Mirrored in
+ * web/src/lib/protocol.ts.
+ *
+ * Small rooms pay nothing: up to 6 people, everyone may turn the camera
+ * on. Past that, live cameras are capped so the CAMERA uplink share of
+ * each peer stays honest while audio and the screen keep their budgets.
+ * The cap binds NEW activations only — a camera already live is never
+ * shut off by the room growing past a threshold (grandfathering); slots
+ * free up when someone turns the camera off or leaves.
+ */
+export function cameraSlotsFor(participantCount: number): number {
+  if (participantCount <= 6) {
+    return participantCount;
+  }
+  return participantCount <= 9 ? 4 : 3;
+}
 
 /**
  * A sealed end-to-end chat payload: `e2e:<iv>.<ciphertext>`, base64url.
@@ -149,6 +172,8 @@ export type ServerMessage =
       room: { slug: string; displayName: string };
       peers: PeerInfo[];
       screen: { id: string; streamId: string } | null;
+      /** Live cameras, so joiners and resumers see the slots in use. */
+      cameras: string[];
     }
   | { t: 'peer-joined'; peer: PeerInfo }
   | { t: 'peer-left'; id: string }
@@ -157,6 +182,10 @@ export type ServerMessage =
   | { t: 'screen-started'; id: string; streamId: string }
   | { t: 'screen-stopped' }
   | { t: 'screen-denied' }
+  /** A camera slot was granted (the requester hears this as its grant). */
+  | { t: 'camera-started'; id: string }
+  | { t: 'camera-stopped'; id: string }
+  | { t: 'camera-denied' }
   /**
    * This peer's role in the screen-forwarding tree.
    *
@@ -183,6 +212,9 @@ export type ClientMessage =
   | { t: 'screen-stop' }
   /** A screen-tree relay announces the stream it uses for forwarding. */
   | { t: 'screen-relay'; streamId: string }
+  /** Camera slots mirror the screen lock: ask first, publish on grant. */
+  | { t: 'camera-request' }
+  | { t: 'camera-stop' }
   /**
    * Deliberate goodbye: leave immediately instead of holding the seat for
    * a resume. A bare transport close is treated as an accident.
