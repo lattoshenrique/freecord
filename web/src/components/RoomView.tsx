@@ -116,6 +116,48 @@ function ChatUnreadChip({
   );
 }
 
+/**
+ * Keeps a live element playing without a human hand.
+ *
+ * `autoPlay` only fires on load: once the browser pauses the element on
+ * its own — power saving on a long-backgrounded tab, an OS sleep, a
+ * decoder hiccup — nothing ever resumes it, and a stream someone left
+ * running "for hours while doing other things" comes back as a frozen
+ * frame that only F5 used to fix. There are no user-facing controls on
+ * these elements, so every pause is the browser's, and resuming is always
+ * right. A play() refused while the tab is hidden is retried when it
+ * becomes visible again.
+ */
+function useResumePlayback(ref: RefObject<HTMLMediaElement | null>, stream: MediaStream) {
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) {
+      return;
+    }
+    const resume = () => {
+      if (element.paused) {
+        void element.play().catch(() => {
+          // autoplay refused while hidden: the visibility handler retries
+        });
+      }
+    };
+    const onVisible = () => {
+      if (!document.hidden) {
+        resume();
+      }
+    };
+    element.addEventListener('pause', resume);
+    document.addEventListener('visibilitychange', onVisible);
+    resume();
+    return () => {
+      element.removeEventListener('pause', resume);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+    // ref is stable; the element exists from the first render on
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stream]);
+}
+
 function MediaView({
   stream,
   muted,
@@ -142,6 +184,7 @@ function MediaView({
       void applySinkId(ref.current, sinkId);
     }
   }, [sinkId, stream]);
+  useResumePlayback(ref, stream);
   return <video ref={ref} autoPlay playsInline muted={muted} className={className} />;
 }
 
@@ -157,6 +200,7 @@ function AudioSink({ stream, sinkId }: { stream: MediaStream; sinkId?: string | 
       void applySinkId(ref.current, sinkId);
     }
   }, [sinkId, stream]);
+  useResumePlayback(ref, stream);
   return <audio ref={ref} autoPlay />;
 }
 

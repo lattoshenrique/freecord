@@ -29,6 +29,8 @@ interface PeerState {
    */
   queue: Promise<void>;
   streams: Map<string, MediaStream>;
+  /** Armed while ICE sits in 'disconnected': fires a restart if it lingers. */
+  iceRetryTimer: ReturnType<typeof setTimeout> | null;
 }
 
 interface SignalPayload {
@@ -85,6 +87,13 @@ interface LocalTrack {
 interface LowLatencyReceiver extends RTCRtpReceiver {
   playoutDelayHint?: number;
 }
+
+/**
+ * How long ICE may sit in 'disconnected' before a restart. Short blips
+ * self-heal well inside this; what the grace filters out is restarting a
+ * path that was about to come back on its own.
+ */
+const ICE_DISCONNECTED_GRACE_MS = 7_000;
 
 export class Mesh {
   private readonly selfId: string;
@@ -392,6 +401,7 @@ export class Mesh {
       ignoreOffer: false,
       queue: Promise.resolve(),
       streams: new Map(),
+      iceRetryTimer: null,
     };
     this.peers.set(peerId, state);
 
@@ -428,8 +438,25 @@ export class Mesh {
     };
 
     pc.oniceconnectionstatechange = () => {
+      // 'failed' restarts at once. 'disconnected' gets a grace first: it
+      // often self-heals in seconds (wi-fi hiccup), but Chrome can also sit
+      // there indefinitely after a NAT rebinding — the long-watch freeze —
+      // so a lingering 'disconnected' earns the same restart. Every other
+      // state disarms the watchdog.
       if (pc.iceConnectionState === 'failed') {
-        pc.restartIce();
+        this.clearIceRetry(state);
+        this.restartPeerIce(pc);
+      } else if (pc.iceConnectionState === 'disconnected') {
+        if (state.iceRetryTimer === null) {
+          state.iceRetryTimer = setTimeout(() => {
+            state.iceRetryTimer = null;
+            if (pc.iceConnectionState === 'disconnected') {
+              this.restartPeerIce(pc);
+            }
+          }, ICE_DISCONNECTED_GRACE_MS);
+        }
+      } else {
+        this.clearIceRetry(state);
       }
     };
 
@@ -499,9 +526,39 @@ export class Mesh {
     }
   }
 
+  private clearIceRetry(state: PeerState): void {
+    if (state.iceRetryTimer !== null) {
+      clearTimeout(state.iceRetryTimer);
+      state.iceRetryTimer = null;
+    }
+  }
+
+  /** Guarded: restartIce is missing from older Safari's RTCPeerConnection. */
+  private restartPeerIce(pc: RTCPeerConnection): void {
+    if (typeof pc.restartIce === 'function') {
+      pc.restartIce();
+    }
+  }
+
+  /**
+   * Renegotiates the path to one peer, keeping tracks and senders — the
+   * escalation for a transport that claims to be connected while nothing
+   * flows (the viewer's stall watch, stall-watch.ts). The new offer rides
+   * the regular negotiationneeded path, so glare resolves as always.
+   */
+  restartIce(peerId: string): void {
+    const state = this.peers.get(peerId);
+    if (!state || this.closed) {
+      return;
+    }
+    this.clearIceRetry(state);
+    this.restartPeerIce(state.pc);
+  }
+
   removePeer(peerId: string): void {
     const state = this.peers.get(peerId);
     if (state) {
+      this.clearIceRetry(state);
       state.pc.close();
       this.peers.delete(peerId);
       for (const overrides of this.encodingOverrides.values()) {
@@ -514,6 +571,7 @@ export class Mesh {
   close(): void {
     this.closed = true;
     for (const state of this.peers.values()) {
+      this.clearIceRetry(state);
       state.pc.close();
     }
     this.peers.clear();
