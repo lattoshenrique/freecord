@@ -142,6 +142,8 @@ export const esES: Catalog = {
   'settings.sounds.title': 'Sonidos',
   'settings.sounds.label': 'Efectos de sonido',
   'settings.sounds.hint': 'Avisos de mensajes nuevos y de gente que entra y sale.',
+  'settings.desktop.title': 'Aplicación de escritorio',
+  'settings.desktop.hint': 'Las mismas salas en una ventana propia, con la descarga para este ordenador.',
   'settings.mic.music.label': 'Estudio',
   'settings.mic.music.hint': 'Estéreo sin filtros a bitrate alto — música e instrumentos, usa auriculares',
   'settings.mic.echoCancellation': 'Cancelación de eco',

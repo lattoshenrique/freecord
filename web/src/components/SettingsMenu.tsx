@@ -35,10 +35,14 @@ import {
   type AudioDeviceLists,
   type AudioDevicePrefs,
 } from '../lib/audio-devices';
-import { CamIcon, CloseIcon, MicIcon, ScreenIcon, SlidersIcon } from './icons';
+import { CamIcon, CloseIcon, DownloadIcon, MicIcon, ScreenIcon, SlidersIcon } from './icons';
+import { useDesktopDownload } from './DownloadCard';
 import './settings-menu.css';
 
 type SectionId = 'screen' | 'audio' | 'video' | 'general';
+
+/** Product names, not translatable text. */
+const OS_LABEL = { mac: 'macOS', windows: 'Windows', linux: 'Linux' } as const;
 
 const SECTIONS: { id: SectionId; icon: ComponentType }[] = [
   { id: 'screen', icon: ScreenIcon },
@@ -210,6 +214,8 @@ export default function SettingsMenu({
   // Mirrors the persisted switch so the row re-renders; the module is the
   // source of truth the chimes read from.
   const [sounds, setSounds] = useState(soundEffectsEnabled);
+  // Null inside the desktop app or with nothing published: the group hides.
+  const desktop = useDesktopDownload();
   const deviceControls = audioDevices !== undefined && onAudioDevices !== undefined;
   const [deviceLists, setDeviceLists] = useState<AudioDeviceLists>({ mics: [], speakers: [] });
 
@@ -412,6 +418,30 @@ export default function SettingsMenu({
                 }}
               />
             </Group>
+            {desktop && (
+              <Group title={t('settings.desktop.title')}>
+                <Field hint={t('settings.desktop.hint')}>
+                  {desktop.pick ? (
+                    <a className="settings-action" href={desktop.pick.url}>
+                      <DownloadIcon />
+                      <span>{t('download.cta', { os: OS_LABEL[desktop.pick.os] })}</span>
+                    </a>
+                  ) : (
+                    // A phone or a guess: the list, in a tab of its own so
+                    // the call stays where it is.
+                    <a
+                      className="settings-action"
+                      href="/community"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <DownloadIcon />
+                      <span>{t('home.footer.downloads')}</span>
+                    </a>
+                  )}
+                </Field>
+              </Group>
+            )}
             <Group title={t('settings.about.title')}>
               <p className="settings-build">
                 {t('app.buildInfo', { version: APP_VERSION, build: APP_BUILD })}

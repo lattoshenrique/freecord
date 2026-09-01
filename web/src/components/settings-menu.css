@@ -392,6 +392,41 @@
   background: #fff;
 }
 
+/* A link dressed as a button: the desktop download in the General tab. */
+.settings-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  align-self: flex-start;
+  padding: 0.5rem 0.85rem;
+  font-family: var(--mono, monospace);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text, #e6e8ee);
+  text-decoration: none;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--hud-border-strong, rgba(255, 255, 255, 0.2));
+  border-radius: calc(var(--hud-radius, 8px) - 2px);
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.settings-action svg {
+  width: 15px;
+  height: 15px;
+}
+
+.settings-action:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--accent, #7c9cf5);
+}
+
+.settings-action:focus-visible {
+  outline: 2px solid var(--accent, #7c9cf5);
+  outline-offset: 1px;
+}
+
 /* Version + build stamp: findable in-room without leaving the call, quiet
    enough to ignore. */
 .settings-build {

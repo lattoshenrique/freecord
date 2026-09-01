@@ -146,6 +146,8 @@ export const enUS = {
   'settings.sounds.title': 'Sounds',
   'settings.sounds.label': 'Sound effects',
   'settings.sounds.hint': 'Chimes for new messages and people coming and going.',
+  'settings.desktop.title': 'Desktop app',
+  'settings.desktop.hint': 'The same rooms in a window of their own, with the download for this computer.',
   'settings.mic.music.label': 'Studio',
   'settings.mic.music.hint': 'Raw stereo at high bitrate — music and instruments, wear headphones',
   'settings.mic.echoCancellation': 'Echo cancellation',

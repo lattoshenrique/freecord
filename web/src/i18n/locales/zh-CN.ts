@@ -140,6 +140,8 @@ export const zhCN: Catalog = {
   'settings.sounds.title': '声音',
   'settings.sounds.label': '提示音',
   'settings.sounds.hint': '新消息以及有人进出时的提示音。',
+  'settings.desktop.title': '桌面应用',
+  'settings.desktop.hint': '同样的房间，独立窗口运行，提供适合这台电脑的下载。',
   'settings.mic.music.label': '录音室',
   'settings.mic.music.hint': '无处理立体声、高码率 —— 适合音乐和乐器，请戴耳机',
   'settings.mic.echoCancellation': '回声消除',

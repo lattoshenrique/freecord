@@ -141,6 +141,8 @@ export const ptBR: Catalog = {
   'settings.sounds.title': 'Sons',
   'settings.sounds.label': 'Efeitos sonoros',
   'settings.sounds.hint': 'Avisos de mensagem nova e de gente entrando e saindo.',
+  'settings.desktop.title': 'App para computador',
+  'settings.desktop.hint': 'As mesmas salas numa janela própria, com o download certo para este computador.',
   'settings.mic.music.label': 'Estúdio',
   'settings.mic.music.hint': 'Estéreo sem filtros em bitrate alto — música e instrumentos, use fones',
   'settings.mic.echoCancellation': 'Cancelamento de eco',

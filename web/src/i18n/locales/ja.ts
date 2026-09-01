@@ -142,6 +142,8 @@ export const jaJP: Catalog = {
   'settings.sounds.title': 'サウンド',
   'settings.sounds.label': '効果音',
   'settings.sounds.hint': '新着メッセージや入退室の通知音。',
+  'settings.desktop.title': 'デスクトップアプリ',
+  'settings.desktop.hint': '同じルームを専用ウィンドウで。このパソコン向けのダウンロードです。',
   'settings.mic.music.label': 'スタジオ',
   'settings.mic.music.hint': '無加工ステレオ・高ビットレート — 音楽や楽器向け、ヘッドホン推奨',
   'settings.mic.echoCancellation': 'エコーキャンセル',
