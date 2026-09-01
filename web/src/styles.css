@@ -893,6 +893,19 @@ button {
   pointer-events: auto;
 }
 
+/*
+ * liquid-glass-react renders its four effect layers as *siblings* of the
+ * dock with position: relative, so this flex row laid them out side by
+ * side — two invisible slabs pushing from the left, two ghost pills
+ * hanging past the right edge, and the page gained a horizontal scroll.
+ * The dock's look never depended on them (it comes from the svg inside
+ * .dock-glass), so drop the strays instead of stacking them.
+ */
+.room-footer > div[class*='bg-black'],
+.room-footer > .dock-glass ~ span:not([class]) {
+  display: none;
+}
+
 .dock-glass {
   animation: rise-in 0.4s var(--ease) both;
 }
@@ -1341,4 +1354,73 @@ button {
   color: var(--muted);
   font-size: 0.82rem;
   line-height: 1.45;
+}
+
+/* ---- composer: grupos da barra e seletor de emoji ---- */
+
+/* Âncora do popover de emoji. */
+.chat-composer {
+  position: relative;
+}
+
+.chat-toolbar-sep {
+  width: 1px;
+  height: 1rem;
+  margin: 0 0.35rem;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.chat-emoji-wrap {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.chat-emoji-toggle {
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 50%;
+}
+
+.chat-emoji-pop {
+  position: absolute;
+  right: 0.6rem;
+  bottom: calc(100% + 0.5rem);
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 0.1rem;
+  width: 18.2rem;
+  /* O painel pode ficar mais estreito que a grade (45vw); nunca vaze dele. */
+  max-width: calc(100% - 1.2rem);
+  max-height: 12.5rem;
+  overflow-y: auto;
+  padding: 0.5rem;
+  background: var(--panel-2);
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45);
+  z-index: 20;
+}
+
+.chat-emoji-option {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 2rem;
+  font-size: 1.15rem;
+  line-height: 1;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.chat-emoji-option:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.chat-emoji-option:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }

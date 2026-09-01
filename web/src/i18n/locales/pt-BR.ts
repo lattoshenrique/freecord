@@ -117,7 +117,7 @@ export const ptBR: Catalog = {
   'chat.locked':
     'Criptografada — você não tem a chave desta sala',
   'chat.messageLabel': 'Mensagem do chat',
-  'chat.placeholder': 'Mensagem…  **negrito**, `código`, - lista',
+  'chat.placeholder': 'Mensagem…',
   'chat.send': 'Enviar mensagem',
   'chat.toolbar': 'Formatação da mensagem',
   'chat.unread': { one: 'nova mensagem', other: 'novas mensagens' },
@@ -128,6 +128,7 @@ export const ptBR: Catalog = {
   'chat.link': 'Link',
   'chat.list': 'Lista',
   'chat.quote': 'Citação',
+  'chat.emoji': 'Emoji',
 
   'latency.signal': 'Latência até o servidor de sinalização',
   'latency.peer': 'Latência direta com {name}',

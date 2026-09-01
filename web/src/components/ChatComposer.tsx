@@ -1,9 +1,20 @@
-import { useLayoutEffect, useMemo, useRef, type ComponentType, type KeyboardEvent } from 'react';
+import {
+  Fragment,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentType,
+  type KeyboardEvent,
+} from 'react';
 import { useI18n, type MessageKey } from '../i18n';
 import { applyMarkdown, type MarkdownAction, type Placeholders } from '../lib/markdown-edit';
+import EmojiPicker from './EmojiPicker';
 import {
   BoldIcon,
   CodeIcon,
+  EmojiIcon,
   ItalicIcon,
   LinkIcon,
   ListIcon,
@@ -15,20 +26,45 @@ import {
 /** Ceiling for the auto-grow: past this the field scrolls. */
 const MAX_HEIGHT_PX = 132;
 
-const TOOLS: Array<{
-  action: MarkdownAction;
-  labelKey: MessageKey;
-  shortcut?: string;
-  Icon: ComponentType;
-}> = [
-  { action: 'bold', labelKey: 'chat.bold', shortcut: '⌘B', Icon: BoldIcon },
-  { action: 'italic', labelKey: 'chat.italic', shortcut: '⌘I', Icon: ItalicIcon },
-  { action: 'strike', labelKey: 'chat.strike', Icon: StrikeIcon },
-  { action: 'code', labelKey: 'chat.code', shortcut: '⌘E', Icon: CodeIcon },
-  { action: 'link', labelKey: 'chat.link', shortcut: '⌘K', Icon: LinkIcon },
-  { action: 'bullet', labelKey: 'chat.list', Icon: ListIcon },
-  { action: 'quote', labelKey: 'chat.quote', Icon: QuoteIcon },
+/** Text styles, then inline snippets, then blocks — separated in the toolbar. */
+const TOOL_GROUPS: Array<
+  Array<{
+    action: MarkdownAction;
+    labelKey: MessageKey;
+    shortcut?: string;
+    Icon: ComponentType;
+  }>
+> = [
+  [
+    { action: 'bold', labelKey: 'chat.bold', shortcut: '⌘B', Icon: BoldIcon },
+    { action: 'italic', labelKey: 'chat.italic', shortcut: '⌘I', Icon: ItalicIcon },
+    { action: 'strike', labelKey: 'chat.strike', Icon: StrikeIcon },
+  ],
+  [
+    { action: 'code', labelKey: 'chat.code', shortcut: '⌘E', Icon: CodeIcon },
+    { action: 'link', labelKey: 'chat.link', shortcut: '⌘K', Icon: LinkIcon },
+  ],
+  [
+    { action: 'bullet', labelKey: 'chat.list', Icon: ListIcon },
+    { action: 'quote', labelKey: 'chat.quote', Icon: QuoteIcon },
+  ],
 ];
+
+/**
+ * Tooltip syntax samples, so the toolbar still teaches that markdown can be
+ * TYPED — the placeholder used to carry this and no longer does. The sample
+ * word is the button's own translated label, same trick as `Placeholders`.
+ */
+const SYNTAX: Record<MarkdownAction, (word: string) => string> = {
+  bold: (word) => `**${word}**`,
+  italic: (word) => `*${word}*`,
+  code: (word) => `\`${word}\``,
+  strike: (word) => `~~${word}~~`,
+  link: (word) => `[${word}](url)`,
+  bullet: (word) => `- ${word}`,
+  number: (word) => `1. ${word}`,
+  quote: (word) => `> ${word}`,
+};
 
 const SHORTCUTS: Record<string, MarkdownAction> = {
   b: 'bold',
@@ -62,6 +98,32 @@ export default function ChatComposer({
   const areaRef = useRef<HTMLTextAreaElement>(null);
   // The selection has to be restored AFTER React applies the new value.
   const pendingSelection = useRef<{ start: number; end: number } | null>(null);
+  const [emojiOpen, setEmojiOpen] = useState(false);
+  const emojiRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!emojiOpen) {
+      return;
+    }
+    function onPointerDown(event: PointerEvent): void {
+      const wrap = emojiRef.current;
+      if (wrap && !wrap.contains(event.target as Node)) {
+        setEmojiOpen(false);
+      }
+    }
+    function onKeyDown(event: globalThis.KeyboardEvent): void {
+      if (event.key === 'Escape') {
+        setEmojiOpen(false);
+        areaRef.current?.focus();
+      }
+    }
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [emojiOpen]);
 
   const placeholders = useMemo<Placeholders>(
     () => ({
@@ -110,6 +172,21 @@ export default function ChatComposer({
     onChange(result.text);
   }
 
+  function insertEmoji(emoji: string): void {
+    const area = areaRef.current;
+    const start = area ? area.selectionStart : value.length;
+    const end = area ? area.selectionEnd : value.length;
+    const text = value.slice(0, start) + emoji + value.slice(end);
+    // The budget is UTF-16 units, same as the server's clamp — an emoji costs 2+.
+    if (text.length > maxLength) {
+      return;
+    }
+    const caret = start + emoji.length;
+    pendingSelection.current = { start: caret, end: caret };
+    setEmojiOpen(false);
+    onChange(text);
+  }
+
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>): void {
     // Enter sends; Shift+Enter breaks the line — every chat's convention.
     if (event.key === 'Enter' && !event.shiftKey) {
@@ -139,23 +216,31 @@ export default function ChatComposer({
   return (
     <div className="chat-composer">
       <div className="chat-toolbar" role="toolbar" aria-label={t('chat.toolbar')}>
-        {TOOLS.map(({ action, labelKey, shortcut, Icon }) => {
-          const label = t(labelKey);
-          return (
-          <button
-            key={action}
-            type="button"
-            className="chat-tool"
-            title={shortcut ? `${label} (${shortcut})` : label}
-            aria-label={label}
-            // mousedown would steal focus from the textarea, and the selection with it.
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() => run(action)}
-          >
-            <Icon />
-          </button>
-          );
-        })}
+        {TOOL_GROUPS.map((group, index) => (
+          <Fragment key={index}>
+            {index > 0 && (
+              <span className="chat-toolbar-sep" role="separator" aria-orientation="vertical" />
+            )}
+            {group.map(({ action, labelKey, shortcut, Icon }) => {
+              const label = t(labelKey);
+              const sample = SYNTAX[action](label.toLowerCase());
+              return (
+                <button
+                  key={action}
+                  type="button"
+                  className="chat-tool"
+                  title={shortcut ? `${label} (${shortcut}) · ${sample}` : `${label} · ${sample}`}
+                  aria-label={label}
+                  // mousedown would steal focus from the textarea, and the selection with it.
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => run(action)}
+                >
+                  <Icon />
+                </button>
+              );
+            })}
+          </Fragment>
+        ))}
       </div>
       <form
         className="chat-form"
@@ -175,6 +260,22 @@ export default function ChatComposer({
           onChange={(event) => onChange(event.target.value)}
           onKeyDown={handleKeyDown}
         />
+        <div className="chat-emoji-wrap" ref={emojiRef}>
+          <button
+            type="button"
+            className="chat-tool chat-emoji-toggle"
+            title={t('chat.emoji')}
+            aria-label={t('chat.emoji')}
+            aria-haspopup="true"
+            aria-expanded={emojiOpen}
+            // mousedown would steal focus from the textarea, and the selection with it.
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => setEmojiOpen((open) => !open)}
+          >
+            <EmojiIcon />
+          </button>
+          {emojiOpen && <EmojiPicker onPick={insertEmoji} />}
+        </div>
         <button type="submit" className="chat-send" aria-label={t('chat.send')} disabled={!value.trim()}>
           <SendIcon />
         </button>

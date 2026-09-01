@@ -121,7 +121,7 @@ export const enUS = {
   'chat.locked':
     'Encrypted — you don’t have this room’s key',
   'chat.messageLabel': 'Chat message',
-  'chat.placeholder': 'Message…  **bold**, `code`, - list',
+  'chat.placeholder': 'Message…',
   'chat.send': 'Send message',
   'chat.toolbar': 'Message formatting',
   'chat.unread': { one: 'new message', other: 'new messages' },
@@ -132,6 +132,7 @@ export const enUS = {
   'chat.link': 'Link',
   'chat.list': 'List',
   'chat.quote': 'Quote',
+  'chat.emoji': 'Emoji',
 
   'latency.signal': 'Latency to the signaling server',
   'latency.peer': 'Direct latency with {name}',

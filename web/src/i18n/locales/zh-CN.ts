@@ -116,7 +116,7 @@ export const zhCN: Catalog = {
   'chat.locked':
     '已加密 —— 你没有这个房间的密钥',
   'chat.messageLabel': '聊天消息',
-  'chat.placeholder': '消息…  **粗体**、`代码`、- 列表',
+  'chat.placeholder': '消息…',
   'chat.send': '发送消息',
   'chat.toolbar': '消息格式',
   'chat.unread': { other: '条新消息' },
@@ -127,6 +127,7 @@ export const zhCN: Catalog = {
   'chat.link': '链接',
   'chat.list': '列表',
   'chat.quote': '引用',
+  'chat.emoji': '表情',
 
   'latency.signal': '到信令服务器的延迟',
   'latency.peer': '与 {name} 的直连延迟',

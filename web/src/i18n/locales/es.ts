@@ -117,7 +117,7 @@ export const esES: Catalog = {
   'chat.locked':
     'Cifrado — no tienes la clave de esta sala',
   'chat.messageLabel': 'Mensaje del chat',
-  'chat.placeholder': 'Mensaje…  **negrita**, `código`, - lista',
+  'chat.placeholder': 'Mensaje…',
   'chat.send': 'Enviar mensaje',
   'chat.toolbar': 'Formato del mensaje',
   'chat.unread': { one: 'mensaje nuevo', other: 'mensajes nuevos' },
@@ -128,6 +128,7 @@ export const esES: Catalog = {
   'chat.link': 'Enlace',
   'chat.list': 'Lista',
   'chat.quote': 'Cita',
+  'chat.emoji': 'Emoji',
 
   'latency.signal': 'Latencia con el servidor de señalización',
   'latency.peer': 'Latencia directa con {name}',

@@ -117,7 +117,7 @@ export const jaJP: Catalog = {
   'chat.locked':
     '暗号化されています — このルームの鍵がありません',
   'chat.messageLabel': 'チャットメッセージ',
-  'chat.placeholder': 'メッセージ…  **太字**、`コード`、- リスト',
+  'chat.placeholder': 'メッセージ…',
   'chat.send': 'メッセージを送信',
   'chat.toolbar': 'メッセージの書式',
   'chat.unread': { other: '件の新着メッセージ' },
@@ -128,6 +128,7 @@ export const jaJP: Catalog = {
   'chat.link': 'リンク',
   'chat.list': 'リスト',
   'chat.quote': '引用',
+  'chat.emoji': '絵文字',
 
   'latency.signal': 'シグナリングサーバーまでの遅延',
   'latency.peer': '{name} との直接遅延',

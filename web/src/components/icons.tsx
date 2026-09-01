@@ -193,3 +193,14 @@ export function QuoteIcon() {
     </svg>
   );
 }
+
+export function EmojiIcon() {
+  return (
+    <svg {...base}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M8.4 14.3a4.7 4.7 0 0 0 7.2 0" />
+      <circle cx="9" cy="9.8" r="1.1" fill="currentColor" stroke="none" />
+      <circle cx="15" cy="9.8" r="1.1" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
