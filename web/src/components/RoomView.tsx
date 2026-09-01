@@ -525,7 +525,13 @@ export default function RoomView({
       const target = event.target as HTMLElement | null;
       if (
         target &&
-        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable ||
+          // A dialog owns the keyboard while it is open: "m" on a focused
+          // settings button must not mute the call behind it.
+          target.closest('[role="dialog"]') !== null)
       ) {
         return;
       }
@@ -960,10 +966,10 @@ export default function RoomView({
           <button
             type="button"
             className={`control ${settingsOpen ? 'control-active' : ''}`}
-            aria-haspopup="menu"
+            aria-haspopup="dialog"
             aria-expanded={settingsOpen}
             data-key="Q"
-            title={t('controls.quality')}
+            title={t('controls.settings')}
             onClick={() => setSettingsOpen((open) => !open)}
           >
             <SlidersIcon />
