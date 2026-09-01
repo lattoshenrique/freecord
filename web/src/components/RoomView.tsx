@@ -402,8 +402,10 @@ function Tile({
    */
   cameraOn: boolean;
   stream: MediaStream | null;
-  latencyMs: number | null;
-  latencyTitle: string;
+  /** Peer-to-peer RTT from getStats(). The self tile has none: the hop to the
+   * signaling server is not latency between people, so it is not shown. */
+  latencyMs?: number | null;
+  latencyTitle?: string;
   style?: React.CSSProperties;
   /** Playback device for a remote peer's audio; self tiles pass none. */
   sinkId?: string | null;
@@ -412,7 +414,7 @@ function Tile({
   const showVideo = cameraOn && stream !== null && hasLiveVideo(stream);
   return (
     <div className="tile" data-speaking={speaking ? 'true' : undefined} style={style}>
-      <LatencyChip ms={latencyMs} title={latencyTitle} />
+      {latencyTitle !== undefined && <LatencyChip ms={latencyMs ?? null} title={latencyTitle} />}
       {showVideo ? (
         <MediaView
           stream={stream}
@@ -900,8 +902,6 @@ export default function RoomView({
               speaking={session.selfId !== null && speaking.has(session.selfId)}
               cameraOn={session.camOn}
               stream={session.localMedia && session.camOn ? session.localMedia : null}
-              latencyMs={session.signalRttMs}
-              latencyTitle={t('latency.signal')}
               style={tileStyle}
             />
             {session.peers.map((peer) => {
