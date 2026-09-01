@@ -752,6 +752,89 @@ button {
   animation: bubble-in 0.25s var(--ease) both;
 }
 
+/* The quoted message a reply carries: a rail, a name, one line. */
+.chat-quote {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  margin: 0 0 0.35rem;
+  padding: 0.3rem 0.6rem;
+  border-left: 2px solid var(--accent-hover);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.22);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.chat-bubble.mine .chat-quote {
+  border-left-color: rgba(255, 255, 255, 0.7);
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.chat-quote-name {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--accent-hover);
+}
+
+.chat-bubble.mine .chat-quote-name {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.chat-quote-text {
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-bubble.mine .chat-quote-text {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* "Reply" rides the bubble's top corner, and only shows on hover. */
+.chat-reply-btn {
+  position: absolute;
+  top: -0.55rem;
+  right: -0.55rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border: 1px solid var(--hud-border);
+  border-radius: 50%;
+  background: var(--panel-2);
+  color: var(--muted);
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity 0.15s ease,
+    color 0.15s ease;
+}
+
+.chat-bubble.mine .chat-reply-btn {
+  right: auto;
+  left: -0.55rem;
+}
+
+.chat-bubble:hover .chat-reply-btn,
+.chat-reply-btn:focus-visible {
+  opacity: 1;
+}
+
+.chat-reply-btn:hover {
+  color: var(--text);
+}
+
+/* No hover on touch: the button is always there, quietly. */
+@media (hover: none) {
+  .chat-reply-btn {
+    opacity: 0.6;
+  }
+}
+
 /* A sealed message this client has no key for. */
 .chat-locked {
   margin: 0;
@@ -786,6 +869,58 @@ button {
   align-items: center;
   gap: 0.1rem;
   padding: 0.4rem 0.6rem 0;
+  animation: bubble-in 0.2s var(--ease) both;
+}
+
+/* The row above the field while a reply is being written. */
+.chat-reply-strip {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.75rem 0;
+  color: var(--muted);
+  animation: bubble-in 0.2s var(--ease) both;
+}
+
+.chat-reply-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  padding: 0.3rem 0.6rem;
+  border-left: 2px solid var(--accent);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.chat-reply-name {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--accent-hover);
+}
+
+.chat-reply-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The round keys that flank the field: formatting, attach. Smaller than the
+   emoji key so the field keeps its width in a 21rem panel. */
+.chat-form-tool {
+  flex: 0 0 auto;
+  width: 2rem;
+  height: 2.4rem;
+  border-radius: 50%;
+}
+
+.chat-form-tool-on {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text);
 }
 
 .chat-tool {
@@ -817,8 +952,8 @@ button {
 .chat-form {
   display: flex;
   align-items: flex-end;
-  gap: 0.5rem;
-  padding: 0.4rem 0.6rem 0.6rem;
+  gap: 0.3rem;
+  padding: 0.4rem 0.5rem 0.6rem;
 }
 
 .chat-input {

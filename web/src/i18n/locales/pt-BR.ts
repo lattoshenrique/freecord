@@ -187,6 +187,10 @@ export const ptBR: Catalog = {
   'chat.list': 'Lista',
   'chat.quote': 'Citação',
   'chat.emoji': 'Emoji',
+  'chat.format': 'Formatação',
+  'chat.reply': 'Responder',
+  'chat.replyingTo': 'Respondendo a {name}',
+  'chat.cancelReply': 'Cancelar resposta',
 
   'file.attach': 'Enviar um arquivo',
   'file.direct': 'Vai direto para a outra pessoa, nunca passa por um servidor',

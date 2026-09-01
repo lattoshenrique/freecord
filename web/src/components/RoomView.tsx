@@ -15,6 +15,7 @@ import Avatar from './Avatar';
 import ChatComposer from './ChatComposer';
 import FileTransferBubble from './FileTransferBubble';
 import { MAX_FILE_BYTES, formatBytes } from '../lib/file-transfer';
+import { bodyBudget, excerptOf, type ChatQuote } from '../lib/chat-body';
 import InviteButton from './InviteButton';
 import Logo from './Logo';
 import SettingsMenu from './SettingsMenu';
@@ -29,6 +30,7 @@ import {
   LeaveIcon,
   MicIcon,
   MicOffIcon,
+  ReplyIcon,
   ScreenIcon,
   SlidersIcon,
 } from './icons';
@@ -381,6 +383,8 @@ export default function RoomView({
   const session = useRoomSession(options);
   const speaking = useSpeaking(session);
   const [chatOpen, setChatOpen] = useState(false);
+  /** The message the next one replies to; cleared on send or cancel. */
+  const [replyTo, setReplyTo] = useState<ChatQuote | null>(null);
   const [draft, setDraft] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   /** Why the last attach went nowhere; cleared on the next attempt. */
@@ -558,6 +562,9 @@ export default function RoomView({
           return;
         }
         case 'c':
+          // The composer takes focus as the panel opens; without this the
+          // same keystroke would land in it as a typed "c".
+          event.preventDefault();
           setChatOpen((open) => !open);
           return;
         case 'q': {
@@ -792,7 +799,18 @@ export default function RoomView({
         </div>
 
         {chatOpen && (
-          <aside className="chat-panel">
+          <aside
+            className="chat-panel"
+            aria-label={t('chat.title')}
+            onKeyDown={(event) => {
+              // Escape shuts the panel; the composer swallows it first when a
+              // reply is pending, so one press cancels the reply and the next closes.
+              if (event.key === 'Escape') {
+                event.preventDefault();
+                setChatOpen(false);
+              }
+            }}
+          >
             <header className="chat-header">
               <h2>{t('chat.title')}</h2>
               <button
@@ -828,10 +846,29 @@ export default function RoomView({
                 return (
                   <div key={entry.key} className={`chat-bubble ${mine ? 'mine' : ''}`}>
                     {!mine && <span className="chat-author">{message.from.name}</span>}
+                    {message.quote && (
+                      <blockquote className="chat-quote">
+                        <span className="chat-quote-name">{message.quote.name}</span>
+                        <span className="chat-quote-text">{message.quote.text}</span>
+                      </blockquote>
+                    )}
                     {message.unreadable ? (
                       <p className="chat-locked">{t('chat.locked')}</p>
                     ) : (
                       <div className="chat-md">{renderMarkdown(message.text)}</div>
+                    )}
+                    {!message.unreadable && (
+                      <button
+                        type="button"
+                        className="chat-reply-btn"
+                        aria-label={t('chat.reply')}
+                        title={t('chat.reply')}
+                        onClick={() =>
+                          setReplyTo({ name: message.from.name, text: excerptOf(message.text) })
+                        }
+                      >
+                        <ReplyIcon />
+                      </button>
                     )}
                   </div>
                 );
@@ -856,17 +893,20 @@ export default function RoomView({
             />
             <ChatComposer
               value={draft}
-              maxLength={500}
+              maxLength={bodyBudget(replyTo)}
               locked={session.chatLocked}
+              quote={replyTo}
               onChange={setDraft}
               onSend={() => {
                 const text = draft.trim();
                 if (text) {
-                  session.sendChat(text);
+                  session.sendChat(text, replyTo);
                   setDraft('');
+                  setReplyTo(null);
                 }
               }}
               onAttach={() => fileInputRef.current?.click()}
+              onCancelQuote={() => setReplyTo(null)}
             />
           </aside>
         )}

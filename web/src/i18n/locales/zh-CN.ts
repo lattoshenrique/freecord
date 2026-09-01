@@ -186,6 +186,10 @@ export const zhCN: Catalog = {
   'chat.list': '列表',
   'chat.quote': '引用',
   'chat.emoji': '表情',
+  'chat.format': '格式',
+  'chat.reply': '回复',
+  'chat.replyingTo': '正在回复 {name}',
+  'chat.cancelReply': '取消回复',
 
   'file.attach': '发送文件',
   'file.direct': '直接发送给对方，不经过任何服务器',

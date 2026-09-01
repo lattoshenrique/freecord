@@ -192,6 +192,10 @@ export const enUS = {
   'chat.list': 'List',
   'chat.quote': 'Quote',
   'chat.emoji': 'Emoji',
+  'chat.format': 'Formatting',
+  'chat.reply': 'Reply',
+  'chat.replyingTo': 'Replying to {name}',
+  'chat.cancelReply': 'Cancel reply',
 
   'file.attach': 'Send a file',
   'file.direct': 'Goes straight to the other person, never through a server',

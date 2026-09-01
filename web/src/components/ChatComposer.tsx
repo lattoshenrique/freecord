@@ -9,17 +9,21 @@ import {
   type KeyboardEvent,
 } from 'react';
 import { useI18n, type MessageKey } from '../i18n';
+import type { ChatQuote } from '../lib/chat-body';
 import { applyMarkdown, type MarkdownAction, type Placeholders } from '../lib/markdown-edit';
 import EmojiPicker from './EmojiPicker';
 import {
   AttachIcon,
   BoldIcon,
+  CloseIcon,
   CodeIcon,
   EmojiIcon,
+  FormatIcon,
   ItalicIcon,
   LinkIcon,
   ListIcon,
   QuoteIcon,
+  ReplyIcon,
   SendIcon,
   StrikeIcon,
 } from './icons';
@@ -85,18 +89,23 @@ export default function ChatComposer({
   value,
   maxLength,
   locked = false,
+  quote = null,
   onChange,
   onSend,
   onAttach,
+  onCancelQuote,
 }: {
   value: string;
   maxLength: number;
   /** No key for an encrypted room: sending would silently downgrade to plaintext. */
   locked?: boolean;
+  /** The message being replied to; shown above the field until sent or cancelled. */
+  quote?: ChatQuote | null;
   onChange: (text: string) => void;
   onSend: () => void;
   /** Opens the file picker for a peer-to-peer transfer; absent = no button. */
   onAttach?: () => void;
+  onCancelQuote?: () => void;
 }) {
   const { t } = useI18n();
   const areaRef = useRef<HTMLTextAreaElement>(null);
@@ -104,6 +113,15 @@ export default function ChatComposer({
   const pendingSelection = useRef<{ start: number; end: number } | null>(null);
   const [emojiOpen, setEmojiOpen] = useState(false);
   const emojiRef = useRef<HTMLDivElement>(null);
+  // The formatting row is a mode, not furniture: off until asked for, so the
+  // composer opens as one line — attach, message, emoji, send.
+  const [formatOpen, setFormatOpen] = useState(false);
+
+  // Opening the chat is opening the keyboard: the field takes focus at once,
+  // and again when a reply is picked, so "Reply" lands the caret ready to type.
+  useEffect(() => {
+    areaRef.current?.focus();
+  }, [quote]);
 
   useEffect(() => {
     if (!emojiOpen) {
@@ -198,6 +216,13 @@ export default function ChatComposer({
       onSend();
       return;
     }
+    // Escape drops the reply first; only a second one reaches the sheet.
+    if (event.key === 'Escape' && quote && onCancelQuote) {
+      event.preventDefault();
+      event.stopPropagation();
+      onCancelQuote();
+      return;
+    }
     if (event.metaKey || event.ctrlKey) {
       const action = SHORTCUTS[event.key.toLowerCase()];
       if (action) {
@@ -219,48 +244,54 @@ export default function ChatComposer({
 
   return (
     <div className="chat-composer">
-      <div className="chat-toolbar" role="toolbar" aria-label={t('chat.toolbar')}>
-        {TOOL_GROUPS.map((group, index) => (
-          <Fragment key={index}>
-            {index > 0 && (
-              <span className="chat-toolbar-sep" role="separator" aria-orientation="vertical" />
-            )}
-            {group.map(({ action, labelKey, shortcut, Icon }) => {
-              const label = t(labelKey);
-              const sample = SYNTAX[action](label.toLowerCase());
-              return (
-                <button
-                  key={action}
-                  type="button"
-                  className="chat-tool"
-                  title={shortcut ? `${label} (${shortcut}) · ${sample}` : `${label} · ${sample}`}
-                  aria-label={label}
-                  // mousedown would steal focus from the textarea, and the selection with it.
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => run(action)}
-                >
-                  <Icon />
-                </button>
-              );
-            })}
-          </Fragment>
-        ))}
-        {onAttach && (
-          <>
-            <span className="chat-toolbar-sep" role="separator" aria-orientation="vertical" />
-            <button
-              type="button"
-              className="chat-tool"
-              title={`${t('file.attach')} · ${t('file.direct')}`}
-              aria-label={t('file.attach')}
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={onAttach}
-            >
-              <AttachIcon />
-            </button>
-          </>
-        )}
-      </div>
+      {quote && (
+        <div className="chat-reply-strip" role="status">
+          <ReplyIcon />
+          <div className="chat-reply-body">
+            <span className="chat-reply-name">{t('chat.replyingTo', { name: quote.name })}</span>
+            <span className="chat-reply-text">{quote.text}</span>
+          </div>
+          <button
+            type="button"
+            className="chat-tool"
+            aria-label={t('chat.cancelReply')}
+            title={t('chat.cancelReply')}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={onCancelQuote}
+          >
+            <CloseIcon />
+          </button>
+        </div>
+      )}
+      {formatOpen && (
+        <div className="chat-toolbar" role="toolbar" aria-label={t('chat.toolbar')}>
+          {TOOL_GROUPS.map((group, index) => (
+            <Fragment key={index}>
+              {index > 0 && (
+                <span className="chat-toolbar-sep" role="separator" aria-orientation="vertical" />
+              )}
+              {group.map(({ action, labelKey, shortcut, Icon }) => {
+                const label = t(labelKey);
+                const sample = SYNTAX[action](label.toLowerCase());
+                return (
+                  <button
+                    key={action}
+                    type="button"
+                    className="chat-tool"
+                    title={shortcut ? `${label} (${shortcut}) · ${sample}` : `${label} · ${sample}`}
+                    aria-label={label}
+                    // mousedown would steal focus from the textarea, and the selection with it.
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => run(action)}
+                  >
+                    <Icon />
+                  </button>
+                );
+              })}
+            </Fragment>
+          ))}
+        </div>
+      )}
       <form
         className="chat-form"
         onSubmit={(event) => {
@@ -268,6 +299,29 @@ export default function ChatComposer({
           onSend();
         }}
       >
+        <button
+          type="button"
+          className={`chat-tool chat-form-tool ${formatOpen ? 'chat-form-tool-on' : ''}`}
+          title={t('chat.format')}
+          aria-label={t('chat.format')}
+          aria-pressed={formatOpen}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => setFormatOpen((open) => !open)}
+        >
+          <FormatIcon />
+        </button>
+        {onAttach && (
+          <button
+            type="button"
+            className="chat-tool chat-form-tool"
+            title={`${t('file.attach')} · ${t('file.direct')}`}
+            aria-label={t('file.attach')}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={onAttach}
+          >
+            <AttachIcon />
+          </button>
+        )}
         <textarea
           ref={areaRef}
           className="chat-input"

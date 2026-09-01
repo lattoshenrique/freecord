@@ -15,6 +15,7 @@ import {
   initialAdaptiveState,
 } from './adaptive-policy';
 import { CAMERA_MIN_BITRATE, cameraEncoding, composeCameraEncoding } from './camera-quality';
+import { decodeChatBody, encodeChatBody, type ChatQuote } from './chat-body';
 import { importRoomKey, openChat, sealChat } from './chat-crypto';
 import { FileTransfers, type FileTransfer } from './file-transfer';
 import { Mesh, type TrackEncoding } from './mesh';
@@ -65,6 +66,8 @@ export interface ChatMessage {
   from: PeerInfo;
   text: string;
   ts: number;
+  /** The message this one replies to, as the sender excerpted it. */
+  quote?: ChatQuote;
   /** Sealed for a key this client does not hold: render a placeholder. */
   unreadable?: boolean;
 }
@@ -605,9 +608,12 @@ export function useRoomSession(options: JoinOptions) {
               chatLockedRef.current = true;
               setChatLocked(true);
             }
-            const entry: ChatMessage = opened.unreadable
+            const body = opened.unreadable ? null : decodeChatBody(opened.text);
+            const entry: ChatMessage = !body
               ? { from, ts, text: '', unreadable: true }
-              : { from, ts, text: opened.text };
+              : body.quote
+                ? { from, ts, text: body.text, quote: body.quote }
+                : { from, ts, text: body.text };
             setChat((current) => [...current.slice(-MAX_CHAT_MESSAGES + 1), entry]);
           });
           return;
@@ -1082,7 +1088,9 @@ export function useRoomSession(options: JoinOptions) {
     });
   }, []);
 
-  const sendChat = useCallback((text: string) => {
+  const sendChat = useCallback((text: string, quote: ChatQuote | null = null) => {
+    // The quote travels inside the body, so a sealed room seals it too.
+    const body = encodeChatBody(text, quote);
     const key = chatKeyRef.current;
     if (!key) {
       if (chatLockedRef.current) {
@@ -1091,10 +1099,10 @@ export function useRoomSession(options: JoinOptions) {
         return;
       }
       // No key and no evidence of one (a pre-key room): plaintext relays.
-      signalingRef.current?.send({ t: 'chat', text });
+      signalingRef.current?.send({ t: 'chat', text: body });
       return;
     }
-    void sealChat(key, text).then((sealed) =>
+    void sealChat(key, body).then((sealed) =>
       signalingRef.current?.send({ t: 'chat', text: sealed }),
     );
   }, []);

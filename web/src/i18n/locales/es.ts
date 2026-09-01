@@ -188,6 +188,10 @@ export const esES: Catalog = {
   'chat.list': 'Lista',
   'chat.quote': 'Cita',
   'chat.emoji': 'Emoji',
+  'chat.format': 'Formato',
+  'chat.reply': 'Responder',
+  'chat.replyingTo': 'Respondiendo a {name}',
+  'chat.cancelReply': 'Cancelar respuesta',
 
   'file.attach': 'Enviar un archivo',
   'file.direct': 'Va directo a la otra persona, nunca pasa por un servidor',

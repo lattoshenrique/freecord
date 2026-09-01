@@ -188,6 +188,10 @@ export const jaJP: Catalog = {
   'chat.list': 'リスト',
   'chat.quote': '引用',
   'chat.emoji': '絵文字',
+  'chat.format': '書式',
+  'chat.reply': '返信',
+  'chat.replyingTo': '{name} に返信中',
+  'chat.cancelReply': '返信をやめる',
 
   'file.attach': 'ファイルを送る',
   'file.direct': '相手に直接届きます。サーバーは経由しません',

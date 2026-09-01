@@ -240,3 +240,23 @@ export function DownloadIcon() {
     </svg>
   );
 }
+
+export function ReplyIcon() {
+  return (
+    <svg {...base} width={14} height={14}>
+      <path d="M9 17l-5-5 5-5" />
+      <path d="M4 12h9a7 7 0 0 1 7 7v1" />
+    </svg>
+  );
+}
+
+export function FormatIcon() {
+  return (
+    <svg {...base} width={16} height={16}>
+      <path d="M4 18L9.5 5h1L16 18" />
+      <path d="M6 13.5h8.5" />
+      <path d="M18 9v9" />
+      <path d="M15.5 14.5c0-1.5 1-2.5 2.5-2.5s2.5 1 2.5 2.5-1 2.5-2.5 2.5-2.5-1-2.5-2.5z" />
+    </svg>
+  );
+}
