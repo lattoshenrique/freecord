@@ -3,71 +3,175 @@
  *
  * Kept out of styles.css on purpose: this file was written while another
  * session was editing the global sheet, and an isolated block cannot be
- * clobbered.
+ * clobbered. Layout matches the landing's bento language: a wide two-column
+ * glass panel — pitch and CTA on the left, the honest caveats on the right.
  */
 
 .download {
   width: 100%;
-  max-width: 26rem;
-  margin-top: 1rem;
-  padding: 1.25rem 1.5rem;
-  border-radius: 20px;
+  max-width: 72rem;
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 2.5rem;
+  align-items: center;
+  padding: 2rem;
+  border-radius: 18px;
   background: var(--glass-bg);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
   border: 1px solid var(--glass-border);
-  box-shadow: var(--shadow), var(--glass-highlight);
+  box-shadow: var(--glass-highlight);
   animation: rise-in 0.5s var(--ease) both;
   animation-delay: 0.1s;
-  text-align: center;
+  text-align: left;
+}
+
+/* ---- left: pitch and CTA ---- */
+
+.download-title {
+  margin: 0 0 0.4rem;
+  font-size: clamp(1.4rem, 2.4vw, 1.8rem);
+  letter-spacing: -0.02em;
+}
+
+.download-lead {
+  margin: 0 0 1.4rem;
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1.6;
 }
 
 .download-cta {
-  display: block;
+  display: inline-flex;
+  align-items: center;
+  background: linear-gradient(135deg, var(--accent), #a855f7);
+  border-radius: 12px;
+  color: white;
+  padding: 0.9rem 1.4rem;
+  font-size: 1rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition:
+    filter 0.15s ease,
+    transform 0.15s var(--ease);
 }
 
-.download-meta {
-  margin: 0.6rem 0 0;
+.download-cta:hover {
+  filter: brightness(1.12);
+}
+
+.download-cta:active {
+  transform: scale(0.98);
+}
+
+.download-chips {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0;
+  margin: 1rem 0 0;
+}
+
+.download-chips li {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--muted);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  padding: 0.3rem 0.7rem;
+}
+
+.download-alt {
+  margin: 0.9rem 0 0;
   color: var(--muted);
   font-size: 0.85rem;
 }
 
-.download-note {
-  margin: 0.6rem 0 0;
-  color: var(--muted);
-  font-size: 0.8rem;
-  line-height: 1.5;
-}
-
-.download a:not(.button-link) {
+.download-alt a {
   color: var(--text);
 }
 
-.link-button {
-  margin-top: 0.6rem;
+/* ---- right: caveats and the other platforms ---- */
+
+.download-side {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+/* The unsigned-app warning — the real obstacle on first launch. */
+.download-callout {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.55;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+}
+
+.download-toggle {
+  align-self: flex-start;
   background: none;
   border: none;
   padding: 0;
   color: var(--muted);
-  font-size: 0.8rem;
+  font-family: var(--mono);
+  font-size: 0.78rem;
   text-decoration: underline;
   cursor: pointer;
+  transition: color 0.15s ease;
 }
 
-.link-button:hover {
+.download-toggle:hover {
   color: var(--text);
 }
 
 .download-list {
   list-style: none;
-  margin: 0.75rem 0 0;
+  margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
-  font-size: 0.85rem;
+  gap: 0.5rem;
+}
+
+.download-list a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0.85rem;
+  border-radius: 10px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 0.9rem;
+  text-decoration: none;
+  transition:
+    border-color 0.15s ease,
+    transform 0.15s var(--ease);
+}
+
+.download-list a:hover {
+  border-color: rgba(88, 101, 242, 0.7);
+  transform: translateY(-1px);
 }
 
 .download-size {
   color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+}
+
+@media (max-width: 860px) {
+  .download {
+    grid-template-columns: 1fr;
+    gap: 1.75rem;
+    padding: 1.5rem;
+  }
 }

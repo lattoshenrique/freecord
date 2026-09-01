@@ -78,8 +78,13 @@ export default function DownloadCard() {
   if (!pick) {
     return (
       <section className="download">
-        <p className="download-note">{t('download.also')}</p>
-        <DownloadList builds={catalog.builds} />
+        <div className="download-main">
+          <h2 className="download-title">{t('community.desktop.title')}</h2>
+          <p className="download-lead">{t('download.also')}</p>
+        </div>
+        <aside className="download-side">
+          <DownloadList builds={catalog.builds} />
+        </aside>
       </section>
     );
   }
@@ -95,34 +100,48 @@ export default function DownloadCard() {
 
   return (
     <section className="download">
-      <a className="button-link download-cta" href={pick.url}>
-        {t('download.cta', { os: OS_LABEL[pick.os] })}
-      </a>
-      <p className="download-meta">
-        {[targetHint(t, pick.target), size, version].filter(Boolean).join(' · ')}
-      </p>
+      <div className="download-main">
+        <h2 className="download-title">{t('community.desktop.title')}</h2>
+        <p className="download-lead">{t('download.also')}</p>
 
-      {macAlternative && (
-        <p className="download-note">
-          {guess.confident ? t('download.macOtherConfident') : t('download.macOtherUnsure')}{' '}
-          <a href={macAlternative.url}>
-            {macAlternative.target === 'mac-arm64'
-              ? t('download.macOtherArm')
-              : t('download.macOtherIntel')}
-          </a>
-        </p>
-      )}
+        <a className="download-cta" href={pick.url}>
+          {t('download.cta', { os: OS_LABEL[pick.os] })}
+        </a>
 
-      <p className="download-note">{t(`download.firstRun.${pick.os}` as MessageKey)}</p>
+        <ul className="download-chips">
+          {[targetHint(t, pick.target), size, version].filter(Boolean).map((chip) => (
+            <li key={chip as string}>{chip}</li>
+          ))}
+        </ul>
 
-      {others.length > 0 && (
-        <>
-          <button type="button" className="link-button" onClick={() => setShowAll((open) => !open)}>
-            {showAll ? t('download.hideOthers') : t('download.showOthers')}
-          </button>
-          {showAll && <DownloadList builds={others} />}
-        </>
-      )}
+        {macAlternative && (
+          <p className="download-alt">
+            {guess.confident ? t('download.macOtherConfident') : t('download.macOtherUnsure')}{' '}
+            <a href={macAlternative.url}>
+              {macAlternative.target === 'mac-arm64'
+                ? t('download.macOtherArm')
+                : t('download.macOtherIntel')}
+            </a>
+          </p>
+        )}
+      </div>
+
+      <aside className="download-side">
+        <p className="download-callout">{t(`download.firstRun.${pick.os}` as MessageKey)}</p>
+
+        {others.length > 0 && (
+          <>
+            <button
+              type="button"
+              className="download-toggle"
+              onClick={() => setShowAll((open) => !open)}
+            >
+              {showAll ? t('download.hideOthers') : t('download.showOthers')}
+            </button>
+            {showAll && <DownloadList builds={others} />}
+          </>
+        )}
+      </aside>
     </section>
   );
 }
@@ -135,8 +154,10 @@ function DownloadList({ builds }: { builds: DesktopAsset[] }) {
         const size = formatSize(build.size, locale);
         return (
           <li key={build.target}>
-            <a href={build.url}>{targetLabel(t, build.target)}</a>
-            {size && <span className="download-size"> · {size}</span>}
+            <a href={build.url}>
+              <span>{targetLabel(t, build.target)}</span>
+              {size && <span className="download-size">{size}</span>}
+            </a>
           </li>
         );
       })}
