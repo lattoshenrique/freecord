@@ -1,0 +1,158 @@
+import type { Catalog } from '..';
+
+export const jaJP: Catalog = {
+  'app.name': 'Freecord',
+  'app.tagline':
+    'ルームを作ってリンクを友だちに送るだけ。音声・ビデオ・チャット・画面共有を、登録なしで。',
+
+  'home.roomName': 'ルーム名',
+  'home.roomNamePlaceholder': 'ルーム名（任意）',
+  'home.create': 'ルームを作成',
+  'home.creating': '作成中…',
+  'home.createFailed': 'ルームを作成できませんでした。もう一度お試しください。',
+  'home.community': 'コミュニティ',
+
+  'invite.copy': '招待',
+  'invite.copied': 'リンクをコピーしました',
+  'invite.manualCopy': 'ルームのリンクをコピーしてください:',
+
+  'prejoin.title': '{room} に参加',
+  'prejoin.yourName': 'あなたの名前',
+  'prejoin.yourNamePlaceholder': 'なんとお呼びしますか？',
+  'prejoin.micOn': 'マイクをオンにして参加',
+  'prejoin.camOn': 'カメラをオンにして参加',
+  'prejoin.join': '参加',
+  'prejoin.notFound': 'このルームはもう存在しません。',
+  'prejoin.loadFailed': 'ルームを読み込めませんでした。',
+  'prejoin.backHome': 'ホームに戻る',
+
+  'prejoin.notFoundTitle': 'ルームが見つかりません',
+  'prejoin.notFoundBody': 'リンクの有効期限が切れたかもしれません — 空のルームは自動的に閉じます。',
+  'prejoin.createNew': '新しいルームを作成',
+  'prejoin.errorTitle': '問題が発生しました',
+  'prejoin.errorBody': 'ルームを読み込めませんでした。ページを再読み込みしてください。',
+  'prejoin.empty': 'まだ誰もいません — 最初の一人になりましょう。',
+  'prejoin.inRoom': { other: 'ルームに {count} 人います。' },
+  'prejoin.joinRoom': 'ルームに参加',
+
+  'room.loading': 'ルームを読み込み中…',
+  'room.connecting': 'ルームに接続中…',
+  'room.participants': { other: '{count} 人' },
+  'room.unnamed': '名前のないルーム',
+  'room.you': 'あなた',
+  'room.someone': '誰か',
+  'room.micMuted': 'マイクはオフです',
+  'room.leftTitle': 'ルームから退出しました',
+  'room.endedFull': 'ルームが満員です（最大 8 人）。',
+  'room.endedNotFound': 'このルームはもう存在しません。',
+  'room.endedClosed': 'ルームとの接続が切れました。',
+
+  'screen.yours': 'あなたの画面',
+  'screen.of': '{name} の画面',
+  'screen.via': '{name} 経由',
+  'screen.sending': '送信中',
+  'screen.receiving': '受信中',
+  'screen.enterFullscreen': '全画面で表示',
+  'screen.exitFullscreen': '全画面を終了',
+
+  'quality.title': '画面の品質',
+  'quality.note':
+    '共有中でもすぐに反映されます。画面はピア同士で中継されるため、参加者が増えても品質は落ちません。',
+  'quality.sharp.label': '鮮明',
+  'quality.sharp.hint': 'コードや文字向け — 1080p 15 fps、にじみません',
+  'quality.balanced.label': 'バランス',
+  'quality.balanced.hint': '標準 — 1080p 30 fps',
+  'quality.smooth.label': 'なめらか',
+  'quality.smooth.hint': '動画やゲーム向け — 720p 60 fps、動きを優先',
+
+  'controls.muteMic': 'マイクをミュート',
+  'controls.unmuteMic': 'ミュートを解除',
+  'controls.camOff': 'カメラをオフ',
+  'controls.camOn': 'カメラをオン',
+  'controls.shareScreen': '画面を共有',
+  'controls.stopSharing': '共有を停止',
+  'controls.someoneSharing': '他の人がすでに画面を共有しています',
+  'controls.quality': '画面共有の品質',
+  'controls.openChat': 'チャットを開く',
+  'controls.closeChat': 'チャットを閉じる',
+  'controls.leave': 'ルームから退出',
+  'controls.closeMenu': 'メニューを閉じる',
+
+  'chat.title': 'ルームチャット',
+  'chat.empty': 'まだメッセージはありません。挨拶してみましょう 👋',
+  'chat.messageLabel': 'チャットメッセージ',
+  'chat.placeholder': 'メッセージ…  **太字**、`コード`、- リスト',
+  'chat.send': 'メッセージを送信',
+  'chat.toolbar': 'メッセージの書式',
+  'chat.unread': { other: '件の新着メッセージ' },
+  'chat.bold': '太字',
+  'chat.italic': '斜体',
+  'chat.strike': '取り消し線',
+  'chat.code': 'コード',
+  'chat.link': 'リンク',
+  'chat.list': 'リスト',
+  'chat.quote': '引用',
+
+  'latency.signal': 'シグナリングサーバーまでの遅延',
+  'latency.peer': '{name} との直接遅延',
+
+  // Community page — English source lives in en-US.ts, owned by its author.
+  'community.back':
+    'ホームに戻る',
+  'community.title':
+    'Freecord はオープンソースです',
+  'community.lead':
+    '友だちと話すための場所。あなたに何も求めません。アカウントもダウンロードも不要で、あいだに誰も入りません。コードを読み、自分で動かし、よりよくするのを手伝ってください。',
+  'community.promise.title':
+    '約束',
+  'community.promise.guest.title':
+    '登録は、これからも不要',
+  'community.promise.guest.body':
+    'ルームを作ってリンクを送るだけ。そのリンクが鍵です — 誰にも推測できないランダムな文字列。作るアカウントも、渡すメールアドレスも、忘れるパスワードもありません。',
+  'community.promise.p2p.title':
+    'あなたのメディアはサーバーを通りません',
+  'community.promise.p2p.body':
+    '音声・ビデオ・画面共有はネイティブ WebRTC でブラウザ間を直接流れ、既定でエンドツーエンド暗号化されます。サーバーが運ぶのはシグナリングとルームの状態だけ。覗こうとしても覗けません。',
+  'community.promise.chat.title':
+    '何も残さないチャット',
+  'community.promise.chat.body':
+    'メッセージはルームの中だけに存在し、ルームとともに消えます。コンテンツを一切保存しないのは意図的です。漏れるものも、売るものも、差し出すものもありません。',
+  'community.promise.vendor.title':
+    'ベンダーなし、SDK なし',
+  'community.promise.vendor.body':
+    'メディア事業者も、サードパーティ SDK も、外部の資格情報もありません。プロトコルはすべてリポジトリの中にあり、全体が無料のインフラで動いています。',
+  'community.source.title':
+    'ソースを読む',
+  'community.source.body':
+    'すべて GitHub に MIT ライセンスで置いてあります。使うのも、フォークするのも、自分でホストするのも自由です。アーキテクチャ文書は正直な方の版です。ピアツーピアのメッシュが実際にどれだけのコストを払うのか、なぜルームが 8 人で止まるのか、どの技術的負債が隠されずに記録されているのか。',
+  'community.source.repo':
+    'GitHub で見る',
+  'community.source.architecture':
+    'アーキテクチャを読む',
+  'community.source.license':
+    'MIT ライセンス',
+  'community.contribute.title':
+    '貢献する',
+  'community.contribute.body':
+    '準備は Node 20 とコマンド 2 つだけ。アカウントも API キーも、登録も要りません。小さなところから選び、型チェックとテストを走らせ、pull request を送ってください。',
+  'community.contribute.guide':
+    'コントリビューションガイド',
+  'community.contribute.conduct':
+    '行動規範',
+  'community.issues.title':
+    '不具合を見つけた？ ほしいものがある？',
+  'community.issues.body':
+    'issue はそのどちらにも使えます。リアルタイムアプリではスタックトレースより文脈が役に立ちます。ブラウザ、ルームの人数、誰かが画面を共有していたか、どちらかが VPN や社内ネットワークの内側にいたかを教えてください。',
+  'community.issues.report':
+    '不具合を報告',
+  'community.issues.browse':
+    'issue を見る',
+  'community.desktop.title':
+    'デスクトップでも',
+  'community.desktop.body':
+    'macOS・Windows・Linux 向けのアプリが同じページを包み、ブラウザにはできないことを足します。ネイティブの画面選択と、本物のシステムメディア権限です。ダウンロードはホームページにあります。',
+  'community.footer':
+    'MIT ライセンスで公開。Henrique Brito とコントリビューターが作りました。',
+
+  'language.picker': '言語',
+};

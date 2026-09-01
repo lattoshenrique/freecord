@@ -1,9 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { createRoom } from '../api';
 import DownloadCard from '../components/DownloadCard';
+import LanguagePicker from '../components/LanguagePicker';
+import { useI18n } from '../i18n';
 
 export default function HomePage() {
+  const { t } = useI18n();
   const navigate = useNavigate();
   const [displayName, setDisplayName] = useState('');
   const [creating, setCreating] = useState(false);
@@ -17,7 +21,7 @@ export default function HomePage() {
       const room = await createRoom(displayName.trim() || undefined);
       navigate(`/r/${room.slug}`);
     } catch {
-      setError('Não foi possível criar a sala. Tente novamente.');
+      setError(t('home.createFailed'));
       setCreating(false);
     }
   }
@@ -35,17 +39,21 @@ export default function HomePage() {
             type="text"
             value={displayName}
             maxLength={60}
-            placeholder="Nome da sala (opcional)"
+            placeholder={t('home.roomNamePlaceholder')}
             onChange={(event) => setDisplayName(event.target.value)}
-            aria-label="Nome da sala"
+            aria-label={t('home.roomName')}
           />
           <button type="submit" disabled={creating}>
-            {creating ? 'Criando…' : 'Criar sala'}
+            {creating ? t('home.creating') : t('home.create')}
           </button>
         </form>
         {error && <p className="error">{error}</p>}
+        <p className="home-links">
+          <Link to="/community">{t('home.community')}</Link>
+        </p>
       </section>
       <DownloadCard />
+      <LanguagePicker />
     </main>
   );
 }

@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import type { RoomSummary } from '../api';
 import { renderMarkdown } from '../lib/markdown';
 import { playMessageChime } from '../lib/notification-sound';
+import { useI18n, type MessageKey, type Translate } from '../i18n';
 import { SCREEN_QUALITY_PRESETS, type ScreenQualityId } from '../lib/screen-quality';
 import type { ScreenStats } from '../lib/stats';
 import { useRoomSession, type JoinOptions } from '../lib/use-room';
@@ -43,8 +44,9 @@ function formatBitrate(kbps: number): string {
   return kbps >= 1000 ? `${(kbps / 1000).toFixed(1)} Mb/s` : `${kbps} kb/s`;
 }
 
-/** O que está realmente saindo/chegando — não o que foi pedido. */
+/** What is actually going out or coming in — not what was asked for. */
 function ScreenStatsBar({ stats }: { stats: ScreenStats }) {
+  const { t } = useI18n();
   const parts: string[] = [];
   if (stats.width && stats.height) {
     parts.push(`${stats.width}×${stats.height}`);
@@ -60,7 +62,7 @@ function ScreenStatsBar({ stats }: { stats: ScreenStats }) {
   }
   return (
     <span className="screen-stats">
-      {stats.direction === 'sending' ? 'Enviando' : 'Recebendo'}
+      {stats.direction === 'sending' ? t('screen.sending') : t('screen.receiving')}
       {parts.length > 0 && ` · ${parts.join(' · ')}`}
       {stats.rttMs !== null && (
         <>
@@ -82,11 +84,12 @@ function QualityMenu({
   onChange: (id: ScreenQualityId) => void;
   onClose: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <>
-      <button type="button" className="menu-backdrop" aria-label="Fechar menu" onClick={onClose} />
+      <button type="button" className="menu-backdrop" aria-label={t('controls.closeMenu')} onClick={onClose} />
       <div className="quality-menu" role="menu">
-        <p className="quality-menu-title">Qualidade da tela</p>
+        <p className="quality-menu-title">{t('quality.title')}</p>
         {SCREEN_QUALITY_PRESETS.map((preset) => (
           <button
             key={preset.id}
@@ -99,8 +102,8 @@ function QualityMenu({
               onClose();
             }}
           >
-            <span className="quality-option-label">{preset.label}</span>
-            <span className="quality-option-hint">{preset.hint}</span>
+            <span className="quality-option-label">{t(`quality.${preset.id}.label` as MessageKey)}</span>
+            <span className="quality-option-hint">{t(`quality.${preset.id}.hint` as MessageKey)}</span>
           </button>
         ))}
         <p className="quality-menu-note">
@@ -113,11 +116,11 @@ function QualityMenu({
 }
 
 /**
- * Contador de mensagens não lidas, ancorado acima do botão de chat.
+ * Unread counter, anchored above the chat button.
  *
- * Fica FORA do dock de vidro: a lib corta overflow e impõe fonte própria aos
- * filhos. A posição horizontal é medida a partir do botão, para o chip apontar
- * para ele e não para o meio do rodapé.
+ * It lives OUTSIDE the glass dock: the library clips overflow and forces its
+ * own font on children. The horizontal position is measured from the button so
+ * the chip points at it rather than at the middle of the footer.
  */
 function ChatUnreadChip({
   count,
@@ -128,6 +131,7 @@ function ChatUnreadChip({
   left: number | null;
   onOpen: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <button
       type="button"
@@ -136,7 +140,7 @@ function ChatUnreadChip({
       onClick={onOpen}
     >
       <span className="chat-unread-count">{count > 99 ? '99+' : count}</span>
-      {count === 1 ? 'nova mensagem' : 'novas mensagens'}
+      {t('chat.unread', { count })}
     </button>
   );
 }
@@ -176,7 +180,7 @@ function hasLiveVideo(stream: MediaStream): boolean {
   return stream.getVideoTracks().some((track) => track.readyState === 'live' && track.enabled);
 }
 
-/** Cor de avatar estável derivada do nome. */
+/** Stable avatar colour derived from the name. */
 function avatarHue(name: string): number {
   let hash = 0;
   for (let i = 0; i < name.length; i++) {
@@ -185,7 +189,7 @@ function avatarHue(name: string): number {
   return Math.abs(hash) % 360;
 }
 
-/* Prefixos WebKit: Safari (desktop e iOS) ainda não usa a API padrão. */
+/* WebKit prefixes: Safari (desktop and iOS) still lacks the standard API. */
 type WebkitElement = HTMLElement & { webkitRequestFullscreen?: () => unknown };
 type WebkitDocument = Document & {
   webkitFullscreenElement?: Element | null;
@@ -202,12 +206,12 @@ function fullscreenElement(): Element | null {
 }
 
 /**
- * Tela cheia do palco de compartilhamento.
+ * Fullscreen for the sharing stage.
  *
- * Vai a tela cheia o CONTÊINER, não o <video>: assim os rótulos (quem
- * compartilha, estatísticas) e o próprio botão continuam por cima da imagem.
- * No Safari do iPhone, onde só <video> entra em tela cheia, cai para o
- * webkitEnterFullscreen do vídeo — aí quem manda é o player nativo.
+ * The CONTAINER goes fullscreen, not the <video>: that keeps the labels (who
+ * is sharing, the stats) and the button itself on top of the picture. On
+ * iPhone Safari, where only <video> can go fullscreen, it falls back to the
+ * video's webkitEnterFullscreen — there the native player takes over.
  */
 function useFullscreen(
   containerRef: RefObject<HTMLElement | null>,
@@ -215,7 +219,7 @@ function useFullscreen(
 ) {
   const [active, setActive] = useState(() => fullscreenElement() !== null);
 
-  // Sai por Esc, pelo botão do navegador ou porque o elemento sumiu (a
+  // Exit happens via Esc, the browser button, or the element going away (the
   // pessoa parou de compartilhar) — em todos os casos o estado vem do DOM.
   useEffect(() => {
     const sync = () => setActive(fullscreenElement() !== null);
@@ -252,12 +256,12 @@ const TILE_GAP = 12;
 const TILE_RATIO = 16 / 9;
 
 /**
- * Calcula o maior tamanho de tile 16:9 que faz `count` tiles caberem no
- * contêiner (estilo Meet): testa cada nº de colunas e fica com o melhor.
+ * Computes the largest 16:9 tile size that fits `count` tiles in the
+ * container (Meet style): tries every column count and keeps the best.
  */
 function useTileGrid(count: number) {
   // Callback ref via estado: o contêiner só monta depois de "connecting",
-  // então o efeito precisa reagir ao elemento aparecer, não só ao count.
+  // so the effect must react to the element appearing, not just to count.
   const [el, setEl] = useState<HTMLDivElement | null>(null);
   const [size, setSize] = useState<{ width: number; height: number } | null>(null);
 
@@ -313,6 +317,7 @@ function Tile({
   latencyTitle: string;
   style?: React.CSSProperties;
 }) {
+  const { t } = useI18n();
   const showVideo = stream !== null && hasLiveVideo(stream);
   return (
     <div className="tile" style={style}>
@@ -333,12 +338,12 @@ function Tile({
       )}
       <span className="tile-name">
         {micOff && (
-          <span className="tile-mic-off" title="Microfone desativado">
+          <span className="tile-mic-off" title={t('room.micMuted')}>
             <MicOffIcon />
           </span>
         )}
         {name}
-        {isSelf && <span className="tile-you"> · você</span>}
+        {isSelf && <span className="tile-you"> · {t('room.you')}</span>}
       </span>
     </div>
   );
@@ -353,6 +358,7 @@ export default function RoomView({
   options: JoinOptions;
   onLeft: () => void;
 }) {
+  const { t } = useI18n();
   const session = useRoomSession(options);
   const [chatOpen, setChatOpen] = useState(false);
   const [draft, setDraft] = useState('');
@@ -386,7 +392,7 @@ export default function RoomView({
     seenCountRef.current = chatCount;
   }, [chatCount, chatOpen]);
 
-  // Aviso sonoro: só do que veio de outra pessoa, com o chat aberto ou não.
+  // Sound alert: only for someone else's message, chat open or not.
   const soundedCountRef = useRef(0);
   const { chat, selfId } = session;
   useEffect(() => {
@@ -397,8 +403,8 @@ export default function RoomView({
     }
   }, [chat, selfId]);
 
-  // O chip aponta para o botão de chat, que se move conforme o dock muda de
-  // largura (botão de tela desabilitado, telas estreitas) — daí a medição.
+  // The chip points at the chat button, which moves as the dock changes width
+  // (screen button disabled, narrow screens) — hence the measurement.
   useLayoutEffect(() => {
     if (chatOpen || unread === 0) {
       return;
@@ -420,10 +426,10 @@ export default function RoomView({
   const fullscreen = useFullscreen(stageRef, screenVideoRef);
 
   // Computado a cada render de propósito: streams remotos chegam por
-  // notificação do mesh (re-render sem mudança de estado React) — um
+  // a mesh notification (a re-render with no React state change) — a
   // useMemo aqui devolveria o valor cacheado e nunca veria o stream.
-  // Na árvore de retransmissão a tela chega do PAI (screenSource), que
-  // pode ser um relay e não quem compartilha.
+  // In the relay tree the screen arrives from the PARENT (screenSource), which
+  // may be a relay rather than the person sharing.
   const screenStream = !session.screen
     ? null
     : session.screen.id === session.selfId
@@ -440,13 +446,13 @@ export default function RoomView({
   if (status.kind === 'ended' && status.reason !== 'left') {
     const message =
       status.reason === 'room_full'
-        ? 'A sala está cheia (máximo de 8 pessoas).'
+        ? t('room.endedFull')
         : status.reason === 'room_not_found'
-          ? 'A sala não existe mais.'
-          : 'A conexão com a sala caiu.';
+          ? t('room.endedNotFound')
+          : t('room.endedClosed');
     return (
       <main className="centered fade-in">
-        <h1>Você saiu da sala</h1>
+        <h1>{t('room.leftTitle')}</h1>
         <p>{message}</p>
         <Link to="/" className="button-link">
           Voltar ao início
@@ -459,7 +465,7 @@ export default function RoomView({
     return (
       <main className="centered fade-in">
         <div className="spinner" aria-hidden />
-        <p>Conectando à sala…</p>
+        <p>{t('room.connecting')}</p>
       </main>
     );
   }
@@ -467,9 +473,9 @@ export default function RoomView({
   const iAmSharing = session.screen !== null && session.screen.id === session.selfId;
   const someoneElseSharing = session.screen !== null && session.screen.id !== session.selfId;
   const sharerName = someoneElseSharing
-    ? (session.peers.find((p) => p.id === session.screen?.id)?.name ?? 'Alguém')
+    ? (session.peers.find((p) => p.id === session.screen?.id)?.name ?? t('room.someone'))
     : null;
-  // Recebendo por um relay da árvore: o RTT exibido é até ele, não até a origem.
+  // Received through a tree relay: the RTT shown is to it, not to the source.
   const relayName =
     someoneElseSharing && session.screenSource && session.screenSource.id !== session.screen?.id
       ? (session.peers.find((p) => p.id === session.screenSource?.id)?.name ?? 'relay')
@@ -481,9 +487,9 @@ export default function RoomView({
     <div className="room-layout">
       <header className="room-header">
         <div className="room-title">
-          <h1>{room.displayName}</h1>
+          <h1>{room.displayName || t('room.unnamed')}</h1>
           <span className="room-count">
-            {participantCount} {participantCount === 1 ? 'participante' : 'participantes'}
+            {t('room.participants', { count: participantCount })}
           </span>
         </div>
         <InviteButton />
@@ -507,16 +513,20 @@ export default function RoomView({
                 type="button"
                 className="screen-fullscreen"
                 aria-pressed={fullscreen.active}
-                title={fullscreen.active ? 'Sair da tela cheia' : 'Ver em tela cheia'}
-                aria-label={fullscreen.active ? 'Sair da tela cheia' : 'Ver em tela cheia'}
+                title={fullscreen.active ? t('screen.exitFullscreen') : t('screen.enterFullscreen')}
+                aria-label={
+                  fullscreen.active ? t('screen.exitFullscreen') : t('screen.enterFullscreen')
+                }
                 onClick={fullscreen.toggle}
               >
                 {fullscreen.active ? <ExitFullscreenIcon /> : <FullscreenIcon />}
               </button>
               <div className="screen-overlay">
                 <span className="screen-label">
-                  {sharerName ? `Tela de ${sharerName}` : 'Sua tela'}
-                  {relayName && <span className="screen-relay-hint"> · via {relayName}</span>}
+                  {sharerName ? t('screen.of', { name: sharerName }) : t('screen.yours')}
+                  {relayName && (
+                    <span className="screen-relay-hint"> · {t('screen.via', { name: relayName })}</span>
+                  )}
                 </span>
                 {session.screenStats && <ScreenStatsBar stats={session.screenStats} />}
               </div>
@@ -532,7 +542,7 @@ export default function RoomView({
               micOff={!session.micOn}
               stream={session.localMedia && session.camOn ? session.localMedia : null}
               latencyMs={session.signalRttMs}
-              latencyTitle="Latência até o servidor de sinalização"
+              latencyTitle={t('latency.signal')}
               style={tileStyle}
             />
             {session.peers.map((peer) => {
@@ -551,7 +561,7 @@ export default function RoomView({
                   micOff={false}
                   stream={cameraStream}
                   latencyMs={session.peerLatency.get(peer.id)?.rttMs ?? null}
-                  latencyTitle={`Latência direta com ${peer.name}`}
+                  latencyTitle={t('latency.peer', { name: peer.name })}
                   style={tileStyle}
                 />
               );
@@ -562,11 +572,11 @@ export default function RoomView({
         {chatOpen && (
           <aside className="chat-panel">
             <header className="chat-header">
-              <h2>Chat da sala</h2>
+              <h2>{t('chat.title')}</h2>
               <button
                 type="button"
                 className="chat-close"
-                aria-label="Fechar chat"
+                aria-label={t('controls.closeChat')}
                 onClick={() => setChatOpen(false)}
               >
                 <CloseIcon />
@@ -574,7 +584,7 @@ export default function RoomView({
             </header>
             <div className="chat-messages">
               {session.chat.length === 0 && (
-                <p className="chat-empty">Nenhuma mensagem ainda. Diga um oi 👋</p>
+                <p className="chat-empty">{t('chat.empty')}</p>
               )}
               {session.chat.map((message, index) => {
                 const mine = message.from.id === session.selfId;
@@ -629,7 +639,7 @@ export default function RoomView({
             type="button"
             className={`control ${session.micOn ? '' : 'control-off'}`}
             aria-pressed={!session.micOn}
-            title={session.micOn ? 'Silenciar microfone' : 'Ativar microfone'}
+            title={session.micOn ? t('controls.muteMic') : t('controls.unmuteMic')}
             onClick={session.toggleMic}
           >
             {session.micOn ? <MicIcon /> : <MicOffIcon />}
@@ -638,7 +648,7 @@ export default function RoomView({
             type="button"
             className={`control ${session.camOn ? '' : 'control-off'}`}
             aria-pressed={!session.camOn}
-            title={session.camOn ? 'Desligar câmera' : 'Ligar câmera'}
+            title={session.camOn ? t('controls.camOff') : t('controls.camOn')}
             onClick={() => void session.toggleCam()}
           >
             {session.camOn ? <CamIcon /> : <CamOffIcon />}
@@ -650,10 +660,10 @@ export default function RoomView({
             disabled={someoneElseSharing}
             title={
               someoneElseSharing
-                ? 'Outra pessoa já está compartilhando a tela'
+                ? t('controls.someoneSharing')
                 : iAmSharing
-                  ? 'Parar de compartilhar'
-                  : 'Compartilhar tela'
+                  ? t('controls.stopSharing')
+                  : t('controls.shareScreen')
             }
             onClick={() => {
               if (iAmSharing) {
@@ -670,7 +680,7 @@ export default function RoomView({
             className={`control ${qualityOpen ? 'control-active' : ''}`}
             aria-haspopup="menu"
             aria-expanded={qualityOpen}
-            title="Qualidade do compartilhamento de tela"
+            title={t('controls.quality')}
             onClick={() => setQualityOpen((open) => !open)}
           >
             <SlidersIcon />
@@ -680,7 +690,7 @@ export default function RoomView({
             type="button"
             className={`control ${chatOpen ? 'control-active' : ''}`}
             aria-pressed={chatOpen}
-            title={chatOpen ? 'Fechar chat' : 'Abrir chat'}
+            title={chatOpen ? t('controls.closeChat') : t('controls.openChat')}
             onClick={() => setChatOpen((open) => !open)}
           >
             <ChatIcon />
@@ -688,7 +698,7 @@ export default function RoomView({
           <button
             type="button"
             className="control control-leave"
-            title="Sair da sala"
+            title={t('controls.leave')}
             onClick={session.leave}
           >
             <LeaveIcon />

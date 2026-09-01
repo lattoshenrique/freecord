@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ApiError, getRoom, type RoomSummary } from '../api';
+import { useI18n } from '../i18n';
 import RoomView from '../components/RoomView';
 import type { JoinOptions } from '../lib/use-room';
 
@@ -12,6 +13,7 @@ type Phase =
   | { kind: 'joined'; room: RoomSummary; options: JoinOptions };
 
 export default function RoomPage() {
+  const { t } = useI18n();
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const [phase, setPhase] = useState<Phase>({ kind: 'loading' });
@@ -50,16 +52,16 @@ export default function RoomPage() {
   }
 
   if (phase.kind === 'loading') {
-    return <main className="centered">Carregando sala…</main>;
+    return <main className="centered">{t('room.loading')}</main>;
   }
 
   if (phase.kind === 'not_found') {
     return (
       <main className="centered">
-        <h1>Sala não encontrada</h1>
-        <p>O link pode ter expirado — salas vazias fecham sozinhas.</p>
+        <h1>{t('prejoin.notFoundTitle')}</h1>
+        <p>{t('prejoin.notFoundBody')}</p>
         <Link to="/" className="button-link">
-          Criar uma nova sala
+          {t('prejoin.createNew')}
         </Link>
       </main>
     );
@@ -68,8 +70,8 @@ export default function RoomPage() {
   if (phase.kind === 'error') {
     return (
       <main className="centered">
-        <h1>Algo deu errado</h1>
-        <p>Não foi possível carregar a sala. Tente recarregar a página.</p>
+        <h1>{t('prejoin.errorTitle')}</h1>
+        <p>{t('prejoin.errorBody')}</p>
       </main>
     );
   }
@@ -79,11 +81,11 @@ export default function RoomPage() {
     return (
       <main className="prejoin">
         <section className="home-card">
-          <h1>{room.displayName}</h1>
+          <h1>{room.displayName || t('room.unnamed')}</h1>
           <p className="tagline">
             {room.participantCount === 0
-              ? 'Ninguém aqui ainda — seja a primeira pessoa a entrar.'
-              : `${room.participantCount} pessoa(s) na sala.`}
+              ? t('prejoin.empty')
+              : t('prejoin.inRoom', { count: room.participantCount })}
           </p>
           <form
             onSubmit={(event) => {
@@ -103,8 +105,8 @@ export default function RoomPage() {
               type="text"
               value={name}
               maxLength={40}
-              placeholder="Seu nome"
-              aria-label="Seu nome"
+              placeholder={t('prejoin.yourNamePlaceholder')}
+              aria-label={t('prejoin.yourName')}
               onChange={(event) => setName(event.target.value)}
             />
             <label className="toggle">
@@ -113,7 +115,7 @@ export default function RoomPage() {
                 checked={micEnabled}
                 onChange={(event) => setMicEnabled(event.target.checked)}
               />
-              Entrar com microfone ligado
+              {t('prejoin.micOn')}
             </label>
             <label className="toggle">
               <input
@@ -121,10 +123,10 @@ export default function RoomPage() {
                 checked={camEnabled}
                 onChange={(event) => setCamEnabled(event.target.checked)}
               />
-              Entrar com câmera ligada
+              {t('prejoin.camOn')}
             </label>
             <button type="submit" disabled={!name.trim()}>
-              Entrar na sala
+              {t('prejoin.joinRoom')}
             </button>
           </form>
         </section>

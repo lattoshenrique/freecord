@@ -1117,3 +1117,68 @@ button {
   border-inline-start-color: rgba(255, 255, 255, 0.5);
   color: rgba(255, 255, 255, 0.85);
 }
+
+/* ---- language picker ---- */
+
+.home-links {
+  margin: 1rem 0 0;
+  text-align: center;
+  font-size: 0.85rem;
+}
+
+.home-links a {
+  color: var(--muted);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.home-links a:hover {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+.language-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.language-picker select {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 0.3rem 0.5rem;
+  font-family: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.language-picker select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/*
+ * Chinese and Japanese have no spaces: the default `overflow-wrap: anywhere`
+ * used on chat text would break a word mid-character. Let the browser use the
+ * proper line-breaking rules for the document language instead.
+ */
+:root:lang(zh-CN),
+:root:lang(ja) {
+  word-break: normal;
+  line-break: strict;
+}
+
+:lang(zh-CN) .chat-md p,
+:lang(ja) .chat-md p,
+:lang(zh-CN) .chat-md li,
+:lang(ja) .chat-md li {
+  overflow-wrap: break-word;
+}

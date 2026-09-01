@@ -1,10 +1,11 @@
 /**
- * Transformações de markdown sobre texto + seleção.
+ * Markdown transforms over text + selection.
  *
- * Lógica pura de propósito: a barra de formatação e os atalhos só chamam
- * `applyMarkdown` e devolvem o resultado ao textarea. Isso deixa o
- * comportamento chato (alternar, expandir para linhas inteiras, renumerar)
- * testável sem DOM.
+ * Pure on purpose: the toolbar and the shortcuts only call `applyMarkdown` and
+ * hand the result back to the textarea. That keeps the fiddly behaviour
+ * (toggling, growing to whole lines, renumbering) testable without a DOM.
+ *
+ * Placeholders come in already translated — this module holds no user text.
  */
 
 export type MarkdownAction =
@@ -25,20 +26,23 @@ export interface EditState {
 
 type WrapAction = 'bold' | 'italic' | 'code' | 'strike';
 
-const WRAPPERS: Record<WrapAction, { marker: string; placeholder: string }> = {
-  bold: { marker: '**', placeholder: 'negrito' },
-  italic: { marker: '*', placeholder: 'itálico' },
-  code: { marker: '`', placeholder: 'código' },
-  strike: { marker: '~~', placeholder: 'riscado' },
+/** User-visible sample text, translated by the caller. */
+export type Placeholders = Record<WrapAction | 'linkLabel', string>;
+
+const MARKERS: Record<WrapAction, string> = {
+  bold: '**',
+  italic: '*',
+  code: '`',
+  strike: '~~',
 };
 
-/** Envolve, ou desfaz se já estiver envolvido (dentro ou fora da seleção). */
+/** Wraps, or unwraps when already wrapped (inside or outside the selection). */
 function wrap(state: EditState, marker: string, placeholder: string): EditState {
   const { text, start, end } = state;
   const selected = text.slice(start, end);
   const size = marker.length;
 
-  // Marcadores dentro da seleção: **exemplo** selecionado por inteiro.
+  // Markers inside the selection: the whole **example** is selected.
   if (selected.length >= size * 2 && selected.startsWith(marker) && selected.endsWith(marker)) {
     const inner = selected.slice(size, -size);
     return {
@@ -48,7 +52,7 @@ function wrap(state: EditState, marker: string, placeholder: string): EditState 
     };
   }
 
-  // Marcadores fora da seleção: apenas `exemplo` selecionado, entre marcadores.
+  // Markers outside it: only `example` is selected, sitting between markers.
   if (text.slice(start - size, start) === marker && text.slice(end, end + size) === marker) {
     return {
       text: text.slice(0, start - size) + selected + text.slice(end + size),
@@ -60,13 +64,13 @@ function wrap(state: EditState, marker: string, placeholder: string): EditState 
   const body = selected || placeholder;
   return {
     text: text.slice(0, start) + marker + body + marker + text.slice(end),
-    // Sem seleção, deixa o texto de exemplo selecionado para digitar por cima.
+    // With nothing selected, leave the sample selected so typing replaces it.
     start: start + size,
     end: start + size + body.length,
   };
 }
 
-/** Cresce a seleção até cobrir as linhas inteiras que ela toca. */
+/** Grows the selection to cover the whole lines it touches. */
 function lineBounds(text: string, start: number, end: number): { from: number; to: number } {
   const from = text.lastIndexOf('\n', start - 1) + 1;
   const lineEnd = text.indexOf('\n', end);
@@ -85,7 +89,7 @@ function prefixLines(state: EditState, action: 'bullet' | 'number' | 'quote'): E
   const lines = text.slice(from, to).split('\n');
   const pattern = PREFIXED[action];
   const meaningful = lines.filter((line) => line.trim() !== '');
-  // Já formatado por inteiro: o clique desfaz.
+  // Already fully formatted: the click undoes it.
   const remove = meaningful.length > 0 && meaningful.every((line) => pattern.test(line));
 
   const changed = lines.map((line, index) => {
@@ -109,14 +113,14 @@ function prefixLines(state: EditState, action: 'bullet' | 'number' | 'quote'): E
   return { text: text.slice(0, from) + body + text.slice(to), start: from, end: from + body.length };
 }
 
-function insertLink(state: EditState): EditState {
+function insertLink(state: EditState, linkLabel: string): EditState {
   const { text, start, end } = state;
   const selected = text.slice(start, end);
   const isUrl = /^https?:\/\/\S+$/.test(selected);
-  const label = isUrl ? 'texto' : selected || 'texto';
+  const label = isUrl ? linkLabel : selected || linkLabel;
   const href = isUrl ? selected : 'https://';
   const built = `[${label}](${href})`;
-  // Cursor no pedaço que ainda falta preencher.
+  // Select whatever still needs filling in.
   const target = isUrl ? { from: 1, length: label.length } : { from: label.length + 3, length: href.length };
   return {
     text: text.slice(0, start) + built + text.slice(end),
@@ -126,16 +130,19 @@ function insertLink(state: EditState): EditState {
 }
 
 function isWrap(action: MarkdownAction): action is WrapAction {
-  return action in WRAPPERS;
+  return action in MARKERS;
 }
 
-export function applyMarkdown(state: EditState, action: MarkdownAction): EditState {
+export function applyMarkdown(
+  state: EditState,
+  action: MarkdownAction,
+  placeholders: Placeholders,
+): EditState {
   if (isWrap(action)) {
-    const { marker, placeholder } = WRAPPERS[action];
-    return wrap(state, marker, placeholder);
+    return wrap(state, MARKERS[action], placeholders[action]);
   }
   if (action === 'link') {
-    return insertLink(state);
+    return insertLink(state, placeholders.linkLabel);
   }
   return prefixLines(state, action);
 }

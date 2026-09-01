@@ -1,14 +1,14 @@
 /**
- * Markdown de chat — subconjunto pequeno, renderizado como elementos React.
+ * Chat markdown — a small subset, rendered as React elements.
  *
- * Nunca gera HTML a partir do texto do usuário: cada nó é um elemento React,
- * então o conteúdo vira texto por construção. É a defesa contra XSS num campo
- * que qualquer convidado anônimo escreve e todo mundo na sala lê — sem
- * depender de sanitizador nenhum.
+ * It never builds HTML out of user text: every node is a React element, so the
+ * content becomes text by construction. That is the XSS defence for a field any
+ * anonymous guest writes and everyone in the room reads — with no sanitizer to
+ * depend on.
  */
 import type { ReactNode } from 'react';
 
-/** Só http(s): barra `javascript:` e `data:` vindos do chat. */
+/** http(s) only: blocks `javascript:` and `data:` coming from the chat. */
 function safeHref(url: string): string | null {
   return /^https?:\/\//i.test(url) ? url : null;
 }
@@ -28,9 +28,9 @@ function link(href: string, label: ReactNode, key: string): ReactNode {
 type Build = (match: RegExpExecArray, key: string) => ReactNode;
 
 /**
- * Ordem importa em dois níveis: código vem primeiro porque suprime qualquer
- * formatação dentro dele, e `**` vem antes de `*` para vencer o empate quando
- * os dois casam na mesma posição.
+ * Order matters twice over: code comes first because it suppresses any
+ * formatting inside it, and `**` comes before `*` to win the tie when both
+ * match at the same position.
  */
 const INLINE: Array<[RegExp, Build]> = [
   [/`([^`\n]+)`/, (m, key) => <code key={key}>{m[1]}</code>],
@@ -77,7 +77,7 @@ function parseInline(text: string, keyPrefix: string): ReactNode[] {
   return out;
 }
 
-/** Parágrafo: quebra simples de linha vira <br>, como todo chat faz. */
+/** Paragraph: a single line break becomes <br>, as every chat does. */
 function paragraph(lines: string[], key: string): ReactNode {
   const body: ReactNode[] = [];
   lines.forEach((line, index) => {
@@ -110,7 +110,7 @@ export function renderMarkdown(source: string): ReactNode[] {
         code.push(lines[i]!);
         i += 1;
       }
-      i += 1; // fecha a cerca (ou acaba o texto)
+      i += 1; // close the fence (or run out of text)
       blocks.push(
         <pre key={`k${key++}`}>
           <code>{code.join('\n')}</code>
