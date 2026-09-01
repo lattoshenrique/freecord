@@ -16,6 +16,7 @@ import ChatComposer from './ChatComposer';
 import FileTransferBubble from './FileTransferBubble';
 import { MAX_FILE_BYTES, formatBytes } from '../lib/file-transfer';
 import InviteButton from './InviteButton';
+import Logo from './Logo';
 import SettingsMenu from './SettingsMenu';
 import { applySinkId } from '../lib/audio-devices';
 import {
@@ -687,6 +688,7 @@ export default function RoomView({
       )}
       <header className="room-header">
         <div className="room-title">
+          <Logo size={22} className="room-logo" />
           <h1>{room.displayName || t('room.unnamed')}</h1>
           <span className="room-count">
             {t('room.participants', { count: participantCount })}
@@ -698,7 +700,6 @@ export default function RoomView({
             {participantCount}/{MAX_PARTICIPANTS}
           </span>
         </div>
-        <InviteButton />
       </header>
 
       <div className="room-body">
@@ -903,6 +904,9 @@ export default function RoomView({
           className="dock-glass"
         >
           <div className="controls">
+          {/* The link is the invite, so it sits with the other keys rather
+              than as a chip in the corner: the first thing a host looks for. */}
+          <InviteButton />
           <button
             type="button"
             className={`control ${session.micOn ? '' : 'control-off'}`}

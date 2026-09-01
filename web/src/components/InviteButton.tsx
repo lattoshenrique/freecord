@@ -21,11 +21,11 @@ export default function InviteButton() {
   return (
     <button
       type="button"
-      className={`invite-button ${copied ? 'invite-copied' : ''}`}
+      className={`control control-invite ${copied ? 'invite-copied' : ''}`}
       onClick={copyLink}
     >
       {copied ? <CheckIcon /> : <LinkIcon />}
-      {copied ? t('invite.copied') : t('invite.copy')}
+      <span className="control-label">{copied ? t('invite.copied') : t('invite.copy')}</span>
     </button>
   );
 }

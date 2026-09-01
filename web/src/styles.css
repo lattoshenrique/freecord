@@ -303,6 +303,11 @@ button {
   background: var(--accent);
 }
 
+/* The mark in the title panel: this is a Freecord room. */
+.room-logo {
+  flex: 0 0 auto;
+}
+
 .room-header h1 {
   font-size: 0.92rem;
   font-weight: 600;
@@ -320,39 +325,6 @@ button {
   font-size: 0.72rem;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-}
-
-.invite-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  background: var(--hud-bg);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid var(--hud-border);
-  border-radius: var(--hud-radius);
-  color: var(--text);
-  padding: 0.45rem 0.85rem;
-  font-family: var(--mono);
-  font-size: 0.78rem;
-  font-weight: 500;
-  cursor: pointer;
-  box-shadow: var(--glass-highlight);
-  animation: rise-in 0.35s var(--ease) 0.05s both;
-  transition:
-    background 0.15s ease,
-    border-color 0.15s ease,
-    color 0.15s ease;
-}
-
-.invite-button:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: var(--accent);
-}
-
-.invite-copied {
-  color: #4ade80;
-  border-color: #4ade80;
 }
 
 .room-body {
@@ -1031,6 +1003,48 @@ button {
   cursor: default;
 }
 
+/*
+ * Invite: the one key with a label, and the only one painted in the brand
+ * gradient, because a room with nobody else in it is the state everyone
+ * starts from. Separated from the call controls by the same hairline that
+ * separates "leave" on the other end.
+ */
+.control-invite {
+  width: auto;
+  padding: 0 0.95rem 0 0.8rem;
+  gap: 0.45rem;
+  margin-right: 0.85rem;
+  background: linear-gradient(135deg, #5865f2, #a855f7);
+  border-color: rgba(168, 85, 247, 0.7);
+  color: white;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.control-invite::after {
+  content: '';
+  position: absolute;
+  right: -0.75rem;
+  top: 18%;
+  bottom: 18%;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.control-invite:hover:not(:disabled) {
+  background: linear-gradient(135deg, #6a76ff, #b86bff);
+  border-color: #b6bcff;
+}
+
+.control-invite.invite-copied,
+.control-invite.invite-copied:hover:not(:disabled) {
+  background: rgba(74, 222, 128, 0.18);
+  border-color: #4ade80;
+  color: #4ade80;
+}
+
 .control-leave {
   background: var(--danger);
   border-color: var(--danger);
@@ -1053,14 +1067,46 @@ button {
   background: var(--danger-hover);
 }
 
+/*
+ * A narrow dock: seven keys have to fit a phone, so they shrink a step, the
+ * hairlines pull in, and the invite keeps its colour but drops its word.
+ */
+@media (max-width: 480px) {
+  .controls {
+    gap: 0.4rem;
+  }
+
+  .control {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+
+  .control-invite {
+    width: 2.5rem;
+    padding: 0;
+    margin-right: 0.6rem;
+  }
+
+  .control-invite::after {
+    right: -0.5rem;
+  }
+
+  .control-invite .control-label {
+    display: none;
+  }
+
+  .control-leave {
+    margin-left: 0.6rem;
+  }
+
+  .control-leave::before {
+    left: -0.5rem;
+  }
+}
+
 @media (max-width: 640px) {
   .chat-panel {
-    position: fixed;
-    inset: auto 0 5.4rem 0;
-    width: auto;
-    margin: 0.5rem;
-    max-height: 55dvh;
-    z-index: 10;
+    height: min(85dvh, 100% - 2rem);
   }
 
   .tiles-strip .tile {
