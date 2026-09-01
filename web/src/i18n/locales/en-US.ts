@@ -22,6 +22,47 @@ export const enUS = {
 
   'home.card.hint': 'The link is the invite.',
 
+  'how.link': 'How it works',
+  'how.title': 'How Freecord works',
+  'how.lead':
+    'A room is a link, and the conversation goes straight between the browsers in it. Here is what happens after you press the button — and what our server never sees.',
+
+  'how.steps.title': 'Three steps',
+  'how.step.create.title': 'Create the room',
+  'how.step.create.body':
+    'Name it or don’t. You get back a link nobody can guess, and nothing else: no account, no email, no password.',
+  'how.step.share.title': 'Share the link',
+  'how.step.share.body':
+    'The link is both the invitation and the credential. Whoever has it walks in. The chat key travels in the part of the URL after the #, which browsers never send to a server.',
+  'how.step.talk.title': 'Talk',
+  'how.step.talk.body':
+    'Everyone arrives muted and off camera, and turns on what they want. Up to twelve people. Audio and the shared screen always come first; cameras are the ones that compete for room — in a full room fewer of them can be on, and the quality of each adjusts itself.',
+
+  'how.mesh.title': 'The media never touches our server',
+  'how.mesh.body':
+    'Voice, video and screen flow browser to browser over native WebRTC, encrypted end to end. Our server only introduces the browsers to each other and keeps the list of who is in the room — there is no media server to eavesdrop, and no bill for one either. A network too restrictive for a direct connection would need a TURN relay; we run none, so those rare connections fail instead of quietly passing through a third party.',
+  'how.diagram.media': 'Voice, video and screen: straight between the browsers',
+  'how.diagram.signaling': 'Through the server, only the signaling: who is in the room, and how to reach them',
+
+  'how.chat.title': 'The chat is sealed, and temporary',
+  'how.chat.body':
+    'Messages are encrypted in your browser with the key that came in the link, so the server relays text it cannot read. Nothing is stored: when the room closes, the conversation goes with it.',
+
+  'how.screen.title': 'One screen at a time, relayed as a tree',
+  'how.screen.body':
+    'Screen sharing is locked to one person on the server, and the lock is released even if that person’s connection drops. The video does not go from the sharer to everyone: it reaches three peers, and each of them forwards it to three more, so nobody’s upload grows with the room.',
+
+  'how.limits.title': 'The rules the room lives by',
+  'how.limits.body':
+    'Twelve people per room. An empty room closes after fifteen minutes. A browser that goes quiet for thirty-five seconds loses its seat, so a crashed tab cannot hold one forever. Past twelve a mesh stops being the honest answer: the next step is relaying between peers, the way screen sharing already works.',
+
+  'how.run.title': 'Run it yourself',
+  'how.run.body':
+    'Node 20 and two commands. No account, no API key, nothing to sign: the same protocol runs on a laptop and on Cloudflare Workers.',
+  'how.run.copy': 'Copy commands',
+  'how.run.copied': 'Copied!',
+  'how.more.start': 'Create a room',
+
   'invite.copy': 'Invite',
   'invite.copied': 'Link copied!',
   'invite.manualCopy': 'Copy the room link:',
@@ -163,7 +204,7 @@ export const enUS = {
 
   'community.source.title': 'Read the source',
   'community.source.body':
-    'Everything is on GitHub under the MIT license — use it, fork it, host your own. The architecture document is the honest version: what a peer-to-peer mesh really costs, why rooms stop at eight people, and which debts are mapped rather than hidden.',
+    'Everything is on GitHub under the MIT license — use it, fork it, host your own. The architecture document is the honest version: what a peer-to-peer mesh really costs, why rooms stop at twelve, and which debts are mapped rather than hidden.',
   'community.source.repo': 'View on GitHub',
   'community.source.architecture': 'Read the architecture',
   'community.source.license': 'MIT license',

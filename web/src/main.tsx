@@ -16,8 +16,9 @@ function RouteFallback() {
 
 // The room page is the biggest one: only people who join a room download it.
 const RoomPage = lazy(() => import('./pages/RoomPage'));
-// A content page: it should not weigh on the bundle of someone creating a room.
+// Content pages: they should not weigh on the bundle of someone creating a room.
 const CommunityPage = lazy(() => import('./pages/Community'));
+const HowItWorksPage = lazy(() => import('./pages/HowItWorks'));
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
@@ -29,6 +30,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <Route path="/" element={<HomePage />} />
             <Route path="/r/:slug" element={<RoomPage />} />
             <Route path="/community" element={<CommunityPage />} />
+            <Route path="/how-it-works" element={<HowItWorksPage />} />
           </Routes>
         </Suspense>
       </BrowserRouter>

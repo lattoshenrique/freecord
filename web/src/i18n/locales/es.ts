@@ -18,6 +18,47 @@ export const esES: Catalog = {
 
   'home.card.hint': 'El enlace es la invitación.',
 
+  'how.link': 'Cómo funciona',
+  'how.title': 'Cómo funciona Freecord',
+  'how.lead':
+    'Una sala es un enlace, y la conversación va directa entre los navegadores que están en ella. Esto es lo que pasa después de pulsar el botón — y lo que nuestro servidor nunca ve.',
+
+  'how.steps.title': 'Tres pasos',
+  'how.step.create.title': 'Crea la sala',
+  'how.step.create.body':
+    'Ponle nombre o no. Recibes un enlace que nadie puede adivinar, y nada más: sin cuenta, sin correo, sin contraseña.',
+  'how.step.share.title': 'Comparte el enlace',
+  'how.step.share.body':
+    'El enlace es la invitación y la credencial. Quien lo tiene, entra. La clave del chat viaja en la parte de la URL después del #, que los navegadores nunca envían a un servidor.',
+  'how.step.talk.title': 'Habla',
+  'how.step.talk.body':
+    'Todo el mundo llega en silencio y sin cámara, y enciende lo que quiera. Hasta doce personas. El audio y la pantalla compartida tienen prioridad siempre; las cámaras son las que compiten por sitio: en una sala llena entran menos, y la calidad de cada una se ajusta sola.',
+
+  'how.mesh.title': 'El contenido nunca toca nuestro servidor',
+  'how.mesh.body':
+    'La voz, el vídeo y la pantalla fluyen de navegador a navegador por WebRTC nativo, cifrados de extremo a extremo. Nuestro servidor solo presenta los navegadores entre sí y guarda la lista de quién está en la sala — no hay servidor de medios que pueda espiar, ni factura que pagar por él. Una red demasiado restrictiva para una conexión directa necesitaría un relay TURN; no mantenemos ninguno, así que esas pocas conexiones fallan en vez de pasar en silencio por un tercero.',
+  'how.diagram.media': 'Voz, vídeo y pantalla: directo entre los navegadores',
+  'how.diagram.signaling': 'Por el servidor, solo la señalización: quién está en la sala y cómo llegar a cada uno',
+
+  'how.chat.title': 'El chat va sellado, y es temporal',
+  'how.chat.body':
+    'Los mensajes se cifran en tu navegador con la clave que venía en el enlace, así que el servidor retransmite un texto que no puede leer. No se guarda nada: cuando la sala se cierra, la conversación se va con ella.',
+
+  'how.screen.title': 'Una pantalla a la vez, retransmitida en árbol',
+  'how.screen.body':
+    'El servidor bloquea la pantalla compartida en una sola persona, y libera el bloqueo aunque se le caiga la conexión. El vídeo no va de quien comparte a todo el mundo: llega a tres pares, y cada uno lo reenvía a otros tres, así la subida de nadie crece con la sala.',
+
+  'how.limits.title': 'Las reglas que sigue la sala',
+  'how.limits.body':
+    'Doce personas por sala. Una sala vacía se cierra a los quince minutos. Un navegador que se calla treinta y cinco segundos pierde su sitio, para que una pestaña colgada no lo ocupe para siempre. Por encima de doce la malla deja de ser la respuesta honesta: el siguiente paso es retransmitir entre pares, como ya hace la pantalla compartida.',
+
+  'how.run.title': 'Ejecútalo tú mismo',
+  'how.run.body':
+    'Node 20 y dos comandos. Sin cuenta, sin clave de API, sin nada que firmar: el mismo protocolo corre en un portátil y en Cloudflare Workers.',
+  'how.run.copy': 'Copiar comandos',
+  'how.run.copied': '¡Copiado!',
+  'how.more.start': 'Crear una sala',
+
   'invite.copy': 'Invitar',
   'invite.copied': '¡Enlace copiado!',
   'invite.manualCopy': 'Copia el enlace de la sala:',
@@ -164,7 +205,7 @@ export const esES: Catalog = {
   'community.source.title':
     'Lee el código',
   'community.source.body':
-    'Está todo en GitHub bajo licencia MIT: úsalo, haz un fork, alójalo tú. El documento de arquitectura es la versión honesta: lo que cuesta de verdad una malla entre pares, por qué las salas se detienen en ocho personas y qué deudas están mapeadas en vez de escondidas.',
+    'Está todo en GitHub bajo licencia MIT: úsalo, haz un fork, alójalo tú. El documento de arquitectura es la versión honesta: lo que cuesta de verdad una malla entre pares, por qué las salas se detienen en doce y qué deudas están mapeadas en vez de escondidas.',
   'community.source.repo':
     'Ver en GitHub',
   'community.source.architecture':

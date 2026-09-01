@@ -38,6 +38,14 @@ const COMMUNITY: RouteSeo = {
   indexable: true,
 };
 
+const HOW_IT_WORKS: RouteSeo = {
+  title: 'How Freecord works — peer-to-peer rooms, no media server',
+  description:
+    'What happens when you open a Freecord room: the link is the credential, voice, video and screen go browser to browser over native WebRTC, and the server only carries signaling. Chat is encrypted in the browser with a key that never leaves the URL fragment, screen sharing is relayed as a tree, and rooms hold eight people and close fifteen minutes after the last person leaves.',
+  path: '/how-it-works',
+  indexable: true,
+};
+
 /**
  * A room URL is the credential: the unguessable slug is the entire access
  * control model, so an indexed room is a world-readable room. Nothing here
@@ -65,6 +73,9 @@ export function seoForPath(pathname: string): RouteSeo {
   }
   if (pathname === '/community' || pathname === '/community/') {
     return COMMUNITY;
+  }
+  if (pathname === '/how-it-works' || pathname === '/how-it-works/') {
+    return HOW_IT_WORKS;
   }
   if (pathname.startsWith('/r/')) {
     return ROOM;

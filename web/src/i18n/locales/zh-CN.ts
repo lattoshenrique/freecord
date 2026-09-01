@@ -18,6 +18,47 @@ export const zhCN: Catalog = {
 
   'home.card.hint': '链接就是邀请。',
 
+  'how.link': '工作原理',
+  'how.title': 'Freecord 是怎么工作的',
+  'how.lead':
+    '一个房间就是一个链接，对话在房间里的浏览器之间直接传输。下面是你按下按钮之后发生的事——以及我们的服务器永远看不到的东西。',
+
+  'how.steps.title': '三个步骤',
+  'how.step.create.title': '创建房间',
+  'how.step.create.body':
+    '取不取名字都行。你会拿到一个别人猜不到的链接，除此之外什么都没有：不用账号，不用邮箱，不用密码。',
+  'how.step.share.title': '分享链接',
+  'how.step.share.body':
+    '链接既是邀请，也是凭证。拿到的人就能进来。聊天密钥藏在 URL 里 # 之后的部分，浏览器从不会把它发给服务器。',
+  'how.step.talk.title': '开始聊',
+  'how.step.talk.body':
+    '每个人进来时麦克风和摄像头都是关着的，想开哪个自己开。最多十二个人。语音和共享屏幕永远优先；真正要抢位置的是摄像头——房间越满，能同时开的摄像头越少，每一路的画质也会自动调整。',
+
+  'how.mesh.title': '音视频从不经过我们的服务器',
+  'how.mesh.body':
+    '语音、视频和屏幕通过原生 WebRTC 在浏览器之间直接流动，默认端到端加密。我们的服务器只负责把浏览器互相介绍，并保存房间里有谁的名单——没有媒体服务器可以偷听，也没有它的账单。如果网络限制严格到无法直连，就需要 TURN 中继；我们没有部署，所以这少数连接会直接失败，而不是悄悄经过第三方。',
+  'how.diagram.media': '语音、视频和屏幕：在浏览器之间直连',
+  'how.diagram.signaling': '经过服务器的只有信令：房间里有谁，以及怎么连上他们',
+
+  'how.chat.title': '聊天是封好的，也是临时的',
+  'how.chat.body':
+    '消息用链接里带来的密钥在你的浏览器里加密，所以服务器转发的是它读不懂的文本。什么都不保存：房间关闭时，对话也一起消失。',
+
+  'how.screen.title': '一次只有一个人共享屏幕，按树状转发',
+  'how.screen.body':
+    '服务器把屏幕共享锁定在一个人身上，即使那个人掉线也会释放这把锁。视频不是由共享者发给所有人：它先发给三个人，每个人再转发给另外三个，所以谁的上行都不会随房间变大而增长。',
+
+  'how.limits.title': '房间遵守的规则',
+  'how.limits.body':
+    '每个房间十二个人。空房间十五分钟后关闭。三十五秒没有回应的浏览器会被移出，免得崩溃的标签页一直占着位置。超过十二人，网格就不再是诚实的答案——下一步是像屏幕共享那样在参与者之间转发。',
+
+  'how.run.title': '自己跑一遍',
+  'how.run.body':
+    'Node 20 和两条命令。不用账号，不用 API 密钥，不用签任何东西：同一套协议既跑在笔记本上，也跑在 Cloudflare Workers 上。',
+  'how.run.copy': '复制命令',
+  'how.run.copied': '已复制！',
+  'how.more.start': '创建房间',
+
   'invite.copy': '邀请',
   'invite.copied': '链接已复制！',
   'invite.manualCopy': '复制房间链接：',
@@ -163,7 +204,7 @@ export const zhCN: Catalog = {
   'community.source.title':
     '阅读源码',
   'community.source.body':
-    '一切都在 GitHub 上，采用 MIT 许可 —— 随意使用、fork、自行部署。架构文档是不加粉饰的那一版：点对点网状连接真正的代价、房间为什么止步于八人，以及哪些技术债是被记录下来而不是被藏起来的。',
+    '一切都在 GitHub 上，采用 MIT 许可 —— 随意使用、fork、自行部署。架构文档是不加粉饰的那一版：点对点网状连接真正的代价、房间为什么止步于十二人，以及哪些技术债是被记录下来而不是被藏起来的。',
   'community.source.repo':
     '在 GitHub 上查看',
   'community.source.architecture':

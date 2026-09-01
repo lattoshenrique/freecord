@@ -237,7 +237,20 @@ button {
   color: #ff7a7a;
 }
 
-/* ---- sala ---- */
+/* ---- the room ---- */
+
+/*
+ * The room reads as an instrument panel, not as a lightbox: hairlines instead
+ * of glass pills, small radii, monospace with tabular numbers on everything
+ * that is a measurement, and colour spent only on state — muted is idle,
+ * accent is on, red is off or destructive.
+ */
+:root {
+  --hud-bg: rgba(11, 14, 20, 0.72);
+  --hud-border: rgba(255, 255, 255, 0.1);
+  --hud-border-strong: rgba(255, 255, 255, 0.2);
+  --hud-radius: 8px;
+}
 
 .room-layout {
   position: relative;
@@ -247,7 +260,7 @@ button {
   animation: fade-in 0.3s var(--ease) both;
 }
 
-/* Header flutuante: pills de vidro sobre o palco. */
+/* Floating header: a status strip over the stage. */
 .room-header {
   position: absolute;
   top: 0;
@@ -258,7 +271,7 @@ button {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 0.75rem 1rem;
+  padding: 0.7rem 0.85rem;
   pointer-events: none;
 }
 
@@ -268,31 +281,44 @@ button {
 
 .room-title {
   display: flex;
-  align-items: baseline;
-  gap: 0.75rem;
+  align-items: center;
+  gap: 0.6rem;
   min-width: 0;
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
-  border-radius: 999px;
-  padding: 0.45rem 1rem;
-  box-shadow: var(--glass-highlight);
+  background: var(--hud-bg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--hud-border);
+  border-radius: var(--hud-radius);
+  padding: 0.4rem 0.75rem;
   animation: rise-in 0.35s var(--ease) both;
 }
 
+/* The panel's power light: this room is live. */
+.room-title::before {
+  content: '';
+  flex: 0 0 auto;
+  width: 2px;
+  align-self: stretch;
+  border-radius: 1px;
+  background: var(--accent);
+}
+
 .room-header h1 {
-  font-size: 1rem;
+  font-size: 0.92rem;
   font-weight: 600;
+  letter-spacing: -0.01em;
   margin: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+/* A count is a reading: monospace, tabular, so it never shifts as it changes. */
 .room-count {
   color: var(--muted);
-  font-size: 0.8rem;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
@@ -300,14 +326,15 @@ button {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
-  border-radius: 999px;
+  background: var(--hud-bg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--hud-border);
+  border-radius: var(--hud-radius);
   color: var(--text);
-  padding: 0.5rem 1rem;
-  font-size: 0.85rem;
+  padding: 0.45rem 0.85rem;
+  font-family: var(--mono);
+  font-size: 0.78rem;
   font-weight: 500;
   cursor: pointer;
   box-shadow: var(--glass-highlight);
@@ -319,8 +346,8 @@ button {
 }
 
 .invite-button:hover {
-  background: rgba(255, 255, 255, 0.14);
-  border-color: rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--accent);
 }
 
 .invite-copied {
@@ -417,20 +444,22 @@ button {
 
 .screen-label,
 .screen-stats {
-  background: rgba(0, 0, 0, 0.65);
+  background: var(--hud-bg);
   backdrop-filter: blur(6px);
-  padding: 0.3rem 0.7rem;
-  border-radius: 999px;
-  font-size: 0.85rem;
+  border: 1px solid var(--hud-border);
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  font-family: var(--mono);
+  font-size: 0.75rem;
 }
 
-/* Recebendo por um relay da árvore, não direto de quem compartilha. */
+/* Arriving through a relay in the tree, not straight from the sharer. */
 .screen-relay-hint {
   color: var(--muted);
   font-weight: 400;
 }
 
-/* Números do que está realmente trafegando — tabulares para não dançar. */
+/* What is actually on the wire — tabular figures so the numbers hold still. */
 .screen-stats {
   display: inline-flex;
   align-items: center;
@@ -441,7 +470,7 @@ button {
   font-variant-numeric: tabular-nums;
 }
 
-/* Grade principal: tiles 16:9 dimensionados por JS, centralizados. */
+/* The main grid: 16:9 tiles sized in JS, centred. */
 .tiles-grid {
   flex: 1;
   min-height: 0;
@@ -453,13 +482,13 @@ button {
   gap: 12px;
 }
 
-/* Fallback enquanto o tamanho calculado não chega: nunca colapsa. */
+/* Fallback until the computed size arrives: never collapses. */
 .tiles-grid .tile {
   width: min(100%, 56rem);
   aspect-ratio: 16 / 9;
 }
 
-/* Faixa horizontal quando há tela compartilhada. */
+/* Horizontal strip while a screen is being shared. */
 .tiles-strip {
   flex: 0 0 auto;
   display: flex;
@@ -468,9 +497,9 @@ button {
   padding-bottom: 2px;
 }
 
-/* Centraliza sem `justify-content: safe center`: naquele, quando a faixa
-   transborda, alguns navegadores cortam os tiles da esquerda sem deixar
-   rolar até eles. */
+/* Centred without `justify-content: safe center`: with that one, when the
+   strip overflows, some browsers clip the leftmost tiles and never let you
+   scroll back to them. */
 .tiles-strip > :first-child {
   margin-inline-start: auto;
 }
@@ -487,9 +516,10 @@ button {
 .tile {
   position: relative;
   container-type: size;
-  background: radial-gradient(120% 120% at 50% 20%, var(--panel-2) 0%, #151822 100%);
+  /* Flat, so a live camera is the only thing in the room that glows. */
+  background: #12151d;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: 10px;
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -503,7 +533,7 @@ button {
 }
 
 .tile:hover {
-  border-color: rgba(255, 255, 255, 0.22);
+  border-color: var(--hud-border-strong);
 }
 
 .tile-video {
@@ -518,30 +548,32 @@ button {
   transform: scaleX(-1);
 }
 
+/* Same frame as the identicon on the pre-join card: one face, two screens. */
 .tile-avatar {
   width: clamp(3.5rem, 26cqmin, 7rem);
   aspect-ratio: 1;
   flex: 0 0 auto;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.16);
+  border-radius: 24%;
+  border: 1px solid var(--hud-border);
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
 }
 
 .tile-name {
   position: absolute;
-  left: 0.6rem;
-  bottom: 0.6rem;
+  left: 0.5rem;
+  bottom: 0.5rem;
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  max-width: calc(100% - 1.2rem);
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(12px) saturate(160%);
-  -webkit-backdrop-filter: blur(12px) saturate(160%);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  padding: 0.25rem 0.65rem;
-  border-radius: 999px;
-  font-size: 0.8rem;
+  max-width: calc(100% - 1rem);
+  background: var(--hud-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--hud-border);
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  font-family: var(--mono);
+  font-size: 0.74rem;
   font-weight: 500;
   overflow: hidden;
   white-space: nowrap;
@@ -551,6 +583,11 @@ button {
 .tile-you {
   color: var(--muted);
   font-weight: 400;
+}
+
+/* The label is the readout; the picture is the state. */
+.tile-name svg {
+  flex: 0 0 auto;
 }
 
 .tile-mic-off {
@@ -563,13 +600,107 @@ button {
   height: 14px;
 }
 
+/*
+ * Who is talking. The ring is the signal — colour and weight on the border
+ * the tile already has, never a size change: a tile that grows while someone
+ * speaks makes the whole grid twitch on every syllable.
+ *
+ * The attribute comes from the speaking-detector work; the global
+ * prefers-reduced-motion rule already flattens the pulse to nothing.
+ */
+.tile[data-speaking='true'] {
+  border-color: var(--accent);
+  animation: tile-speaking 1.8s ease-out infinite;
+}
+
+@keyframes tile-speaking {
+  0% {
+    box-shadow: 0 0 0 0 rgba(88, 101, 242, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(88, 101, 242, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(88, 101, 242, 0);
+  }
+}
+
+/* In the strip beside a shared screen the tiles are small: ring only. */
+.tiles-strip .tile[data-speaking='true'] {
+  animation: none;
+}
+
+/*
+ * No camera slot left in a full room. Distinct from "off": off is your
+ * choice and reversible by you, this one is the room's answer — so it is
+ * said in grey and in the cursor, never in the red that means "you are
+ * muted". The attribute is set by the seats work in RoomView.
+ */
+.control[data-camera-slots='full'] {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--border);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+.control[data-camera-slots='full']:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--border);
+}
+
+/*
+ * The telemetry strip: labels muted, values bright, everything tabular so a
+ * changing number never nudges the one beside it. Markup lands with the HUD
+ * work in RoomView.
+ */
+.hud-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 1rem;
+  padding: 0.4rem 0.7rem;
+  background: var(--hud-bg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--hud-border);
+  border-radius: var(--hud-radius);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.hud-metric {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+}
+
+.hud-metric b {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.hud-metric i {
+  color: var(--text);
+  font-style: normal;
+}
+
+/* n/12 — a reading, like the latency. */
+.seat-count {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 /* ---- chat ---- */
 
 .chat-panel {
   width: min(21rem, 45vw);
   margin: var(--header-clear) 0.75rem var(--dock-clear) 0;
-  border: 1px solid var(--glass-border);
-  border-radius: 20px;
+  border: 1px solid var(--hud-border);
+  border-radius: 12px;
   display: flex;
   flex-direction: column;
   background: var(--glass-bg-strong);
@@ -589,8 +720,10 @@ button {
 
 .chat-header h2 {
   margin: 0;
-  font-size: 0.9rem;
+  font-family: var(--mono);
+  font-size: 0.8rem;
   font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
 .chat-close {
@@ -628,9 +761,10 @@ button {
 .chat-bubble {
   max-width: 85%;
   align-self: flex-start;
-  background: rgba(255, 255, 255, 0.09);
-  border-radius: 14px;
-  border-bottom-left-radius: 4px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid var(--hud-border);
+  border-radius: 10px;
+  border-bottom-left-radius: 3px;
   padding: 0.45rem 0.75rem;
   animation: bubble-in 0.25s var(--ease) both;
 }
@@ -646,16 +780,18 @@ button {
 .chat-bubble.mine {
   align-self: flex-end;
   background: linear-gradient(135deg, var(--accent), #8b5cf6);
-  border-radius: 14px;
-  border-bottom-right-radius: 4px;
+  border-color: transparent;
+  border-radius: 10px;
+  border-bottom-right-radius: 3px;
 }
 
 .chat-author {
   display: block;
-  font-size: 0.72rem;
+  font-family: var(--mono);
+  font-size: 0.7rem;
   font-weight: 600;
   color: var(--accent-hover);
-  margin-bottom: 0.15rem;
+  margin-bottom: 0.2rem;
 }
 
 .chat-composer {
@@ -759,9 +895,9 @@ button {
   cursor: default;
 }
 
-/* ---- controles ---- */
+/* ---- the dock ---- */
 
-/* Dock flutuante de vidro sobre o palco. */
+/* Floating control bar over the stage. */
 .room-footer {
   position: absolute;
   left: 0;
@@ -798,23 +934,29 @@ button {
 .controls {
   display: flex;
   align-items: center;
-  gap: 0.65rem;
+  gap: 0.5rem;
   font-size: 0.95rem;
 }
 
+/*
+ * Keycaps, not bubbles: square-ish, hairline, with the bottom edge darkened
+ * so the row reads as a panel of keys.
+ */
 .control {
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 3.05rem;
-  height: 3.05rem;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid var(--glass-border);
-  border-radius: 50%;
+  width: 2.8rem;
+  height: 2.8rem;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid var(--hud-border);
+  border-radius: 10px;
   color: var(--text);
   cursor: pointer;
-  box-shadow: var(--glass-highlight);
+  box-shadow:
+    var(--glass-highlight),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35);
   transition:
     background 0.15s ease,
     border-color 0.15s ease,
@@ -823,21 +965,21 @@ button {
 }
 
 /*
- * Hover sem transform de propósito.
+ * Deliberately no transform on hover.
  *
- * Elemento transformado por cima de superfície com backdrop-filter faz o
- * Chrome recompor a região do desfoque e deixar um halo escuro em volta do
- * botão — a "sombra" que aparecia na área dos controles. O estado de hover
- * é dito só com cor, que o vidro não tem como borrar.
+ * A transformed element over a backdrop-filter surface makes Chrome recompose
+ * the blurred region and leave a dark halo around the button — the "shadow"
+ * that used to appear across the controls. Hover is said in colour alone,
+ * which the glass cannot smear.
  */
 .control:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.22);
-  border-color: rgba(255, 255, 255, 0.32);
+  background: rgba(255, 255, 255, 0.14);
+  border-color: var(--hud-border-strong);
 }
 
 .control:active:not(:disabled) {
-  background: rgba(255, 255, 255, 0.3);
-  box-shadow: var(--glass-highlight), inset 0 2px 5px rgba(0, 0, 0, 0.28);
+  background: rgba(255, 255, 255, 0.2);
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.35);
 }
 
 .control:focus-visible {
@@ -845,26 +987,32 @@ button {
   outline-offset: 2px;
 }
 
-/* mic/câmera desligados: estado de alerta */
+/*
+ * Microphone and camera off. Everyone now arrives this way, so a solid red
+ * pair would mean the dock is shouting from the first second: the state is
+ * said in the icon's colour and a red hairline, and solid red is kept for
+ * the one button you cannot undo.
+ */
 .control-off {
-  background: var(--danger);
-  border-color: var(--danger);
-  color: white;
+  background: rgba(229, 72, 77, 0.14);
+  border-color: rgba(229, 72, 77, 0.55);
+  color: #ff8589;
 }
 
 .control-off:hover:not(:disabled) {
-  background: var(--danger-hover);
+  background: rgba(229, 72, 77, 0.24);
+  border-color: var(--danger);
 }
 
-/* recurso ativo (compartilhando tela, chat aberto) */
+/* A feature that is on: sharing the screen, the chat open. */
 .control-active {
-  background: var(--accent);
+  background: rgba(88, 101, 242, 0.2);
   border-color: var(--accent);
-  color: white;
+  color: #b6bcff;
 }
 
 .control-active:hover:not(:disabled) {
-  background: var(--accent-hover);
+  background: rgba(88, 101, 242, 0.32);
 }
 
 .control:disabled {
@@ -876,14 +1024,14 @@ button {
   background: var(--danger);
   border-color: var(--danger);
   color: white;
-  margin-left: 0.95rem;
+  margin-left: 0.85rem;
 }
 
 /* Hairline separating "leave" from the reversible controls. */
 .control-leave::before {
   content: '';
   position: absolute;
-  left: -0.82rem;
+  left: -0.75rem;
   top: 18%;
   bottom: 18%;
   width: 1px;
@@ -916,12 +1064,12 @@ button {
   top: 0.5rem;
   right: 0.5rem;
   z-index: 1;
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(12px) saturate(160%);
-  -webkit-backdrop-filter: blur(12px) saturate(160%);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 999px;
-  padding: 0.15rem 0.5rem;
+  background: var(--hud-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--hud-border);
+  border-radius: 6px;
+  padding: 0.12rem 0.4rem;
   font-family: var(--mono);
   font-size: 0.66rem;
   font-weight: 600;
@@ -947,9 +1095,8 @@ button {
   color: #ff7a7a;
 }
 
-/* ---- menu de qualidade ---- */
+/* ---- menus over the dock ---- */
 
-/* Captura o clique fora sem roubar o foco visual do menu. */
 .menu-backdrop {
   position: fixed;
   inset: 0;
@@ -961,70 +1108,6 @@ button {
 }
 
 /* Ancorado no rodapé (fora do dock de vidro, que corta overflow). */
-.quality-menu {
-  position: absolute;
-  bottom: calc(100% + 0.75rem);
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 32;
-  width: 17rem;
-  max-width: calc(100vw - 2rem);
-  background: var(--glass-bg-strong);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
-  border-radius: 18px;
-  box-shadow: var(--shadow), var(--glass-highlight);
-  padding: 0.4rem;
-  animation: rise-in 0.2s var(--ease) both;
-}
-
-.quality-menu-title {
-  margin: 0.3rem 0.6rem 0.5rem;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.quality-option {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  width: 100%;
-  text-align: left;
-  background: transparent;
-  border: none;
-  border-radius: 8px;
-  color: var(--text);
-  padding: 0.5rem 0.6rem;
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-
-.quality-option:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.quality-option.selected {
-  background: linear-gradient(135deg, var(--accent), #8b5cf6);
-}
-
-.quality-option-label {
-  font-size: 0.88rem;
-  font-weight: 600;
-}
-
-.quality-option-hint {
-  font-size: 0.75rem;
-  color: var(--muted);
-}
-
-.quality-option.selected .quality-option-hint {
-  color: rgba(255, 255, 255, 0.85);
-}
-
 /* ---- contador de mensagens novas ---- */
 
 /* Irmão do dock, não filho: a lib de vidro corta overflow e impõe fonte

@@ -1,0 +1,288 @@
+/*
+ * Styles for the "how it works" page.
+ *
+ * Same shape as the community page — one readable column, type and space
+ * instead of cards — plus the two mesh diagrams and the terminal block.
+ * Outside styles.css so another session editing the global sheet cannot
+ * clobber it.
+ */
+
+.how {
+  min-height: 100dvh;
+  /* The page scrolls; the room pages don't. #root is a fixed 100dvh box. */
+  overflow-y: auto;
+}
+
+.how-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 2.75rem;
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: 3rem 1.5rem 5rem;
+  animation: rise-in 0.5s var(--ease) both;
+}
+
+.how-brand {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--muted);
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: -0.01em;
+  transition: color 0.15s ease;
+}
+
+.how-brand:hover {
+  color: var(--text);
+}
+
+.how h1 {
+  margin: 0 0 0.9rem;
+  font-size: clamp(2.1rem, 5vw, 3.1rem);
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+}
+
+.how-lead {
+  margin: 0;
+  color: var(--muted);
+  font-size: 1.15rem;
+  line-height: 1.6;
+}
+
+.how h2 {
+  margin: 0 0 0.6rem;
+  font-size: 1.3rem;
+  letter-spacing: -0.02em;
+}
+
+.how section > p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+/* ---- the three steps ---- */
+
+.how-steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+  margin: 1.25rem 0 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+}
+
+.how-steps li {
+  counter-increment: step;
+}
+
+/* The number is the ordinal the <ol> already carries: drawn, not written. */
+.how-steps li::before {
+  content: counter(step);
+  display: block;
+  margin-bottom: 0.6rem;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.how-steps h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.how-steps p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1.65;
+}
+
+/* ---- the two diagrams ---- */
+
+.how-diagrams {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+  margin-top: 1.75rem;
+}
+
+.how-diagrams figure {
+  margin: 0;
+}
+
+.how-diagrams figcaption {
+  margin-top: 0.6rem;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.dia {
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  background: var(--glass-bg);
+}
+
+.dia-peer {
+  fill: var(--accent);
+}
+
+.dia-media {
+  stroke: var(--accent);
+  stroke-width: 2;
+  opacity: 0.5;
+}
+
+/* Signaling is dashed and grey on purpose: it is the thin line, not the pipe. */
+.dia-signal {
+  stroke: var(--muted);
+  stroke-width: 1.6;
+  stroke-dasharray: 5 5;
+  opacity: 0.7;
+}
+
+.dia-server {
+  fill: var(--panel-2);
+  stroke: var(--border);
+}
+
+.dia-server-line {
+  stroke: var(--muted);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+/* ---- run it yourself ---- */
+
+.how-terminal {
+  margin-top: 1.25rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.how-terminal-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 0.9rem;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.how-terminal-bar > span {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 50%;
+  background: var(--border);
+}
+
+.how-terminal-bar button {
+  margin-left: auto;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.how-terminal-bar button:hover {
+  color: var(--text);
+}
+
+.how-terminal pre {
+  margin: 0;
+  padding: 1rem 1.1rem;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  line-height: 1.9;
+  overflow-x: auto;
+}
+
+.how-terminal pre div {
+  white-space: pre;
+}
+
+.how-terminal-prompt {
+  color: var(--accent);
+  user-select: none;
+}
+
+.how-terminal-note {
+  color: var(--muted);
+}
+
+/* ---- links out ---- */
+
+.how-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.5rem;
+  margin: 1.25rem 0 0;
+}
+
+.how-links a {
+  color: var(--text);
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(88, 101, 242, 0.55);
+  padding-bottom: 1px;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.how-links a:hover {
+  color: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.how-cta {
+  align-self: flex-start;
+  background: linear-gradient(135deg, var(--accent), #a855f7);
+  border-radius: 16px;
+  color: white;
+  padding: 1rem 1.75rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition:
+    filter 0.15s ease,
+    transform 0.15s var(--ease);
+}
+
+.how-cta:hover {
+  filter: brightness(1.12);
+}
+
+.how-cta:active {
+  transform: scale(0.98);
+}
+
+@media (max-width: 640px) {
+  .how-steps,
+  .how-diagrams {
+    grid-template-columns: 1fr;
+  }
+
+  .how-terminal-note {
+    display: none;
+  }
+}

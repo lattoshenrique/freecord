@@ -57,6 +57,9 @@ const SECTIONS: { title: MessageKey; body: MessageKey; links: SectionLink[] }[] 
   },
 ];
 
+/** Sits under the lead: the mechanics have a page of their own. */
+const HOW_IT_WORKS = '/how-it-works';
+
 export default function CommunityPage() {
   const { t } = useI18n();
 
@@ -72,6 +75,9 @@ export default function CommunityPage() {
         <header>
           <h1>{t('community.title')}</h1>
           <p className="community-lead">{t('community.lead')}</p>
+          <p className="community-links">
+            <Link to={HOW_IT_WORKS}>{t('how.link')}</Link>
+          </p>
         </header>
 
         <section>

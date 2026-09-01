@@ -18,6 +18,47 @@ export const ptBR: Catalog = {
 
   'home.card.hint': 'O link é o convite.',
 
+  'how.link': 'Como funciona',
+  'how.title': 'Como o Freecord funciona',
+  'how.lead':
+    'Uma sala é um link, e a conversa vai direto entre os navegadores que estão nela. Isto é o que acontece depois que você aperta o botão — e o que o nosso servidor nunca vê.',
+
+  'how.steps.title': 'Três passos',
+  'how.step.create.title': 'Crie a sala',
+  'how.step.create.body':
+    'Dê um nome ou não dê. Você recebe de volta um link que ninguém adivinha, e mais nada: sem conta, sem e-mail, sem senha.',
+  'how.step.share.title': 'Mande o link',
+  'how.step.share.body':
+    'O link é o convite e a credencial. Quem tem, entra. A chave do chat viaja no pedaço da URL depois do #, que o navegador nunca manda para um servidor.',
+  'how.step.talk.title': 'Converse',
+  'how.step.talk.body':
+    'Todo mundo chega mudo e sem câmera, e liga o que quiser. Até doze pessoas. Áudio e tela compartilhada têm prioridade sempre; as câmeras é que disputam espaço — numa sala cheia entram menos, e a qualidade de cada uma se ajusta sozinha.',
+
+  'how.mesh.title': 'A mídia nunca toca o nosso servidor',
+  'how.mesh.body':
+    'Voz, vídeo e tela fluem de navegador para navegador por WebRTC nativo, criptografados fim a fim. O nosso servidor só apresenta os navegadores uns aos outros e guarda a lista de quem está na sala — não existe servidor de mídia para bisbilhotar, nem conta para pagar por ele. Uma rede restritiva demais para conexão direta precisaria de um relay TURN; não mantemos nenhum, então essas poucas conexões falham em vez de passar caladas por um terceiro.',
+  'how.diagram.media': 'Voz, vídeo e tela: direto entre os navegadores',
+  'how.diagram.signaling': 'Pelo servidor, só a sinalização: quem está na sala e como alcançar cada um',
+
+  'how.chat.title': 'O chat é lacrado e temporário',
+  'how.chat.body':
+    'As mensagens são cifradas no seu navegador com a chave que veio no link, então o servidor repassa um texto que não consegue ler. Nada é guardado: quando a sala fecha, a conversa vai junto.',
+
+  'how.screen.title': 'Uma tela por vez, repassada em árvore',
+  'how.screen.body':
+    'O compartilhamento de tela fica travado em uma pessoa no servidor, e a trava é liberada mesmo se a conexão dela cair. O vídeo não vai de quem compartilha para todo mundo: ele chega a três pares, e cada um repassa para outros três, então o upload de ninguém cresce junto com a sala.',
+
+  'how.limits.title': 'As regras que a sala segue',
+  'how.limits.body':
+    'Doze pessoas por sala. Uma sala vazia fecha em quinze minutos. Um navegador que fica trinta e cinco segundos calado perde o lugar, para uma aba travada não segurar uma vaga para sempre. Acima de doze a malha deixa de ser a resposta honesta: o próximo passo é repassar entre os pares, do jeito que o compartilhamento de tela já faz.',
+
+  'how.run.title': 'Rode você mesmo',
+  'how.run.body':
+    'Node 20 e dois comandos. Sem conta, sem chave de API, sem nada para assinar: o mesmo protocolo roda num notebook e no Cloudflare Workers.',
+  'how.run.copy': 'Copiar comandos',
+  'how.run.copied': 'Copiado!',
+  'how.more.start': 'Criar uma sala',
+
   'invite.copy': 'Convidar',
   'invite.copied': 'Link copiado!',
   'invite.manualCopy': 'Copie o link da sala:',
@@ -164,7 +205,7 @@ export const ptBR: Catalog = {
   'community.source.title':
     'Leia o código',
   'community.source.body':
-    'Está tudo no GitHub sob licença MIT — use, faça um fork, hospede o seu. O documento de arquitetura é a versão honesta: quanto uma malha ponto a ponto realmente custa, por que as salas param em oito pessoas, e quais dívidas estão mapeadas em vez de escondidas.',
+    'Está tudo no GitHub sob licença MIT — use, faça um fork, hospede o seu. O documento de arquitetura é a versão honesta: quanto uma malha ponto a ponto realmente custa, por que as salas param em doze, e quais dívidas estão mapeadas em vez de escondidas.',
   'community.source.repo':
     'Ver no GitHub',
   'community.source.architecture':
