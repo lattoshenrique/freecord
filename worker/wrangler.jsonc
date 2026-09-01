@@ -1,0 +1,35 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "guest-rooms",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-11-01",
+  "workers_dev": true,
+  "observability": { "enabled": true },
+
+  // Estáticos do build do web; o Worker só é chamado no que não casa com um
+  // arquivo (API, WS e o fallback de SPA para /r/:slug).
+  "assets": {
+    "directory": "../web/dist",
+    "binding": "ASSETS"
+  },
+
+  // Uma Durable Object por sala: o estado vive junto do slug.
+  "durable_objects": {
+    "bindings": [{ "name": "ROOMS", "class_name": "RoomDurableObject" }]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["RoomDurableObject"] }
+  ],
+
+  // Mesmo limite do Fastify: 60 criações de sala por minuto por IP.
+  "unsafe": {
+    "bindings": [
+      {
+        "name": "RATE_LIMITER",
+        "type": "ratelimit",
+        "namespace_id": "1001",
+        "simple": { "limit": 60, "period": 60 }
+      }
+    ]
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "dev: server",
+      "type": "shell",
+      "command": "npm run dev --workspace server",
+      "isBackground": true,
+      "presentation": { "panel": "dedicated", "group": "dev" },
+      "problemMatcher": {
+        "owner": "guest-rooms-server",
+        "pattern": { "regexp": "^$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".",
+          "endsPattern": "Server listening|server started"
+        }
+      }
+    },
+    {
+      "label": "dev: web",
+      "type": "shell",
+      "command": "npm run dev --workspace web",
+      "isBackground": true,
+      "presentation": { "panel": "dedicated", "group": "dev" },
+      "problemMatcher": {
+        "owner": "guest-rooms-web",
+        "pattern": { "regexp": "^$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".",
+          "endsPattern": "ready in|Local:"
+        }
+      }
+    },
+    {
+      "label": "dev: tudo",
+      "dependsOn": ["dev: server", "dev: web"],
+      "dependsOrder": "parallel",
+      "problemMatcher": []
+    },
+    {
+      "label": "test",
+      "type": "shell",
+      "command": "npm test",
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "typecheck",
+      "type": "shell",
+      "command": "npm run typecheck",
+      "group": "build",
+      "problemMatcher": ["$tsc"]
+    }
+  ]
+}

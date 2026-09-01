@@ -1,0 +1,28 @@
+{
+  "name": "guest-rooms",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Plataforma guest-first de salas com voz, vídeo, chat de texto e compartilhamento de tela",
+  "workspaces": [
+    "server",
+    "web",
+    "worker"
+  ],
+  "scripts": {
+    "dev:server": "npm run dev --workspace server",
+    "dev:web": "npm run dev --workspace web",
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces",
+    "test": "npm run test --workspaces --if-present",
+    "deploy": "npm run build && npm run deploy --workspace worker"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "esbuild@0.25.12": true,
+    "esbuild@0.28.1": true,
+    "workerd@1.20260828.1": true
+  }
+}
