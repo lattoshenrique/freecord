@@ -11,6 +11,8 @@ import {
   screenConstraints,
   type ScreenQualityId,
 } from './screen-quality';
+import { ScreenRelayController, extractRelayNote, makeRelayNote } from './screen-relay';
+import { desktopSystemAudio } from './platform';
 import { StatsSampler, type PeerLatency, type ScreenStats } from './stats';
 
 export interface JoinOptions {
@@ -111,6 +113,13 @@ export function useRoomSession(options: JoinOptions) {
   const forwardStreamRef = useRef<MediaStream | null>(null);
   const forwardedTrackRef = useRef<MediaStreamTrack | null>(null);
   const reportedRelayStreamRef = useRef<string | null>(null);
+  /** Encoded passthrough at the relay position; null = re-encode only. */
+  const relayControllerRef = useRef<ScreenRelayController | null>(null);
+  /** Viewer-side stall watch: flat framesDecoded turns into a note upstream. */
+  const screenStallRef = useRef<{ frames: number | null; strikes: number }>({
+    frames: null,
+    strikes: 0,
+  });
   /** AV1-first when hardware-encodable at the current preset; null = browser default. */
   const screenCodecsRef = useRef<RTCRtpCodec[] | null>(null);
   /** Imported once per session from options.roomKey; survives resumes. */
@@ -165,6 +174,8 @@ export function useRoomSession(options: JoinOptions) {
 
   /** Undoes the relay role: stops forwarding without touching the remote track. */
   const teardownRelay = useCallback(() => {
+    relayControllerRef.current?.close();
+    relayControllerRef.current = null;
     const forwarded = forwardedTrackRef.current;
     if (forwarded) {
       meshRef.current?.removeLocalTrack(forwarded);
@@ -224,20 +235,34 @@ export function useRoomSession(options: JoinOptions) {
       stream.removeTrack(forwarded);
       forwardedTrackRef.current = null;
     }
-    if (parentTrack && forwardedTrackRef.current !== parentTrack) {
+    if (parentTrack && route.source && forwardedTrackRef.current !== parentTrack) {
       stream.addTrack(parentTrack);
       forwardedTrackRef.current = parentTrack;
-      // A relay re-encodes: the codec gate (hardware AV1 or default) is its own.
+      if (!relayControllerRef.current && ScreenRelayController.supported()) {
+        relayControllerRef.current = new ScreenRelayController(mesh);
+      }
+      const controller = relayControllerRef.current;
+      // Passthrough wants the children on the upstream's codec, and the
+      // preference must land in the same tick as addTrack (see addSender).
+      // Without a controller, a relay re-encodes and the codec gate
+      // (hardware AV1 or default) is its own.
+      const pinned = controller?.childCodecPreferences(
+        route.source.id,
+        parentTrack,
+        screenCodecsRef.current !== null,
+      );
       mesh.addLocalTrack(
         parentTrack,
         stream,
         relayEncoding(route),
         route.children,
-        screenCodecsRef.current,
+        pinned ?? screenCodecsRef.current,
       );
-    } else if (parentTrack) {
+      controller?.sync(route.source.id, parentTrack, route.children);
+    } else if (parentTrack && route.source) {
       mesh.setTrackTargets(parentTrack, route.children);
       mesh.setTrackEncoding(parentTrack, relayEncoding(route));
+      relayControllerRef.current?.sync(route.source.id, parentTrack, route.children);
     }
   }, [screenEncoding, relayEncoding, teardownRelay]);
 
@@ -316,6 +341,9 @@ export function useRoomSession(options: JoinOptions) {
             }
             // Our tree role arrives in the screen-route the server re-emits.
           } else {
+            // A fresh seat means a fresh mesh: any relay wiring (forward
+            // stream, passthrough pipe) belonged to the old one.
+            teardownRelay();
             meshRef.current?.close();
             const mesh = new Mesh(
               message.selfId,
@@ -347,9 +375,17 @@ export function useRoomSession(options: JoinOptions) {
           meshRef.current?.removePeer(message.id);
           setPeers((current) => current.filter((p) => p.id !== message.id));
           return;
-        case 'signal':
+        case 'signal': {
+          // Relay-health notes ride the same opaque envelope as SDP/ICE
+          // (the server never inspects `data`): peel ours off, let the
+          // mesh no-op anything a newer client may add.
+          if (extractRelayNote(message.data)) {
+            relayControllerRef.current?.handleStallNote(message.from);
+            return;
+          }
           void meshRef.current?.handleSignal(message.from, message.data);
           return;
+        }
         case 'chat': {
           // Opening the envelope is async; the queue keeps arrival order.
           const { from, ts } = message;
@@ -377,7 +413,7 @@ export function useRoomSession(options: JoinOptions) {
               pendingScreenRef.current = null;
               localScreenRef.current = stream;
               setLocalScreen(stream);
-              for (const track of stream.getTracks()) {
+              for (const track of stream.getVideoTracks()) {
                 // Targets start empty: the screen-route right behind says
                 // who to send to — the children in the tree, never the
                 // whole room.
@@ -388,6 +424,15 @@ export function useRoomSession(options: JoinOptions) {
                   [],
                   screenCodecsRef.current,
                 );
+              }
+              for (const track of stream.getAudioTracks()) {
+                // System audio goes out like the mic — straight to every
+                // peer, never through the tree: ~128 kbps × 7 is nothing
+                // next to one video hop, and it skips the relays' latency.
+                // Riding the display stream tags it: viewers key on the
+                // announced streamId to exclude it from camera tiles and
+                // play it beside the (muted) stage video.
+                meshRef.current?.addLocalTrack(track, stream);
               }
               syncScreenTree();
             }
@@ -492,6 +537,9 @@ export function useRoomSession(options: JoinOptions) {
     }
     const sampler = new StatsSampler();
     let stopped = false;
+    // New sampler, possibly a new screen source: stale frame counts would
+    // compare across different receivers.
+    screenStallRef.current = { frames: null, strikes: 0 };
 
     const sample = async () => {
       const mesh = meshRef.current;
@@ -519,9 +567,38 @@ export function useRoomSession(options: JoinOptions) {
         : watching && screenSource
           ? await sampler.receivingScreen(mesh, screenSource.id, watching)
           : null;
-      if (!stopped) {
-        setScreenStats(stats);
+      if (stopped) {
+        return;
       }
+      if (stats?.direction === 'receiving') {
+        stats.relayMode = relayControllerRef.current?.modeSummary() ?? null;
+      }
+      // Self-healing for encoded passthrough: a parent forwards bytes it
+      // cannot see are dead. framesDecoded flat with no bytes arriving for
+      // two samples (~4 s) while the tree says we should be receiving —
+      // tell the parent, which demotes this child to re-encode. A static
+      // screen can trip this too; the cost is falling back to today's
+      // path, never worse.
+      const stall = screenStallRef.current;
+      if (stats?.direction === 'receiving' && screenSource) {
+        const frames = stats.framesDecoded;
+        const stalled =
+          frames !== null && stall.frames === frames && (stats.kbps ?? 0) <= 1;
+        stall.strikes = stalled ? stall.strikes + 1 : 0;
+        stall.frames = frames;
+        if (stall.strikes >= 2) {
+          stall.strikes = 0;
+          signalingRef.current?.send({
+            t: 'signal',
+            to: screenSource.id,
+            data: makeRelayNote(),
+          });
+        }
+      } else {
+        stall.frames = null;
+        stall.strikes = 0;
+      }
+      setScreenStats(stats);
     };
 
     void sample();
@@ -650,7 +727,10 @@ export function useRoomSession(options: JoinOptions) {
       const preset = presetById(qualityRef.current);
       const stream = await navigator.mediaDevices.getDisplayMedia({
         video: screenConstraints(preset),
-        audio: false,
+        // Only where the desktop shell says the OS can loop system audio
+        // back (Windows): elsewhere the request adds a confusing checkbox
+        // or silently yields nothing.
+        audio: desktopSystemAudio(),
       });
       pendingScreenRef.current = stream;
       const track = stream.getVideoTracks()[0];

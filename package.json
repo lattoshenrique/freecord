@@ -6,7 +6,8 @@
   "workspaces": [
     "server",
     "web",
-    "worker"
+    "worker",
+    "relay"
   ],
   "scripts": {
     "dev:server": "npm run dev --workspace server",

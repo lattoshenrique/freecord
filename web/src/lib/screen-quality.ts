@@ -11,6 +11,8 @@
  * id (`quality.<id>.label` / `quality.<id>.hint`) — never hardcoded here.
  */
 
+import { isDesktopApp } from './platform';
+
 export type ScreenQualityId = 'sharp' | 'balanced' | 'smooth';
 
 export interface ScreenQualityPreset {
@@ -66,13 +68,31 @@ export const DEFAULT_SCREEN_QUALITY: ScreenQualityId = 'balanced';
  */
 export const SCREEN_UPLINK_BUDGET = 10_000_000;
 
+/**
+ * The desktop app gets a bigger appetite: someone who installed the app is
+ * on a machine and link a browser tab cannot assume — and Electron's capture
+ * pipeline sustains it. Browsers keep the conservative numbers. Applied
+ * inside presetById/bitrateFor so every call site follows automatically;
+ * the exported presets/budget keep their browser semantics.
+ */
+const DESKTOP_UPLINK_BUDGET = 25_000_000;
+const DESKTOP_BITRATE_BOOST = 2;
+
+export function screenUplinkBudget(): number {
+  return isDesktopApp() ? DESKTOP_UPLINK_BUDGET : SCREEN_UPLINK_BUDGET;
+}
+
 export function presetById(id: ScreenQualityId): ScreenQualityPreset {
-  return SCREEN_QUALITY_PRESETS.find((preset) => preset.id === id) ?? SCREEN_QUALITY_PRESETS[1]!;
+  const preset =
+    SCREEN_QUALITY_PRESETS.find((candidate) => candidate.id === id) ?? SCREEN_QUALITY_PRESETS[1]!;
+  return isDesktopApp()
+    ? { ...preset, maxBitrate: preset.maxBitrate * DESKTOP_BITRATE_BOOST }
+    : preset;
 }
 
 /** Per-peer cap: the lower of the preset's cap and the uplink share. */
 export function bitrateFor(preset: ScreenQualityPreset, viewerCount: number): number {
-  return Math.min(preset.maxBitrate, Math.floor(SCREEN_UPLINK_BUDGET / Math.max(1, viewerCount)));
+  return Math.min(preset.maxBitrate, Math.floor(screenUplinkBudget() / Math.max(1, viewerCount)));
 }
 
 export function screenConstraints(preset: ScreenQualityPreset): MediaTrackConstraints {

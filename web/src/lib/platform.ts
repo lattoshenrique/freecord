@@ -145,3 +145,18 @@ export async function detectPlatform(probe: PlatformProbe = browserProbe()): Pro
 export function isDesktopApp(): boolean {
   return Boolean((window as { freecordDesktop?: unknown }).freecordDesktop);
 }
+
+/**
+ * The desktop preload's capability contract. The shell is built separately,
+ * so the web side never assumes the bridge's shape: absent object, absent
+ * field, wrong type — all mean "no".
+ */
+interface DesktopBridge {
+  capabilities?: { systemAudio?: unknown };
+}
+
+/** True where the shell can loop system audio into a screen capture (Windows). */
+export function desktopSystemAudio(): boolean {
+  const bridge = (window as { freecordDesktop?: DesktopBridge }).freecordDesktop;
+  return bridge?.capabilities?.systemAudio === true;
+}

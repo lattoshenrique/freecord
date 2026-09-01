@@ -58,6 +58,11 @@ function ScreenStatsBar({ stats }: { stats: ScreenStats }) {
   if (stats.kbps !== null) {
     parts.push(formatBitrate(stats.kbps));
   }
+  if (stats.relayMode !== null) {
+    // Debug telemetry, not copy: which forwarding path this relay's
+    // children ride (encoded passthrough vs re-encode).
+    parts.push(stats.relayMode);
+  }
   if (parts.length === 0 && stats.rttMs === null) {
     return null;
   }
@@ -107,7 +112,6 @@ function QualityMenu({
             <span className="quality-option-hint">{t(`quality.${preset.id}.hint` as MessageKey)}</span>
           </button>
         ))}
-        <p className="quality-menu-note">{t('quality.note')}</p>
       </div>
     </>
   );
@@ -464,10 +468,23 @@ export default function RoomView({
       ? (session.peers.find((p) => p.id === session.screenSource?.id)?.name ?? 'relay')
       : null;
 
+  // System audio arrives straight from the SHARER (mesh, like the mic), in
+  // the display stream announced by screen-started — even when the video
+  // comes through a relay. The stage <video> is muted, so the audio needs
+  // its own audible sink.
+  const screenAudioStream = someoneElseSharing
+    ? (session.mesh
+        ?.getPeerStreams(session.screen!.id)
+        .find(
+          (stream) => stream.id === session.screen?.streamId && stream.getAudioTracks().length > 0,
+        ) ?? null)
+    : null;
+
   const tileStyle = !screenStream && grid.size ? { width: grid.size.width, height: grid.size.height } : undefined;
 
   return (
     <div className="room-layout">
+      {screenAudioStream && <AudioSink stream={screenAudioStream} />}
       <header className="room-header">
         <div className="room-title">
           <h1>{room.displayName || t('room.unnamed')}</h1>

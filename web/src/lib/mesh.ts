@@ -41,6 +41,12 @@ export interface TrackEncoding {
   maxBitrate: number;
   maxFramerate: number;
   degradationPreference: RTCDegradationPreference;
+  /**
+   * >1 shrinks the encode before it leaves. Used when a sender's encoder
+   * output is discarded (encoded-relay passthrough): the encoder keeps
+   * running as a cadence donor, so its cost is crushed instead of paid.
+   */
+  scaleResolutionDownBy?: number;
 }
 
 interface LocalTrack {
@@ -71,6 +77,12 @@ export class Mesh {
   private readonly iceServers: RTCIceServer[];
   private readonly peers = new Map<string, PeerState>();
   private readonly localTracks = new Map<MediaStreamTrack, LocalTrack>();
+  /**
+   * Per-peer exceptions to a track's encoding — the screen relay crushes
+   * only the children riding passthrough while the others keep the full
+   * re-encode cap. Consulted before the track-level encoding.
+   */
+  private readonly encodingOverrides = new Map<MediaStreamTrack, Map<string, TrackEncoding>>();
   private readonly listeners = new Set<() => void>();
   private closed = false;
 
@@ -125,7 +137,7 @@ export class Mesh {
     this.localTracks.set(track, local);
     for (const [peerId, state] of this.peers) {
       if (targetSet === null || targetSet.has(peerId)) {
-        this.addSender(state.pc, track, local);
+        this.addSender(peerId, state.pc, track, local);
       }
     }
   }
@@ -135,7 +147,12 @@ export class Mesh {
    * must land on the transceiver before `negotiationneeded` fires, or the
    * first offer goes out with the default order.
    */
-  private addSender(pc: RTCPeerConnection, track: MediaStreamTrack, local: LocalTrack): void {
+  private addSender(
+    peerId: string,
+    pc: RTCPeerConnection,
+    track: MediaStreamTrack,
+    local: LocalTrack,
+  ): void {
     const sender = pc.addTrack(track, local.stream);
     if (local.codecs) {
       const transceiver = pc.getTransceivers().find((t) => t.sender === sender);
@@ -145,7 +162,7 @@ export class Mesh {
         // codec list rejected by this browser: negotiation falls back
       }
     }
-    void this.applyEncoding(pc, track);
+    void this.applyEncoding(peerId, pc, track);
   }
 
   /**
@@ -162,9 +179,10 @@ export class Mesh {
     for (const [peerId, state] of this.peers) {
       const sender = state.pc.getSenders().find((s) => s.track === track);
       if (targetSet.has(peerId) && !sender) {
-        this.addSender(state.pc, track, local);
+        this.addSender(peerId, state.pc, track, local);
       } else if (!targetSet.has(peerId) && sender) {
         state.pc.removeTrack(sender);
+        this.encodingOverrides.get(track)?.delete(peerId);
       }
     }
   }
@@ -181,13 +199,48 @@ export class Mesh {
       return;
     }
     local.encoding = encoding;
-    for (const state of this.peers.values()) {
-      void this.applyEncoding(state.pc, track);
+    for (const [peerId, state] of this.peers) {
+      void this.applyEncoding(peerId, state.pc, track);
     }
   }
 
-  private async applyEncoding(pc: RTCPeerConnection, track: MediaStreamTrack): Promise<void> {
-    const encoding = this.localTracks.get(track)?.encoding;
+  /**
+   * Replaces (or clears, with null) one peer's exception to the track's
+   * encoding. Survives later setTrackEncoding calls: the base cap can move
+   * with quality/route changes while a crushed passthrough child stays
+   * crushed.
+   */
+  setPeerEncodingOverride(
+    peerId: string,
+    track: MediaStreamTrack,
+    encoding: TrackEncoding | null,
+  ): void {
+    let overrides = this.encodingOverrides.get(track);
+    if (encoding === null) {
+      overrides?.delete(peerId);
+      if (overrides?.size === 0) {
+        this.encodingOverrides.delete(track);
+      }
+    } else {
+      if (!overrides) {
+        overrides = new Map();
+        this.encodingOverrides.set(track, overrides);
+      }
+      overrides.set(peerId, encoding);
+    }
+    const state = this.peers.get(peerId);
+    if (state) {
+      void this.applyEncoding(peerId, state.pc, track);
+    }
+  }
+
+  private async applyEncoding(
+    peerId: string,
+    pc: RTCPeerConnection,
+    track: MediaStreamTrack,
+  ): Promise<void> {
+    const encoding =
+      this.encodingOverrides.get(track)?.get(peerId) ?? this.localTracks.get(track)?.encoding;
     const sender = pc.getSenders().find((s) => s.track === track);
     if (!encoding || !sender) {
       return;
@@ -200,6 +253,7 @@ export class Mesh {
     for (const layer of parameters.encodings) {
       layer.maxBitrate = encoding.maxBitrate;
       layer.maxFramerate = encoding.maxFramerate;
+      layer.scaleResolutionDownBy = encoding.scaleResolutionDownBy ?? 1;
     }
     parameters.degradationPreference = encoding.degradationPreference;
     try {
@@ -211,6 +265,7 @@ export class Mesh {
 
   removeLocalTrack(track: MediaStreamTrack): void {
     this.localTracks.delete(track);
+    this.encodingOverrides.delete(track);
     for (const state of this.peers.values()) {
       const sender = state.pc.getSenders().find((s) => s.track === track);
       if (sender) {
@@ -236,7 +291,7 @@ export class Mesh {
 
     for (const [track, local] of this.localTracks) {
       if (local.targets === null || local.targets.has(peerId)) {
-        this.addSender(pc, track, local);
+        this.addSender(peerId, pc, track, local);
       }
     }
     // With no local media (permission denied), we still need to negotiate
@@ -343,6 +398,9 @@ export class Mesh {
     if (state) {
       state.pc.close();
       this.peers.delete(peerId);
+      for (const overrides of this.encodingOverrides.values()) {
+        overrides.delete(peerId);
+      }
       this.notify();
     }
   }

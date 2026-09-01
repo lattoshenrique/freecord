@@ -17,6 +17,13 @@ export interface ScreenStats {
   height: number | null;
   kbps: number | null;
   rttMs: number | null;
+  /** Receiving side only: cumulative decoded frames — flat readings mean a stall. */
+  framesDecoded: number | null;
+  /**
+   * Set when this peer relays the screen onward: which forwarding path its
+   * children ride — encoded passthrough, the re-encode fallback, or both.
+   */
+  relayMode: 'passthrough' | 'reencode' | 'mixed' | null;
 }
 
 interface SenderSample {
@@ -120,6 +127,8 @@ export class StatsSampler {
         height: num(stat.frameHeight),
         kbps: this.kbps(`recv:${peerId}`, num(stat.bytesReceived), at),
         rttMs: candidatePairRtt(report),
+        framesDecoded: num(stat.framesDecoded),
+        relayMode: null,
       };
     }
     return null;
@@ -177,6 +186,8 @@ export class StatsSampler {
       height: heights.length ? Math.min(...heights) : null,
       kbps: kbps.length ? kbps.reduce((total, value) => total + value, 0) : null,
       rttMs: rtts.length ? Math.max(...rtts) : null,
+      framesDecoded: null,
+      relayMode: null,
     };
   }
 }
