@@ -1,0 +1,115 @@
+# Freecord — https://freecord.lattoshenrique.workers.dev
+#
+# Room URLs are secret by design: the unguessable slug in /r/<slug> IS the
+# access credential, so an indexed room is a world-readable room. Every agent
+# below is disallowed from /r/, and that rule is repeated per-agent rather
+# than left to a wildcard, because a crawler that matches its own name-block
+# ignores the * block entirely.
+#
+# Note this file is a request, not a control. The enforcing layer is the
+# X-Robots-Tag header on /r/ responses; see docs/architecture.md.
+
+User-agent: *
+Allow: /$
+Allow: /community
+Disallow: /r/
+
+# --- Search engines -------------------------------------------------------
+
+User-agent: Googlebot
+Allow: /$
+Allow: /community
+Disallow: /r/
+
+User-agent: Bingbot
+Allow: /$
+Allow: /community
+Disallow: /r/
+
+User-agent: DuckDuckBot
+Allow: /$
+Allow: /community
+Disallow: /r/
+
+# --- Answer engines and model crawlers ------------------------------------
+#
+# Welcome on the public pages. This project is open source and being found by
+# someone asking an assistant "free group video call without an account" is
+# exactly the point. The room rule still applies to all of them.
+
+User-agent: GPTBot
+Allow: /$
+Allow: /community
+Disallow: /r/
+
+User-agent: OAI-SearchBot
+Allow: /$
+Allow: /community
+Disallow: /r/
+
+User-agent: ChatGPT-User
+Allow: /$
+Allow: /community
+Disallow: /r/
+
+User-agent: ClaudeBot
+Allow: /$
+Allow: /community
+Disallow: /r/
+
+User-agent: Claude-User
+Allow: /$
+Allow: /community
+Disallow: /r/
+
+User-agent: Claude-SearchBot
+Allow: /$
+Allow: /community
+Disallow: /r/
+
+User-agent: Google-Extended
+Allow: /$
+Allow: /community
+Disallow: /r/
+
+User-agent: PerplexityBot
+Allow: /$
+Allow: /community
+Disallow: /r/
+
+User-agent: Perplexity-User
+Allow: /$
+Allow: /community
+Disallow: /r/
+
+User-agent: Applebot
+Allow: /$
+Allow: /community
+Disallow: /r/
+
+User-agent: Applebot-Extended
+Allow: /$
+Allow: /community
+Disallow: /r/
+
+User-agent: meta-externalagent
+Allow: /$
+Allow: /community
+Disallow: /r/
+
+User-agent: Amazonbot
+Allow: /$
+Allow: /community
+Disallow: /r/
+
+User-agent: Bytespider
+Allow: /$
+Allow: /community
+Disallow: /r/
+
+User-agent: CCBot
+Allow: /$
+Allow: /community
+Disallow: /r/
+
+Sitemap: https://freecord.lattoshenrique.workers.dev/sitemap.xml

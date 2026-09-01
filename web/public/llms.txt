@@ -1,0 +1,91 @@
+# Freecord
+
+> Free, open source group voice, video, text chat and screen sharing that runs
+> in a browser with no account. One person creates a room, shares its link, and
+> anyone with the link joins as a guest. Audio, video and screen travel
+> directly between participants over WebRTC and are end-to-end encrypted, so
+> they never pass through a server.
+
+Freecord is a working application, not a demo, and it is MIT licensed. It is
+built and maintained by Henrique Brito. Live at
+https://freecord.lattoshenrique.workers.dev and developed in the open at
+https://github.com/lattoshenrique/freecord.
+
+## What it does
+
+- **Group voice and video calls** in the browser, up to 8 people per room.
+- **Screen sharing**, one person at a time, with three quality presets: Sharp
+  (for code and text), Balanced, and Smooth (for video and games).
+- **Text chat** with Markdown, ephemeral — messages disappear with the room.
+- **Desktop apps** for macOS (Intel and Apple Silicon), Windows and Linux.
+- **Interface in five languages**: English, Portuguese, Spanish, Chinese and
+  Japanese, auto-detected from the browser.
+
+## What makes it different
+
+- **No account, ever.** No signup, no email, no password. You create a room and
+  send the link. The link is the credential.
+- **Media never touches a server.** Voice, video and screen sharing flow
+  browser-to-browser in a peer-to-peer mesh over native WebRTC, encrypted end
+  to end by default (DTLS-SRTP). The server only relays signaling messages and
+  holds room state, so it is not technically capable of watching or recording a
+  call.
+- **Nothing is stored.** Chat is ephemeral by design. There is no content
+  storage, no transcript, no recording, no analytics on conversations.
+- **No vendor and no third-party SDK.** No media provider, no external
+  credential. The entire signaling protocol lives in the repository, and the
+  whole service runs on free-tier infrastructure.
+
+## Honest limits
+
+Stated plainly, because they are engineering facts rather than marketing:
+
+- **8 people per room.** This is a real limit of a peer-to-peer mesh, not a
+  paywall or a preference: each participant uploads a copy of their stream to
+  every other participant, so upload bandwidth becomes the bottleneck past
+  roughly eight people with video. Screen video is an exception — it
+  propagates through a relay tree with a fanout of 3, so its quality no longer
+  degrades as the room fills.
+- **A small share of restrictive networks cannot connect media.** Some
+  corporate networks and symmetric CGNAT need a TURN relay to establish a
+  peer-to-peer path. Text chat still works on those networks, because it
+  travels over the signaling WebSocket rather than peer-to-peer.
+- **Chat does not survive a reload.** That is the privacy decision, not an
+  oversight.
+- **Rooms are disposable.** A room with nobody in it for 15 minutes ceases to
+  exist and its link stops working.
+
+## Privacy
+
+There are no user accounts, so there is no user data. Rooms hold a display name
+someone typed and nothing else. Chat content is never written to storage. Media
+is end-to-end encrypted between participants. Room links are unguessable random
+slugs (72 bits of entropy), are never indexed, and are excluded from the
+sitemap and from crawling.
+
+## Documentation
+
+- [Architecture](https://github.com/lattoshenrique/freecord/blob/main/docs/architecture.md):
+  the detailed technical document — the peer-to-peer mesh and its real costs,
+  the screen relay tree, how signaling works, how a room expires, the two
+  server edges over one shared core, and the deliberate debts of the MVP.
+- [README](https://github.com/lattoshenrique/freecord/blob/main/README.md):
+  the stack, how to run it locally, and how to deploy it.
+- [Contributing](https://github.com/lattoshenrique/freecord/blob/main/CONTRIBUTING.md):
+  setup, the checks a change has to pass, and what gets a pull request sent
+  back.
+- [Code of conduct](https://github.com/lattoshenrique/freecord/blob/main/CODE_OF_CONDUCT.md)
+- [License](https://github.com/lattoshenrique/freecord/blob/main/LICENSE): MIT.
+- [Community page](https://freecord.lattoshenrique.workers.dev/community)
+- [Issues](https://github.com/lattoshenrique/freecord/issues): bug reports and
+  feature requests.
+- [Desktop downloads](https://github.com/lattoshenrique/freecord/releases/latest)
+
+## How it is built
+
+React and Vite on the client, with the WebRTC mesh hand-written rather than
+taken from an SDK. The server core is transport-independent TypeScript with two
+edges over it: a Node/Fastify process for development, and a Cloudflare Worker
+with one Durable Object per room, which is what serves production. The desktop
+app is an Electron shell around the production page that adds a native screen
+picker and system media permissions.

@@ -1,9 +1,173 @@
 <!doctype html>
-<html lang="pt-BR">
+<!--
+  The document language is en-US and the copy below is hardcoded English on
+  purpose. This is the one file the i18n layer cannot reach: a crawler reads
+  the HTML before React runs, so whatever is here is what search engines and
+  language models see. en-US is the source-of-truth locale; the interface
+  itself localizes at runtime and <RouteMeta /> rewrites the title and
+  description once the app mounts.
+-->
+<html lang="en-US">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Freecord — salas de voz, vídeo e tela</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <title>Freecord — free group voice, video and screen sharing, no signup</title>
+    <meta
+      name="description"
+      content="Create a room, share the link, talk. Freecord is free and open source group voice, video, chat and screen sharing that works in the browser with no account. Media is peer-to-peer and end-to-end encrypted — it never touches a server."
+    />
+    <link rel="canonical" href="https://freecord.lattoshenrique.workers.dev/" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="theme-color" content="#0b0d12" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="author" content="Henrique Brito" />
+
+    <!-- Open Graph: what a link to this page looks like when it is pasted. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Freecord" />
+    <meta property="og:title" content="Freecord — free group voice, video and screen sharing, no signup" />
+    <meta
+      property="og:description"
+      content="Create a room, share the link, talk. Free and open source, no account, and your voice, video and screen never touch a server."
+    />
+    <meta property="og:url" content="https://freecord.lattoshenrique.workers.dev/" />
+    <meta property="og:image" content="https://freecord.lattoshenrique.workers.dev/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Freecord — guest-first rooms with voice, video, chat and screen sharing" />
+    <!--
+      The app serves one URL and picks the locale from the browser, so there
+      are no per-locale URLs and no honest hreflang to declare. These say which
+      languages the interface speaks, which is the true statement.
+    -->
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:locale:alternate" content="pt_BR" />
+    <meta property="og:locale:alternate" content="es_ES" />
+    <meta property="og:locale:alternate" content="zh_CN" />
+    <meta property="og:locale:alternate" content="ja_JP" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Freecord — free group voice, video and screen sharing, no signup" />
+    <meta
+      name="twitter:description"
+      content="Create a room, share the link, talk. Free and open source, no account, and your media never touches a server."
+    />
+    <meta name="twitter:image" content="https://freecord.lattoshenrique.workers.dev/og.png" />
+
+    <!--
+      Structured data. Search engines use it for rich results; language models
+      use it to answer questions about what this is, which is most of what GEO
+      actually means. Keep it factually identical to the prose — a model that
+      catches the two disagreeing trusts neither.
+    -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "@id": "https://freecord.lattoshenrique.workers.dev/#website",
+            "url": "https://freecord.lattoshenrique.workers.dev/",
+            "name": "Freecord",
+            "description": "Guest-first rooms with voice, video, chat and screen sharing. No signup, peer-to-peer media, no vendor.",
+            "inLanguage": ["en-US", "pt-BR", "es", "zh-CN", "ja"],
+            "publisher": { "@id": "https://freecord.lattoshenrique.workers.dev/#person" }
+          },
+          {
+            "@type": "Person",
+            "@id": "https://freecord.lattoshenrique.workers.dev/#person",
+            "name": "Henrique Brito",
+            "url": "https://github.com/lattoshenrique"
+          },
+          {
+            "@type": "SoftwareApplication",
+            "@id": "https://freecord.lattoshenrique.workers.dev/#app",
+            "name": "Freecord",
+            "applicationCategory": "CommunicationApplication",
+            "applicationSubCategory": "Video conferencing",
+            "operatingSystem": "Web browser, macOS, Windows, Linux",
+            "url": "https://freecord.lattoshenrique.workers.dev/",
+            "downloadUrl": "https://github.com/lattoshenrique/freecord/releases/latest",
+            "softwareVersion": "0.1.0",
+            "license": "https://opensource.org/licenses/MIT",
+            "isAccessibleForFree": true,
+            "author": { "@id": "https://freecord.lattoshenrique.workers.dev/#person" },
+            "description": "Free and open source group voice, video, text chat and screen sharing in the browser. Anyone creates a room and shares the link; guests join with no account. Media travels peer-to-peer over WebRTC and is end-to-end encrypted, so it never passes through a server. Rooms hold up to 8 people, chat is ephemeral, and one person shares their screen at a time.",
+            "featureList": [
+              "Group voice calls with no signup",
+              "Group video calls in the browser",
+              "Screen sharing with selectable quality presets",
+              "Ephemeral text chat with Markdown",
+              "Peer-to-peer media, end-to-end encrypted",
+              "Desktop apps for macOS, Windows and Linux",
+              "Interface in English, Portuguese, Spanish, Chinese and Japanese"
+            ],
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD"
+            },
+            "codeRepository": "https://github.com/lattoshenrique/freecord"
+          },
+          {
+            "@type": "FAQPage",
+            "@id": "https://freecord.lattoshenrique.workers.dev/#faq",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "Do I need an account to use Freecord?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "No. You create a room and share its link, and anyone with the link joins as a guest. There is no signup, no email and no password. The link itself is the credential."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Is Freecord free?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes, and it is open source under the MIT license. You can read the code, fork it, or run your own instance."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Does my voice or video go through a server?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "No. Voice, video and screen sharing travel directly between browsers over WebRTC in a peer-to-peer mesh, encrypted end to end by default. The server only carries signaling and room state, so it could not watch or record you even if it wanted to."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "How many people fit in a room?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Eight. That is a real limit of a peer-to-peer mesh rather than a preference: each participant uploads a copy of their stream to every other participant, so upload bandwidth becomes the bottleneck past roughly eight people with video."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Are chat messages stored?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "No. Chat is ephemeral by design. Messages live in the room and disappear with it, and nothing is written to storage."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Is there a desktop app?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes, for macOS (Intel and Apple Silicon), Windows and Linux. It wraps the same page and adds a native screen picker and system media permissions, which a browser cannot provide."
+                }
+              }
+            ]
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
