@@ -362,6 +362,49 @@ button {
   object-fit: contain;
 }
 
+/* Tela cheia: o palco inteiro vira a tela, sem cantos nem sombra. */
+.screen-stage:fullscreen,
+.screen-stage:-webkit-full-screen {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.screen-fullscreen {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px);
+  color: #fff;
+  cursor: pointer;
+  opacity: 0.55;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+
+.screen-stage:hover .screen-fullscreen,
+.screen-fullscreen:hover,
+.screen-fullscreen:focus-visible {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.75);
+}
+
+/* Sem hover (toque) o botão precisa estar sempre visível. */
+@media (hover: none) {
+  .screen-fullscreen {
+    opacity: 1;
+  }
+}
+
 .screen-overlay {
   position: absolute;
   left: 0.75rem;
@@ -606,31 +649,77 @@ button {
   margin-bottom: 0.15rem;
 }
 
-.chat-form {
-  display: flex;
-  gap: 0.5rem;
-  padding: 0.75rem;
+.chat-composer {
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.chat-form input {
+.chat-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.1rem;
+  padding: 0.4rem 0.6rem 0;
+}
+
+.chat-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.chat-tool:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text);
+}
+
+.chat-tool:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.chat-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem 0.6rem;
+}
+
+.chat-input {
   flex: 1;
   min-width: 0;
+  /* A altura é calculada em JS conforme o conteúdo; o teto vira rolagem. */
+  max-height: 132px;
+  resize: none;
   background: rgba(0, 0, 0, 0.3);
   border: 1px solid var(--glass-border);
-  border-radius: 999px;
+  border-radius: 16px;
   color: var(--text);
   padding: 0.5rem 0.9rem;
+  font-family: inherit;
   font-size: 0.9rem;
+  line-height: 1.4;
   transition: border-color 0.15s ease;
 }
 
-.chat-form input:focus {
+.chat-input::placeholder {
+  color: var(--muted);
+}
+
+.chat-input:focus {
   outline: none;
   border-color: var(--accent);
 }
 
-.chat-form button {
+.chat-send {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -648,15 +737,15 @@ button {
     opacity 0.15s ease;
 }
 
-.chat-form button:hover:not(:disabled) {
+.chat-send:hover:not(:disabled) {
   background: var(--accent-hover);
 }
 
-.chat-form button:active:not(:disabled) {
+.chat-send:active:not(:disabled) {
   box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.3);
 }
 
-.chat-form button:disabled {
+.chat-send:disabled {
   opacity: 0.45;
   cursor: default;
 }

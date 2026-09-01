@@ -113,12 +113,83 @@ export function CloseIcon() {
   );
 }
 
+export function FullscreenIcon() {
+  return (
+    <svg {...base} width={18} height={18}>
+      <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
+    </svg>
+  );
+}
+
+export function ExitFullscreenIcon() {
+  return (
+    <svg {...base} width={18} height={18}>
+      <path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" />
+    </svg>
+  );
+}
+
 export function SlidersIcon() {
   return (
     <svg {...base}>
       <path d="M4 8h9M17 8h3M4 16h3M11 16h9" />
       <circle cx="15" cy="8" r="2.2" />
       <circle cx="9" cy="16" r="2.2" />
+    </svg>
+  );
+}
+
+const tool: SVGProps<SVGSVGElement> = { ...base, width: 15, height: 15 };
+
+export function BoldIcon() {
+  return (
+    <svg {...tool}>
+      <path d="M7 4h5.5a3.5 3.5 0 0 1 0 7H7zM7 11h6a3.5 3.5 0 0 1 0 7H7z" />
+    </svg>
+  );
+}
+
+export function ItalicIcon() {
+  return (
+    <svg {...tool}>
+      <path d="M15 4h-5M14 4l-4 16M14 20H9" />
+    </svg>
+  );
+}
+
+export function CodeIcon() {
+  return (
+    <svg {...tool}>
+      <path d="M9 7l-5 5 5 5M15 7l5 5-5 5" />
+    </svg>
+  );
+}
+
+export function StrikeIcon() {
+  return (
+    <svg {...tool}>
+      <path d="M5 12h14" />
+      <path d="M8 8a3.5 3.5 0 0 1 3.5-3h1A3.5 3.5 0 0 1 16 8M16 16a3.5 3.5 0 0 1-3.5 3h-1A3.5 3.5 0 0 1 8 16" />
+    </svg>
+  );
+}
+
+export function ListIcon() {
+  return (
+    <svg {...tool}>
+      <path d="M9 7h11M9 12h11M9 17h11" />
+      <circle cx="4.5" cy="7" r="1.1" fill="currentColor" stroke="none" />
+      <circle cx="4.5" cy="12" r="1.1" fill="currentColor" stroke="none" />
+      <circle cx="4.5" cy="17" r="1.1" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+export function QuoteIcon() {
+  return (
+    <svg {...tool}>
+      <path d="M5 5v14" />
+      <path d="M10 8h9M10 12h9M10 16h6" />
     </svg>
   );
 }

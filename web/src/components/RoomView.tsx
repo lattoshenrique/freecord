@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import LiquidGlass from 'liquid-glass-react';
 import { Link } from 'react-router-dom';
 import type { RoomSummary } from '../api';
@@ -7,17 +7,19 @@ import { playMessageChime } from '../lib/notification-sound';
 import { SCREEN_QUALITY_PRESETS, type ScreenQualityId } from '../lib/screen-quality';
 import type { ScreenStats } from '../lib/stats';
 import { useRoomSession, type JoinOptions } from '../lib/use-room';
+import ChatComposer from './ChatComposer';
 import InviteButton from './InviteButton';
 import {
   CamIcon,
   CamOffIcon,
   ChatIcon,
   CloseIcon,
+  ExitFullscreenIcon,
+  FullscreenIcon,
   LeaveIcon,
   MicIcon,
   MicOffIcon,
   ScreenIcon,
-  SendIcon,
   SlidersIcon,
 } from './icons';
 
@@ -143,12 +145,15 @@ function MediaView({
   stream,
   muted,
   className,
+  videoRef,
 }: {
   stream: MediaStream;
   muted: boolean;
   className?: string;
+  videoRef?: RefObject<HTMLVideoElement | null>;
 }) {
-  const ref = useRef<HTMLVideoElement>(null);
+  const ownRef = useRef<HTMLVideoElement>(null);
+  const ref = videoRef ?? ownRef;
   useEffect(() => {
     if (ref.current && ref.current.srcObject !== stream) {
       ref.current.srcObject = stream;
@@ -178,6 +183,69 @@ function avatarHue(name: string): number {
     hash = (hash * 31 + name.charCodeAt(i)) | 0;
   }
   return Math.abs(hash) % 360;
+}
+
+/* Prefixos WebKit: Safari (desktop e iOS) ainda não usa a API padrão. */
+type WebkitElement = HTMLElement & { webkitRequestFullscreen?: () => unknown };
+type WebkitDocument = Document & {
+  webkitFullscreenElement?: Element | null;
+  webkitExitFullscreen?: () => unknown;
+};
+type WebkitVideo = HTMLVideoElement & {
+  webkitEnterFullscreen?: () => void;
+  webkitSupportsFullscreen?: boolean;
+};
+
+function fullscreenElement(): Element | null {
+  const doc = document as WebkitDocument;
+  return document.fullscreenElement ?? doc.webkitFullscreenElement ?? null;
+}
+
+/**
+ * Tela cheia do palco de compartilhamento.
+ *
+ * Vai a tela cheia o CONTÊINER, não o <video>: assim os rótulos (quem
+ * compartilha, estatísticas) e o próprio botão continuam por cima da imagem.
+ * No Safari do iPhone, onde só <video> entra em tela cheia, cai para o
+ * webkitEnterFullscreen do vídeo — aí quem manda é o player nativo.
+ */
+function useFullscreen(
+  containerRef: RefObject<HTMLElement | null>,
+  videoRef: RefObject<HTMLVideoElement | null>,
+) {
+  const [active, setActive] = useState(() => fullscreenElement() !== null);
+
+  // Sai por Esc, pelo botão do navegador ou porque o elemento sumiu (a
+  // pessoa parou de compartilhar) — em todos os casos o estado vem do DOM.
+  useEffect(() => {
+    const sync = () => setActive(fullscreenElement() !== null);
+    document.addEventListener('fullscreenchange', sync);
+    document.addEventListener('webkitfullscreenchange', sync);
+    return () => {
+      document.removeEventListener('fullscreenchange', sync);
+      document.removeEventListener('webkitfullscreenchange', sync);
+    };
+  }, []);
+
+  const toggle = useCallback(() => {
+    const doc = document as WebkitDocument;
+    if (fullscreenElement()) {
+      void (document.exitFullscreen ? document.exitFullscreen() : doc.webkitExitFullscreen?.());
+      return;
+    }
+    const container = containerRef.current as WebkitElement | null;
+    if (container?.requestFullscreen) {
+      void container.requestFullscreen().catch(() => undefined);
+      return;
+    }
+    if (container?.webkitRequestFullscreen) {
+      void container.webkitRequestFullscreen();
+      return;
+    }
+    (videoRef.current as WebkitVideo | null)?.webkitEnterFullscreen?.();
+  }, [containerRef, videoRef]);
+
+  return { active, toggle };
 }
 
 const TILE_GAP = 12;
@@ -347,6 +415,10 @@ export default function RoomView({
     return () => window.removeEventListener('resize', measure);
   }, [chatOpen, unread]);
 
+  const stageRef = useRef<HTMLDivElement>(null);
+  const screenVideoRef = useRef<HTMLVideoElement>(null);
+  const fullscreen = useFullscreen(stageRef, screenVideoRef);
+
   // Computado a cada render de propósito: streams remotos chegam por
   // notificação do mesh (re-render sem mudança de estado React) — um
   // useMemo aqui devolveria o valor cacheado e nunca veria o stream.
@@ -420,8 +492,27 @@ export default function RoomView({
       <div className="room-body">
         <div className="stage-area">
           {screenStream && (
-            <div className="screen-stage fade-in">
-              <MediaView stream={screenStream} muted className="screen-video" />
+            <div
+              className={`screen-stage fade-in ${fullscreen.active ? 'is-fullscreen' : ''}`}
+              ref={stageRef}
+              onDoubleClick={fullscreen.toggle}
+            >
+              <MediaView
+                stream={screenStream}
+                muted
+                className="screen-video"
+                videoRef={screenVideoRef}
+              />
+              <button
+                type="button"
+                className="screen-fullscreen"
+                aria-pressed={fullscreen.active}
+                title={fullscreen.active ? 'Sair da tela cheia' : 'Ver em tela cheia'}
+                aria-label={fullscreen.active ? 'Sair da tela cheia' : 'Ver em tela cheia'}
+                onClick={fullscreen.toggle}
+              >
+                {fullscreen.active ? <ExitFullscreenIcon /> : <FullscreenIcon />}
+              </button>
               <div className="screen-overlay">
                 <span className="screen-label">
                   {sharerName ? `Tela de ${sharerName}` : 'Sua tela'}
@@ -496,29 +587,18 @@ export default function RoomView({
               })}
               <div ref={chatEndRef} />
             </div>
-            <form
-              className="chat-form"
-              onSubmit={(event) => {
-                event.preventDefault();
+            <ChatComposer
+              value={draft}
+              maxLength={500}
+              onChange={setDraft}
+              onSend={() => {
                 const text = draft.trim();
                 if (text) {
                   session.sendChat(text);
                   setDraft('');
                 }
               }}
-            >
-              <input
-                type="text"
-                value={draft}
-                maxLength={500}
-                placeholder="Mensagem…"
-                aria-label="Mensagem do chat"
-                onChange={(event) => setDraft(event.target.value)}
-              />
-              <button type="submit" aria-label="Enviar mensagem" disabled={!draft.trim()}>
-                <SendIcon />
-              </button>
-            </form>
+            />
           </aside>
         )}
       </div>
