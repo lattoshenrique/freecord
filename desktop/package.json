@@ -78,6 +78,7 @@
       "shortcutName": "Freecord"
     },
     "linux": {
+      "executableName": "freecord",
       "target": [
         {
           "target": "AppImage",
