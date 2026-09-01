@@ -16,7 +16,8 @@ https://github.com/lattoshenrique/freecord.
 - **Group voice and video calls** in the browser, up to 8 people per room.
 - **Screen sharing**, one person at a time, with three quality presets: Sharp
   (for code and text), Balanced, and Smooth (for video and games).
-- **Text chat** with Markdown, ephemeral — messages disappear with the room.
+- **Text chat** with Markdown, sealed in the browser and ephemeral — the
+  server relays messages it cannot read, and they disappear with the room.
 - **Desktop apps** for macOS (Intel and Apple Silicon), Windows and Linux.
 - **Interface in five languages**: English, Portuguese, Spanish, Chinese and
   Japanese, auto-detected from the browser.
@@ -34,8 +35,13 @@ https://github.com/lattoshenrique/freecord.
   a relay and never a participant. The hosted service at
   freecord.lattoshenrique.workers.dev has no TURN configured today, so every
   call there is direct peer-to-peer or it does not connect at all.
-- **Nothing is stored.** Chat is ephemeral by design. There is no content
-  storage, no transcript, no recording, no analytics on conversations.
+- **Chat the server cannot read, and does not keep.** Messages are sealed in
+  the browser with a key that travels only in the room link's fragment — the
+  part after `#`, which browsers never send to a server. Ours relays text it
+  cannot decrypt and stores none of it: the chat disappears with the room, with
+  no transcript, no recording and no analytics on conversations. The limit is
+  the room's own: anyone holding the full link holds the key and can read
+  along, exactly as they can walk in.
 - **No media vendor and no third-party SDK.** The entire signaling protocol
   lives in the repository, and the whole service runs on free-tier
   infrastructure. The single possible exception is optional TURN: a deployment
@@ -64,14 +70,21 @@ Stated plainly, because they are engineering facts rather than marketing:
   peer-to-peer.
 - **Chat does not survive a reload.** That is the privacy decision, not an
   oversight.
+- **Sealed chat hides the words, not the pattern.** Sender names, timestamps
+  and room membership are signaling data, stamped by our server and visible to
+  it; only message text is sealed. There is no forward secrecy — one key per
+  room for the room's whole life. And because the key rides in the URL,
+  sharing a screen with the address bar visible, or pasting a screenshot of
+  it, hands the key to everyone who sees it.
 - **Rooms are disposable.** A room with nobody in it for 15 minutes ceases to
   exist and its link stops working.
 
 ## Privacy
 
 There are no user accounts, so there is no user data. Rooms hold a display name
-someone typed and nothing else. Chat content is never written to storage. Media
-is end-to-end encrypted between participants. Room links are unguessable random
+someone typed and nothing else. Chat text is sealed in the browser and never
+written to storage, so the server relays messages it cannot read. Media is
+end-to-end encrypted between participants. Room links are unguessable random
 slugs (72 bits of entropy), are never indexed, and are excluded from the
 sitemap and from crawling.
 

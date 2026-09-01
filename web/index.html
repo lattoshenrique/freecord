@@ -16,7 +16,7 @@
     <title>Freecord — free group voice, video and screen sharing, no signup</title>
     <meta
       name="description"
-      content="Create a room, share the link, talk. Freecord is free and open source group voice, video, chat and screen sharing that works in the browser with no account. Media is peer-to-peer and end-to-end encrypted — there is no media server."
+      content="Create a room, share the link, talk. Freecord is free and open source group voice, video, chat and screen sharing that works in the browser with no account. Media is peer-to-peer and end-to-end encrypted — there is no media server. Chat is sealed in your browser, so our server relays messages it cannot read."
     />
     <link rel="canonical" href="https://freecord.lattoshenrique.workers.dev/" />
     <meta name="robots" content="index, follow, max-image-preview:large" />
@@ -71,7 +71,7 @@
             "@id": "https://freecord.lattoshenrique.workers.dev/#website",
             "url": "https://freecord.lattoshenrique.workers.dev/",
             "name": "Freecord",
-            "description": "Guest-first rooms with voice, video, chat and screen sharing. No signup, peer-to-peer media, no vendor.",
+            "description": "Guest-first rooms with voice, video, chat and screen sharing. No signup, peer-to-peer media, sealed chat, no vendor.",
             "inLanguage": ["en-US", "pt-BR", "es", "zh-CN", "ja"],
             "publisher": { "@id": "https://freecord.lattoshenrique.workers.dev/#person" }
           },
@@ -94,12 +94,12 @@
             "license": "https://opensource.org/licenses/MIT",
             "isAccessibleForFree": true,
             "author": { "@id": "https://freecord.lattoshenrique.workers.dev/#person" },
-            "description": "Free and open source group voice, video, text chat and screen sharing in the browser. Anyone creates a room and shares the link; guests join with no account. Media travels peer-to-peer over WebRTC and is end-to-end encrypted; there is no media server, only signaling. Rooms hold up to 8 people, chat is ephemeral, and one person shares their screen at a time.",
+            "description": "Free and open source group voice, video, text chat and screen sharing in the browser. Anyone creates a room and shares the link; guests join with no account. Media travels peer-to-peer over WebRTC and is end-to-end encrypted; there is no media server, only signaling. Rooms hold up to 8 people, chat is sealed in the browser and ephemeral, and one person shares their screen at a time.",
             "featureList": [
               "Group voice calls with no signup",
               "Group video calls in the browser",
               "Screen sharing with selectable quality presets",
-              "Ephemeral text chat with Markdown",
+              "Ephemeral text chat with Markdown, sealed in the browser",
               "Peer-to-peer media, end-to-end encrypted",
               "Desktop apps for macOS, Windows and Linux",
               "Interface in English, Portuguese, Spanish, Chinese and Japanese"
@@ -152,7 +152,15 @@
                 "name": "Are chat messages stored?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "No. Chat is ephemeral by design. Messages live in the room and disappear with it, and nothing is written to storage."
+                  "text": "No, and the server cannot read them either. Messages are sealed in your browser with a key that travels only in the room link's fragment, the part after the # symbol, which browsers never send to a server. Our server relays text it cannot decrypt and writes none of it to storage, so the chat disappears with the room. The limit is the same as the room's: anyone holding the full link holds the key and can read along."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Is the chat encrypted?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Message text is, and our server cannot read it. Each room gets a key that lives only in the room link's fragment, and messages are sealed with it in the browser before they are sent. What the seal does not hide is who spoke and when: sender names, timestamps and room membership are signaling data the server stamps and can see. There is no forward secrecy, one key serves a room for its whole life, and anyone holding the full link holds the key. Because the key is part of the URL, sharing a screen with the address bar visible also shares the key."
                 }
               },
               {

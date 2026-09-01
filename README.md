@@ -97,4 +97,8 @@ localhost. `CORS_ORIGIN` restricts the origin in production.
 - Latency in plain sight: direct RTT with each person, plus the real
   resolution/fps/bitrate of the shared screen.
 - The room link is the access credential: an unguessable random slug.
-- Ephemeral chat (never persisted) — zero content storage.
+- Chat is sealed in the browser with a key that lives only in the room link's
+  fragment, so the server relays text it cannot read, and never persists it —
+  zero content storage. The seal covers message text, not metadata: sender
+  names, timestamps and membership are signaling and visible to the server,
+  there is no forward secrecy, and whoever holds the link holds the key.
