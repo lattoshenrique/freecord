@@ -35,6 +35,9 @@
   },
   "build": {
     "appId": "com.lattoshenrique.freecord",
+    "toolsets": {
+      "nsis": "1.2.1"
+    },
     "productName": "Freecord",
     "copyright": "Copyright (c) 2026 Henrique Brito",
     "directories": {
