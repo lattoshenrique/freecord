@@ -90,8 +90,38 @@ export const ROOM_LIMITS = {
   screenLockGraceMs: 10 * 1000,
   displayNameMaxLength: 60,
   guestNameMaxLength: 40,
+  /** Plaintext budget, enforced by the composer and re-clamped here. */
   chatMessageMaxLength: 500,
+  /**
+   * Wire cap for a sealed chat envelope. 500 UTF-16 chars are at most
+   * ~1500 bytes of UTF-8; +16 (GCM tag) and base64url is ~2024 chars,
+   * +21 of framing ("e2e:<iv>.") ≈ 2045 — 2800 leaves headroom.
+   */
+  chatEnvelopeMaxLength: 2800,
 } as const;
+
+/**
+ * A sealed end-to-end chat payload: `e2e:<iv>.<ciphertext>`, base64url.
+ * Mirror of web/src/lib/chat-crypto.ts — the server can recognize the
+ * shape, never the content.
+ */
+const CHAT_ENVELOPE = /^e2e:[A-Za-z0-9_-]{16}\.[A-Za-z0-9_-]+$/;
+
+/**
+ * What of a chat payload may be broadcast; null means drop the message.
+ *
+ * A sealed envelope is opaque: trimming or slicing it would corrupt the
+ * ciphertext into a message NOBODY can read — sender included — so an
+ * oversized envelope is rejected whole, never cut. Plaintext keeps the
+ * historical trim-and-clamp.
+ */
+export function normalizeChatText(raw: string): string | null {
+  if (CHAT_ENVELOPE.test(raw)) {
+    return raw.length <= ROOM_LIMITS.chatEnvelopeMaxLength ? raw : null;
+  }
+  const text = raw.trim().slice(0, ROOM_LIMITS.chatMessageMaxLength);
+  return text || null;
+}
 
 export class RoomNotFoundError extends Error {
   constructor(slug: string) {

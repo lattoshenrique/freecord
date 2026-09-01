@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import { importRoomKey, openChat, sealChat } from './chat-crypto';
 import { Mesh, type TrackEncoding } from './mesh';
 import { Signaling } from './signaling';
 import type { PeerInfo, ServerMessage } from './protocol';
@@ -17,12 +18,16 @@ export interface JoinOptions {
   name: string;
   micEnabled: boolean;
   camEnabled: boolean;
+  /** Room key from the invite link's fragment; null joins without one. */
+  roomKey: string | null;
 }
 
 export interface ChatMessage {
   from: PeerInfo;
   text: string;
   ts: number;
+  /** Sealed for a key this client does not hold: render a placeholder. */
+  unreadable?: boolean;
 }
 
 export type RoomStatus =
@@ -68,6 +73,12 @@ export function useRoomSession(options: JoinOptions) {
   const [selfId, setSelfId] = useState<string | null>(null);
   const [peers, setPeers] = useState<PeerInfo[]>([]);
   const [chat, setChat] = useState<ChatMessage[]>([]);
+  /**
+   * A sealed message arrived and this client has no key: the room is
+   * provably encrypted, so sending plaintext into it would be a silent
+   * downgrade — the UI disables the composer, sendChat refuses anyway.
+   */
+  const [chatLocked, setChatLocked] = useState(false);
   const [screen, setScreen] = useState<{ id: string; streamId: string } | null>(null);
   const [localMedia, setLocalMedia] = useState<MediaStream | null>(null);
   const [localScreen, setLocalScreen] = useState<MediaStream | null>(null);
@@ -102,6 +113,12 @@ export function useRoomSession(options: JoinOptions) {
   const reportedRelayStreamRef = useRef<string | null>(null);
   /** AV1-first when hardware-encodable at the current preset; null = browser default. */
   const screenCodecsRef = useRef<RTCRtpCodec[] | null>(null);
+  /** Imported once per session from options.roomKey; survives resumes. */
+  const chatKeyRef = useRef<CryptoKey | null>(null);
+  /** Serializes async decryption so messages land in arrival order. */
+  const chatQueueRef = useRef<Promise<void>>(Promise.resolve());
+  /** Mirror of chatLocked for callbacks that must not close over state. */
+  const chatLockedRef = useRef(false);
 
   const dropLocalScreen = useCallback(() => {
     for (const stream of [pendingScreenRef.current, localScreenRef.current]) {
@@ -228,6 +245,8 @@ export function useRoomSession(options: JoinOptions) {
     let cancelled = false;
 
     async function connect() {
+      // Key first: chat can arrive right behind the welcome.
+      chatKeyRef.current = options.roomKey ? await importRoomKey(options.roomKey) : null;
       let media: MediaStream | null = null;
       try {
         media = await navigator.mediaDevices.getUserMedia({
@@ -331,9 +350,25 @@ export function useRoomSession(options: JoinOptions) {
         case 'signal':
           void meshRef.current?.handleSignal(message.from, message.data);
           return;
-        case 'chat':
-          setChat((current) => [...current.slice(-MAX_CHAT_MESSAGES + 1), message]);
+        case 'chat': {
+          // Opening the envelope is async; the queue keeps arrival order.
+          const { from, ts } = message;
+          chatQueueRef.current = chatQueueRef.current.then(async () => {
+            const opened = await openChat(chatKeyRef.current, message.text);
+            if (cancelled) {
+              return;
+            }
+            if (opened.unreadable && !chatKeyRef.current) {
+              chatLockedRef.current = true;
+              setChatLocked(true);
+            }
+            const entry: ChatMessage = opened.unreadable
+              ? { from, ts, text: '', unreadable: true }
+              : { from, ts, text: opened.text };
+            setChat((current) => [...current.slice(-MAX_CHAT_MESSAGES + 1), entry]);
+          });
           return;
+        }
         case 'screen-started': {
           setScreen({ id: message.id, streamId: message.streamId });
           if (message.id === selfIdRef.current) {
@@ -548,7 +583,20 @@ export function useRoomSession(options: JoinOptions) {
   );
 
   const sendChat = useCallback((text: string) => {
-    signalingRef.current?.send({ t: 'chat', text });
+    const key = chatKeyRef.current;
+    if (!key) {
+      if (chatLockedRef.current) {
+        // The room is provably sealed and this client has no key:
+        // refuse the silent plaintext downgrade.
+        return;
+      }
+      // No key and no evidence of one (a pre-key room): plaintext relays.
+      signalingRef.current?.send({ t: 'chat', text });
+      return;
+    }
+    void sealChat(key, text).then((sealed) =>
+      signalingRef.current?.send({ t: 'chat', text: sealed }),
+    );
   }, []);
 
   const toggleMic = useCallback(() => {
@@ -644,6 +692,7 @@ export function useRoomSession(options: JoinOptions) {
     selfId,
     peers,
     chat,
+    chatLocked,
     screen,
     screenSource,
     localMedia,

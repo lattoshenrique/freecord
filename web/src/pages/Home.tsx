@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 import { createRoom } from '../api';
+import { generateRoomKey } from '../lib/chat-crypto';
 import DownloadCard from '../components/DownloadCard';
 import LanguagePicker from '../components/LanguagePicker';
 import Logo from '../components/Logo';
@@ -107,7 +108,10 @@ export default function HomePage() {
     setError(null);
     try {
       const room = await createRoom(displayName.trim() || undefined);
-      navigate(`/r/${room.slug}`);
+      // The chat key lives in the fragment: shared by copying the link,
+      // never sent to the server.
+      const roomKey = generateRoomKey();
+      navigate(roomKey ? `/r/${room.slug}#k=${roomKey}` : `/r/${room.slug}`);
     } catch {
       setError(t('home.createFailed'));
       setCreating(false);

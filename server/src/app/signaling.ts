@@ -1,5 +1,5 @@
 import {
-  ROOM_LIMITS,
+  normalizeChatText,
   type ClientMessage,
   type IceServerConfig,
   type PeerChannel,
@@ -161,7 +161,7 @@ export class SignalingSession {
         return;
       }
       case 'chat': {
-        const text = message.text.trim().slice(0, ROOM_LIMITS.chatMessageMaxLength);
+        const text = normalizeChatText(message.text);
         if (!text) {
           return;
         }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ApiError, getRoom, type RoomSummary } from '../api';
+import { roomKeyFromHash } from '../lib/chat-crypto';
 import { useI18n } from '../i18n';
 import Logo from '../components/Logo';
 import RoomView from '../components/RoomView';
@@ -112,7 +113,14 @@ export default function RoomPage() {
               setPhase({
                 kind: 'joined',
                 room,
-                options: { slug, name: trimmed, micEnabled, camEnabled },
+                options: {
+                  slug,
+                  name: trimmed,
+                  micEnabled,
+                  camEnabled,
+                  // The chat key rides the fragment, which never reaches the server.
+                  roomKey: roomKeyFromHash(window.location.hash),
+                },
               });
             }}
           >

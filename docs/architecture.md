@@ -167,6 +167,7 @@ re-parent on every WS-only blip.
 | Video off by default | A Discord-style room is mostly voice |
 | Empty room expires in 15 min | Nothing sits in memory without people |
 | Ephemeral chat over WS | Zero storage; broadcast is trivial |
+| Chat sealed end-to-end | The room key rides the link's fragment; the server relays envelopes it cannot read |
 
 ## Security of the guest-first model
 
@@ -177,7 +178,34 @@ re-parent on every WS-only blip.
 - zod validation at the HTTP/WS edge; WS messages capped at 64 KB; rate limit
   on room creation (anonymous by design).
 - P2P media is end-to-end encrypted by default (DTLS-SRTP) — the server could
-  not see it even if it wanted to.
+  not see it even if it wanted to. A TURN relay, when in the path, forwards
+  those same encrypted packets and cannot read them either.
+- Chat is sealed end-to-end too (`web/src/lib/chat-crypto.ts`): room creation
+  generates an AES-GCM-256 key that travels only in the invite link's
+  **fragment** (`/r/<slug>#k=…`), which browsers never send over the network.
+  Clients seal each message into an `e2e:<iv>.<ciphertext>` envelope; the
+  server recognizes the envelope's *shape* only to refuse an oversized one
+  whole (`normalizeChatText`) — trimming or slicing ciphertext would corrupt
+  it for everybody, sender included. A joiner whose link lost the fragment
+  sees a locked placeholder (`chat.locked`) instead of garbage — and the
+  first sealed message that arrives proves the room has a key this client
+  lacks, which **locks sending** (`chatLocked`): refusing beats silently
+  downgrading the room to plaintext. Plaintext still relays in pre-key
+  rooms, where no envelope ever arrives to prove otherwise.
+- What chat E2EE does **not** cover, on purpose: sender names, timestamps and
+  room membership are signaling, stamped by the server and visible to it; and
+  anyone holding the full link holds the key — the same trust model as the
+  slug. There is no forward secrecy: one key per room for the room's whole
+  life, matching rooms that are themselves ephemeral.
+- Two key-leak paths are this product's own, and neither is "sharing the
+  link" by choice: sharing a screen or window with the address bar visible
+  broadcasts the fragment to everyone watching — in a relay tree, viewers
+  hops away from the sharer — and the same goes for a screenshot pasted
+  elsewhere, or browser history on a shared machine. And `location.hash` is
+  readable by any script on the page: the seal holds because this app ships
+  no third-party scripts — a property of the build, not of the design, and
+  one that a single "just add one analytics tag" change would break
+  silently.
 
 ## The scaling path (in the order the money dictates)
 
