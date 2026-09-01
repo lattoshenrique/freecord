@@ -146,7 +146,7 @@ export const esES: Catalog = {
   'community.promise.vendor.title':
     'Sin proveedor, sin SDK',
   'community.promise.vendor.body':
-    'Ningún proveedor de medios y ningún SDK de terceros. Todo el protocolo está en el repositorio y el conjunto funciona sobre infraestructura gratuita. La única excepción es TURN, un relé para redes que bloquean la conexión directa: reenvía tráfico cifrado que no puede leer, y alojarlo tú mismo es cambiar una línea.',
+    'Ningún proveedor de medios y ningún SDK de terceros. Todo el protocolo está en el repositorio y el conjunto funciona sobre infraestructura gratuita. La única excepción posible es TURN, opcional: un relé para redes que bloquean la conexión directa; reenvía tráfico cifrado que no puede leer, y alojarlo tú mismo es cambiar una línea. Este servicio no tiene ninguno configurado hoy.',
   'community.source.title':
     'Lee el código',
   'community.source.body':

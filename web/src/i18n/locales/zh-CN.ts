@@ -145,7 +145,7 @@ export const zhCN: Catalog = {
   'community.promise.vendor.title':
     '没有服务商，没有 SDK',
   'community.promise.vendor.body':
-    '没有媒体服务商，也没有第三方 SDK。整套协议都在仓库里，全部运行在免费的基础设施上。唯一的例外是 TURN —— 一个为封锁直连的网络准备的中继。它转发的是自己无法解密的加密流量，而且改一行就能换成自建的。',
+    '没有媒体服务商，也没有第三方 SDK。整套协议都在仓库里，全部运行在免费的基础设施上。唯一可能的例外是可选的 TURN —— 一个为封锁直连的网络准备的中继。它转发的是自己无法解密的加密流量，改一行就能换成自建的。本服务目前没有配置任何 TURN。',
   'community.source.title':
     '阅读源码',
   'community.source.body':

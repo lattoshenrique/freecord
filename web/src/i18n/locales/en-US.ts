@@ -144,7 +144,7 @@ export const enUS = {
     'Messages live in the room and disappear with it. Zero content storage, on purpose: nothing to leak, nothing to sell, nothing to hand over.',
   'community.promise.vendor.title': 'No vendor, no SDK',
   'community.promise.vendor.body':
-    'No media provider and no third-party SDK. The entire protocol lives in the repository and the whole thing runs on free infrastructure. The one exception is TURN, a relay for networks that block direct connections — it forwards encrypted traffic it cannot read, and self-hosting it is a one-line change.',
+    'No media provider and no third-party SDK. The entire protocol lives in the repository and the whole thing runs on free infrastructure. The single possible exception is optional TURN, a relay for networks that block direct connections — it forwards encrypted traffic it cannot read, and self-hosting it is a one-line change. This service has none configured today.',
 
   'community.source.title': 'Read the source',
   'community.source.body':
