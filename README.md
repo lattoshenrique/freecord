@@ -104,3 +104,7 @@ localhost. `CORS_ORIGIN` restricts the origin in production.
   zero content storage. The seal covers message text, not metadata: sender
   names, timestamps and membership are signaling and visible to the server,
   there is no forward secrecy, and whoever holds the link holds the key.
+- Files go **peer to peer**: attach one in the chat and it streams over the
+  same WebRTC connection as the media (a data channel), never through a
+  server. The other side accepts first; both must be online, and when NAT
+  forces a TURN relay it forwards ciphertext it cannot read. Up to 1 GB.

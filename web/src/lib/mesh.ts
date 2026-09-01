@@ -31,6 +31,8 @@ interface PeerState {
   streams: Map<string, MediaStream>;
   /** Armed while ICE sits in 'disconnected': fires a restart if it lingers. */
   iceRetryTimer: ReturnType<typeof setTimeout> | null;
+  /** The `files` data channel (see file-transfer.ts); closed with the peer. */
+  files: RTCDataChannel;
 }
 
 interface SignalPayload {
@@ -95,6 +97,15 @@ interface LowLatencyReceiver extends RTCRtpReceiver {
  */
 const ICE_DISCONNECTED_GRACE_MS = 7_000;
 
+/**
+ * The file-transfer channel is pre-negotiated on a fixed SCTP stream: both
+ * sides create it, so it exists the moment the connection does and neither
+ * has to wait for `ondatachannel`. Creating it also bootstraps the SCTP
+ * transport in the first offer, which the media-only mesh never needed.
+ */
+const FILES_CHANNEL_LABEL = 'files';
+const FILES_CHANNEL_ID = 0;
+
 export class Mesh {
   private readonly selfId: string;
   private readonly sendSignal: (to: string, data: SignalPayload) => void;
@@ -116,6 +127,12 @@ export class Mesh {
    */
   private readonly remoteSdpTransform: ((sdp: string) => string) | null;
   private closed = false;
+  /**
+   * Hands each peer's `files` data channel to whoever moves files over it
+   * (file-transfer.ts). Set right after construction, before the first
+   * `ensurePeer`; peers created earlier are not replayed.
+   */
+  onDataChannel: ((peerId: string, channel: RTCDataChannel) => void) | null = null;
 
   constructor(
     selfId: string,
@@ -394,6 +411,11 @@ export class Mesh {
       return;
     }
     const pc = new RTCPeerConnection({ iceServers: this.iceServers });
+    const files = pc.createDataChannel(FILES_CHANNEL_LABEL, {
+      negotiated: true,
+      id: FILES_CHANNEL_ID,
+      ordered: true,
+    });
     const state: PeerState = {
       pc,
       polite: this.selfId < peerId,
@@ -402,8 +424,10 @@ export class Mesh {
       queue: Promise.resolve(),
       streams: new Map(),
       iceRetryTimer: null,
+      files,
     };
     this.peers.set(peerId, state);
+    this.onDataChannel?.(peerId, files);
 
     for (const [track, local] of this.localTracks) {
       if (local.targets === null || local.targets.has(peerId)) {
@@ -559,6 +583,7 @@ export class Mesh {
     const state = this.peers.get(peerId);
     if (state) {
       this.clearIceRetry(state);
+      state.files.close();
       state.pc.close();
       this.peers.delete(peerId);
       for (const overrides of this.encodingOverrides.values()) {
@@ -572,6 +597,7 @@ export class Mesh {
     this.closed = true;
     for (const state of this.peers.values()) {
       this.clearIceRetry(state);
+      state.files.close();
       state.pc.close();
     }
     this.peers.clear();

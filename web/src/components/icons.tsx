@@ -213,3 +213,30 @@ export function ShuffleIcon() {
     </svg>
   );
 }
+
+export function AttachIcon() {
+  return (
+    <svg {...base} width={16} height={16}>
+      <path d="M20.5 11.5l-8.2 8.2a5 5 0 0 1-7.1-7.1l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.6 1.6 0 0 1-2.3-2.3l7.8-7.8" />
+    </svg>
+  );
+}
+
+export function FileIcon() {
+  return (
+    <svg {...base} width={18} height={18}>
+      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z" />
+      <path d="M14 3v5h5" />
+    </svg>
+  );
+}
+
+export function DownloadIcon() {
+  return (
+    <svg {...base} width={16} height={16}>
+      <path d="M12 4v11" />
+      <path d="M7 10l5 5 5-5" />
+      <path d="M5 20h14" />
+    </svg>
+  );
+}

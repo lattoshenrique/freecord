@@ -12,6 +12,7 @@ import { useI18n, type MessageKey } from '../i18n';
 import { applyMarkdown, type MarkdownAction, type Placeholders } from '../lib/markdown-edit';
 import EmojiPicker from './EmojiPicker';
 import {
+  AttachIcon,
   BoldIcon,
   CodeIcon,
   EmojiIcon,
@@ -86,6 +87,7 @@ export default function ChatComposer({
   locked = false,
   onChange,
   onSend,
+  onAttach,
 }: {
   value: string;
   maxLength: number;
@@ -93,6 +95,8 @@ export default function ChatComposer({
   locked?: boolean;
   onChange: (text: string) => void;
   onSend: () => void;
+  /** Opens the file picker for a peer-to-peer transfer; absent = no button. */
+  onAttach?: () => void;
 }) {
   const { t } = useI18n();
   const areaRef = useRef<HTMLTextAreaElement>(null);
@@ -241,6 +245,21 @@ export default function ChatComposer({
             })}
           </Fragment>
         ))}
+        {onAttach && (
+          <>
+            <span className="chat-toolbar-sep" role="separator" aria-orientation="vertical" />
+            <button
+              type="button"
+              className="chat-tool"
+              title={`${t('file.attach')} · ${t('file.direct')}`}
+              aria-label={t('file.attach')}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={onAttach}
+            >
+              <AttachIcon />
+            </button>
+          </>
+        )}
       </div>
       <form
         className="chat-form"

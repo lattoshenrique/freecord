@@ -16,6 +16,7 @@ import {
 } from './adaptive-policy';
 import { CAMERA_MIN_BITRATE, cameraEncoding, composeCameraEncoding } from './camera-quality';
 import { importRoomKey, openChat, sealChat } from './chat-crypto';
+import { FileTransfers, type FileTransfer } from './file-transfer';
 import { Mesh, type TrackEncoding } from './mesh';
 import { playJoinChime, playLeaveChime } from './notification-sound';
 import { Signaling } from './signaling';
@@ -113,6 +114,8 @@ export function useRoomSession(options: JoinOptions) {
   const [reconnecting, setReconnecting] = useState(false);
   const [selfId, setSelfId] = useState<string | null>(null);
   const [peers, setPeers] = useState<PeerInfo[]>([]);
+  /** Peer-to-peer file transfers, every direction, over the mesh's data channels. */
+  const [transfers, setTransfers] = useState<FileTransfer[]>([]);
   const [chat, setChat] = useState<ChatMessage[]>([]);
   /**
    * A sealed message arrived and this client has no key: the room is
@@ -145,6 +148,8 @@ export function useRoomSession(options: JoinOptions) {
 
   const signalingRef = useRef<Signaling | null>(null);
   const meshRef = useRef<Mesh | null>(null);
+  /** One per mesh: a fresh seat gets fresh channels and a fresh ledger. */
+  const transfersRef = useRef<FileTransfers | null>(null);
   const localMediaRef = useRef<MediaStream | null>(null);
   const selfIdRef = useRef<string | null>(null);
   const pendingScreenRef = useRef<MediaStream | null>(null);
@@ -498,6 +503,12 @@ export function useRoomSession(options: JoinOptions) {
               allowHiFiOpus,
             );
             mesh.subscribe(bumpVersion);
+            transfersRef.current?.close();
+            const fileTransfers = new FileTransfers();
+            fileTransfers.subscribe(() => setTransfers(fileTransfers.list()));
+            mesh.onDataChannel = (peerId, channel) => fileTransfers.attach(peerId, channel);
+            transfersRef.current = fileTransfers;
+            setTransfers([]);
             meshRef.current = mesh;
             const media = localMediaRef.current;
             if (media) {
@@ -546,6 +557,7 @@ export function useRoomSession(options: JoinOptions) {
           return;
         case 'peer-left':
           meshRef.current?.removePeer(message.id);
+          transfersRef.current?.detach(message.id);
           playLeaveChime();
           setPeers((current) => current.filter((p) => p.id !== message.id));
           // The seat took its camera slot along.
@@ -713,6 +725,8 @@ export function useRoomSession(options: JoinOptions) {
       signalingRef.current = null;
       meshRef.current?.close();
       meshRef.current = null;
+      transfersRef.current?.close();
+      transfersRef.current = null;
       routeRef.current = null;
       teardownRelay();
       dropLocalScreen();
@@ -1047,6 +1061,30 @@ export function useRoomSession(options: JoinOptions) {
     );
   }, []);
 
+  /**
+   * Offers a file to everyone in the room, one transfer per peer. Returns
+   * how many offers went out — zero means nobody is there to receive.
+   */
+  const sendFile = useCallback((file: File): number => {
+    const ledger = transfersRef.current;
+    const mesh = meshRef.current;
+    if (!ledger || !mesh) {
+      return 0;
+    }
+    let offered = 0;
+    for (const peerId of mesh.peerIds()) {
+      if (ledger.offer(peerId, file) !== null) {
+        offered++;
+      }
+    }
+    return offered;
+  }, []);
+
+  const acceptTransfer = useCallback((key: string) => transfersRef.current?.accept(key), []);
+  const declineTransfer = useCallback((key: string) => transfersRef.current?.decline(key), []);
+  const cancelTransfer = useCallback((key: string) => transfersRef.current?.cancel(key), []);
+  const dismissTransfer = useCallback((key: string) => transfersRef.current?.dismiss(key), []);
+
   const toggleMic = useCallback(() => {
     const media = localMediaRef.current;
     if (!media) {
@@ -1143,6 +1181,7 @@ export function useRoomSession(options: JoinOptions) {
     peers,
     chat,
     chatLocked,
+    transfers,
     screen,
     screenSource,
     localMedia,
@@ -1163,6 +1202,11 @@ export function useRoomSession(options: JoinOptions) {
     updateMediaSettings,
     updateAudioDevices,
     sendChat,
+    sendFile,
+    acceptTransfer,
+    declineTransfer,
+    cancelTransfer,
+    dismissTransfer,
     toggleMic,
     toggleCam,
     startScreenShare,

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import LiquidGlass from 'liquid-glass-react';
 import { Link } from 'react-router-dom';
 import type { RoomSummary } from '../api';
@@ -13,6 +13,8 @@ import { useRoomSession, type JoinOptions } from '../lib/use-room';
 import { useSpeaking } from '../lib/use-speaking';
 import Avatar from './Avatar';
 import ChatComposer from './ChatComposer';
+import FileTransferBubble from './FileTransferBubble';
+import { MAX_FILE_BYTES, formatBytes } from '../lib/file-transfer';
 import InviteButton from './InviteButton';
 import SettingsMenu from './SettingsMenu';
 import { applySinkId } from '../lib/audio-devices';
@@ -374,11 +376,14 @@ export default function RoomView({
   options: JoinOptions;
   onLeft: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const session = useRoomSession(options);
   const speaking = useSpeaking(session);
   const [chatOpen, setChatOpen] = useState(false);
   const [draft, setDraft] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  /** Why the last attach went nowhere; cleared on the next attempt. */
+  const [fileNote, setFileNote] = useState<string | null>(null);
   const [unread, setUnread] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [badgeAt, setBadgeAt] = useState<{ left: number; top: number } | null>(null);
@@ -420,6 +425,42 @@ export default function RoomView({
   // Sound alert: only for someone else's message, chat open or not.
   const soundedCountRef = useRef(0);
   const { chat, selfId } = session;
+
+  /** Text and files share one stream, ordered by when they happened. */
+  const timeline = useMemo(() => {
+    type Entry =
+      | { kind: 'text'; key: string; ts: number; message: (typeof session.chat)[number] }
+      | { kind: 'file'; key: string; ts: number; transfer: (typeof session.transfers)[number] };
+    const entries: Entry[] = session.chat.map((message, index) => ({
+      kind: 'text',
+      key: `${message.ts}-${index}`,
+      ts: message.ts,
+      message,
+    }));
+    for (const transfer of session.transfers) {
+      entries.push({ kind: 'file', key: transfer.key, ts: transfer.ts, transfer });
+    }
+    return entries.sort((a, b) => a.ts - b.ts);
+  }, [session.chat, session.transfers]);
+
+  const peerName = useCallback(
+    (peerId: string) => session.peers.find((peer) => peer.id === peerId)?.name ?? '…',
+    [session.peers],
+  );
+
+  function sendFiles(files: File[]): void {
+    setFileNote(null);
+    for (const file of files) {
+      if (file.size > MAX_FILE_BYTES) {
+        setFileNote(t('file.tooLarge', { max: formatBytes(MAX_FILE_BYTES, locale) }));
+        continue;
+      }
+      if (session.sendFile(file) === 0) {
+        setFileNote(t('file.noPeers'));
+        return;
+      }
+    }
+  }
   useEffect(() => {
     const fresh = chat.slice(soundedCountRef.current);
     soundedCountRef.current = chat.length;
@@ -748,13 +789,28 @@ export default function RoomView({
               </button>
             </header>
             <div className="chat-messages">
-              {session.chat.length === 0 && (
+              {session.chat.length === 0 && session.transfers.length === 0 && (
                 <p className="chat-empty">{t('chat.empty')}</p>
               )}
-              {session.chat.map((message, index) => {
+              {timeline.map((entry) => {
+                if (entry.kind === 'file') {
+                  const { transfer } = entry;
+                  return (
+                    <FileTransferBubble
+                      key={transfer.key}
+                      transfer={transfer}
+                      peerName={peerName(transfer.peerId)}
+                      onAccept={session.acceptTransfer}
+                      onDecline={session.declineTransfer}
+                      onCancel={session.cancelTransfer}
+                      onDismiss={session.dismissTransfer}
+                    />
+                  );
+                }
+                const { message } = entry;
                 const mine = message.from.id === session.selfId;
                 return (
-                  <div key={`${message.ts}-${index}`} className={`chat-bubble ${mine ? 'mine' : ''}`}>
+                  <div key={entry.key} className={`chat-bubble ${mine ? 'mine' : ''}`}>
                     {!mine && <span className="chat-author">{message.from.name}</span>}
                     {message.unreadable ? (
                       <p className="chat-locked">{t('chat.locked')}</p>
@@ -766,6 +822,22 @@ export default function RoomView({
               })}
               <div ref={chatEndRef} />
             </div>
+            {fileNote && (
+              <p className="chat-file-note" role="status">
+                {fileNote}
+              </p>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              hidden
+              onChange={(event) => {
+                const files = [...(event.target.files ?? [])];
+                event.target.value = '';
+                sendFiles(files);
+              }}
+            />
             <ChatComposer
               value={draft}
               maxLength={500}
@@ -778,6 +850,7 @@ export default function RoomView({
                   setDraft('');
                 }
               }}
+              onAttach={() => fileInputRef.current?.click()}
             />
           </aside>
         )}

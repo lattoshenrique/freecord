@@ -1382,3 +1382,133 @@ button {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
+
+/* ---- file transfers in the chat ---- */
+
+.chat-file {
+  min-width: min(15rem, 85%);
+}
+
+.chat-file-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.chat-file-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--accent-hover);
+}
+
+.chat-bubble.mine .chat-file-icon {
+  color: inherit;
+}
+
+.chat-file-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.chat-file-name {
+  font-weight: 600;
+  font-size: 0.85rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-file-size {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  opacity: 0.75;
+}
+
+.chat-file-progress {
+  height: 4px;
+  margin-top: 0.5rem;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.15);
+  overflow: hidden;
+}
+
+.chat-file-progress > span {
+  display: block;
+  height: 100%;
+  background: currentColor;
+  transition: width 0.2s ease;
+}
+
+.chat-file-status {
+  margin: 0.4rem 0 0;
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+
+.chat-file.file-failed .chat-file-status,
+.chat-file.file-declined .chat-file-status {
+  opacity: 0.65;
+  font-style: italic;
+}
+
+.chat-file-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.45rem;
+}
+
+.chat-file-actions:empty {
+  display: none;
+}
+
+.chat-file-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.65rem;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+
+.chat-file-btn:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.chat-file-btn.primary {
+  background: var(--accent);
+  border-color: transparent;
+  color: #fff;
+}
+
+.chat-file-btn.primary:hover {
+  background: var(--accent-hover);
+}
+
+.chat-bubble.mine .chat-file-btn.primary {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.chat-file-btn.quiet {
+  background: transparent;
+  border-color: transparent;
+  opacity: 0.7;
+}
+
+/* A one-line reason the attach could not go out (nobody here, too large). */
+.chat-file-note {
+  margin: 0;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
