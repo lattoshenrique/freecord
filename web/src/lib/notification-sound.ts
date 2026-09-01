@@ -11,6 +11,33 @@
 
 const ATTACK_S = 0.008;
 
+/**
+ * One switch for every cue. Persisted per device — someone who silenced the
+ * chimes does not want them back on the next call. Only an explicit "off"
+ * is stored, so a missing or unreadable key means the default (on).
+ */
+const SOUNDS_KEY = 'freecord:sounds';
+
+export function soundEffectsEnabled(): boolean {
+  try {
+    return localStorage.getItem(SOUNDS_KEY) !== 'off';
+  } catch {
+    return true; // private browsing
+  }
+}
+
+export function setSoundEffectsEnabled(enabled: boolean): void {
+  try {
+    if (enabled) {
+      localStorage.removeItem(SOUNDS_KEY);
+    } else {
+      localStorage.setItem(SOUNDS_KEY, 'off');
+    }
+  } catch {
+    // private browsing: the choice lasts only this session
+  }
+}
+
 interface Cue {
   /** Frequencies in Hz, played in order. */
   notes: number[];
@@ -41,6 +68,9 @@ function audioContext(): AudioContext | null {
 }
 
 function play(cue: Cue): void {
+  if (!soundEffectsEnabled()) {
+    return;
+  }
   const ctx = audioContext();
   if (!ctx) {
     return;

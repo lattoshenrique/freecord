@@ -19,6 +19,7 @@ import { useEffect, useId, useRef, useState, type ComponentType, type ReactNode 
 import { createPortal } from 'react-dom';
 import { LOCALES, useI18n, type MessageKey } from '../i18n';
 import { APP_BUILD, APP_VERSION } from '../lib/build-info';
+import { setSoundEffectsEnabled, soundEffectsEnabled } from '../lib/notification-sound';
 import { SCREEN_QUALITY_PRESETS, type ScreenQualityId } from '../lib/screen-quality';
 import {
   CAMERA_PRESETS,
@@ -206,6 +207,9 @@ export default function SettingsMenu({
   const titleId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
   const [section, setSection] = useState<SectionId>('screen');
+  // Mirrors the persisted switch so the row re-renders; the module is the
+  // source of truth the chimes read from.
+  const [sounds, setSounds] = useState(soundEffectsEnabled);
   const deviceControls = audioDevices !== undefined && onAudioDevices !== undefined;
   const [deviceLists, setDeviceLists] = useState<AudioDeviceLists>({ mics: [], speakers: [] });
 
@@ -396,6 +400,17 @@ export default function SettingsMenu({
                   ))}
                 </select>
               </Field>
+            </Group>
+            <Group title={t('settings.sounds.title')}>
+              <SwitchRow
+                checked={sounds}
+                label={t('settings.sounds.label')}
+                hint={t('settings.sounds.hint')}
+                onToggle={() => {
+                  setSoundEffectsEnabled(!sounds);
+                  setSounds(!sounds);
+                }}
+              />
             </Group>
             <Group title={t('settings.about.title')}>
               <p className="settings-build">

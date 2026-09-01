@@ -575,6 +575,17 @@ button {
   height: 14px;
 }
 
+/* Speakers off: same slot as the mic badge, same warning colour. */
+.tile-deafened {
+  display: inline-flex;
+  color: #ff8589;
+}
+
+.tile-deafened svg {
+  width: 14px;
+  height: 14px;
+}
+
 /*
  * Who is talking. The ring is the signal — colour and weight on the border
  * the tile already has, never a size change: a tile that grows while someone

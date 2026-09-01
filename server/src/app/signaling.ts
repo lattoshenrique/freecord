@@ -144,6 +144,7 @@ export class SignalingSession {
         ? { id: room.screenSharer.id, streamId: room.screenSharer.streamId }
         : null,
       cameras: [...room.cameras],
+      deafened: [...room.deafened],
     });
   }
 
@@ -252,6 +253,17 @@ export class SignalingSession {
       case 'camera-stop': {
         if (room.cameras.delete(this.peerId)) {
           broadcast(room, { t: 'camera-stopped', id: this.peerId });
+        }
+        return;
+      }
+      case 'deafen': {
+        // Presence, not a resource: no cap, no grant, and it survives a
+        // resume (the client re-sends on welcome anyway). Repeats are quiet.
+        const changed = message.on
+          ? !room.deafened.has(this.peerId) && !!room.deafened.add(this.peerId)
+          : room.deafened.delete(this.peerId);
+        if (changed) {
+          broadcast(room, { t: 'peer-deafened', id: this.peerId, on: message.on });
         }
         return;
       }
@@ -385,6 +397,8 @@ export function parseClientMessage(raw: unknown): ClientMessage | null {
       return { t: 'camera-request' };
     case 'camera-stop':
       return { t: 'camera-stop' };
+    case 'deafen':
+      return typeof message.on === 'boolean' ? { t: 'deafen', on: message.on } : null;
     case 'leave':
       return { t: 'leave' };
     case 'ping':

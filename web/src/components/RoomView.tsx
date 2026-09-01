@@ -34,6 +34,7 @@ import {
   ScreenIcon,
   SlidersIcon,
 } from './icons';
+import { SpeakerIcon, SpeakerOffIcon } from './icons';
 
 /** Faixas de latência: verde conversa bem, âmbar arrasta, vermelho atrapalha. */
 function latencyGrade(ms: number): 'good' | 'fair' | 'poor' {
@@ -179,7 +180,16 @@ function MediaView({
   return <video ref={ref} autoPlay playsInline muted={muted} className={className} />;
 }
 
-function AudioSink({ stream, sinkId }: { stream: MediaStream; sinkId?: string | null }) {
+function AudioSink({
+  stream,
+  sinkId,
+  muted,
+}: {
+  stream: MediaStream;
+  sinkId?: string | null;
+  /** Speakers off: the element stays wired so unmuting is instant. */
+  muted?: boolean;
+}) {
   const ref = useRef<HTMLAudioElement>(null);
   useEffect(() => {
     if (ref.current && ref.current.srcObject !== stream) {
@@ -192,7 +202,7 @@ function AudioSink({ stream, sinkId }: { stream: MediaStream; sinkId?: string | 
     }
   }, [sinkId, stream]);
   useResumePlayback(ref, stream);
-  return <audio ref={ref} autoPlay />;
+  return <audio ref={ref} autoPlay muted={muted} />;
 }
 
 function hasLiveVideo(stream: MediaStream): boolean {
@@ -314,6 +324,8 @@ function Tile({
   name,
   isSelf,
   micOff,
+  deafened,
+  silenced,
   speaking,
   cameraOn,
   stream,
@@ -325,6 +337,10 @@ function Tile({
   name: string;
   isSelf: boolean;
   micOff: boolean;
+  /** This person's speakers are off: they are not hearing the room. */
+  deafened: boolean;
+  /** OUR speakers are off: this tile's audio is muted locally. */
+  silenced?: boolean;
   speaking: boolean;
   /**
    * The room's word, not the track's: a remote track stays `enabled` on the
@@ -347,20 +363,25 @@ function Tile({
       {showVideo ? (
         <MediaView
           stream={stream}
-          muted={isSelf}
+          muted={isSelf || silenced === true}
           className={`tile-video ${isSelf ? 'mirrored' : ''}`}
           sinkId={isSelf ? undefined : sinkId}
         />
       ) : (
         <>
           <Avatar name={name} className="tile-avatar" />
-          {!isSelf && stream && <AudioSink stream={stream} sinkId={sinkId} />}
+          {!isSelf && stream && <AudioSink stream={stream} sinkId={sinkId} muted={silenced} />}
         </>
       )}
       <span className="tile-name">
         {micOff && (
           <span className="tile-mic-off" title={t('room.micMuted')}>
             <MicOffIcon />
+          </span>
+        )}
+        {deafened && (
+          <span className="tile-deafened" title={t('room.deafened')}>
+            <SpeakerOffIcon />
           </span>
         )}
         {name}
@@ -545,6 +566,9 @@ export default function RoomView({
         case 'm':
           current.toggleMic();
           return;
+        case 'd':
+          current.toggleSpeaker();
+          return;
         case 'v':
           // Same path as the button — the server's slot request flow,
           // never the track directly; mirrors the button's disabled state.
@@ -691,7 +715,11 @@ export default function RoomView({
   return (
     <div className="room-layout">
       {screenAudioStream && (
-        <AudioSink stream={screenAudioStream} sinkId={session.audioDevices.speakerId} />
+        <AudioSink
+          stream={screenAudioStream}
+          sinkId={session.audioDevices.speakerId}
+          muted={!session.speakerOn}
+        />
       )}
       <header className="room-header">
         <div className="room-title">
@@ -764,6 +792,7 @@ export default function RoomView({
               name={options.name}
               isSelf
               micOff={!session.micOn}
+              deafened={!session.speakerOn}
               speaking={session.selfId !== null && speaking.has(session.selfId)}
               cameraOn={session.camOn}
               stream={session.localMedia && session.camOn ? session.localMedia : null}
@@ -785,6 +814,8 @@ export default function RoomView({
                   name={peer.name}
                   isSelf={false}
                   micOff={false}
+                  deafened={session.deafened.has(peer.id)}
+                  silenced={!session.speakerOn}
                   speaking={speaking.has(peer.id)}
                   cameraOn={session.cameras.has(peer.id)}
                   stream={cameraStream}
@@ -956,6 +987,16 @@ export default function RoomView({
             onClick={session.toggleMic}
           >
             {session.micOn ? <MicIcon /> : <MicOffIcon />}
+          </button>
+          <button
+            type="button"
+            className={`control ${session.speakerOn ? '' : 'control-off'}`}
+            aria-pressed={!session.speakerOn}
+            data-key="D"
+            title={session.speakerOn ? t('controls.muteSpeaker') : t('controls.unmuteSpeaker')}
+            onClick={session.toggleSpeaker}
+          >
+            {session.speakerOn ? <SpeakerIcon /> : <SpeakerOffIcon />}
           </button>
           {/* The "no slot" state is its own thing, not the off style: it is
               styled via [data-camera-slots="full"]. */}

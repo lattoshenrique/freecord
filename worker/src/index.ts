@@ -101,6 +101,8 @@ type ScreenLock = { id: string; streamId: string; quality: ScreenQuality } | nul
 type ScreenRelays = Record<string, string>;
 /** Peers holding a camera slot — storage, so it survives hibernation. */
 type Cameras = string[];
+/** Peers with their speakers off (`deafen`) — same storage discipline. */
+type Deafened = string[];
 
 /** Zombie-sweep cadence while the room has people in it. */
 const SWEEP_INTERVAL_MS = Math.floor(ROOM_LIMITS.peerTimeoutMs / 2);
@@ -253,6 +255,7 @@ export class RoomDurableObject {
       ],
       screen: screen ? { id: screen.id, streamId: screen.streamId } : null,
       cameras: await this.cameras(),
+      deafened: await this.deafened(),
     });
     this.broadcast({ t: 'peer-joined', peer: { id: peerId, name } }, peerId);
     // Screen share in progress: the newcomer needs a route, and the tree changes.
@@ -333,6 +336,7 @@ export class RoomDurableObject {
       ],
       screen: screen ? { id: screen.id, streamId: screen.streamId } : null,
       cameras: await this.cameras(),
+      deafened: await this.deafened(),
     });
     for (const held of pending) {
       this.send(server, held);
@@ -460,6 +464,20 @@ export class RoomDurableObject {
           await this.putCameras(cameras.filter((id) => id !== peerId));
           this.broadcast({ t: 'camera-stopped', id: peerId });
         }
+        return;
+      }
+      case 'deafen': {
+        // Presence, not a resource: no cap, no grant, and it survives a
+        // resume (the client re-sends on welcome anyway). Repeats are quiet.
+        const deafened = await this.deafened();
+        const was = deafened.includes(peerId);
+        if (was === message.on) {
+          return;
+        }
+        await this.putDeafened(
+          message.on ? [...deafened, peerId] : deafened.filter((id) => id !== peerId),
+        );
+        this.broadcast({ t: 'peer-deafened', id: peerId, on: message.on });
         return;
       }
       case 'leave': {
@@ -616,6 +634,10 @@ export class RoomDurableObject {
     if (cameras.some((id) => gone.has(id))) {
       await this.putCameras(cameras.filter((id) => !gone.has(id)));
     }
+    const deafened = await this.deafened();
+    if (deafened.some((id) => gone.has(id))) {
+      await this.putDeafened(deafened.filter((id) => !gone.has(id)));
+    }
     for (const peerId of gone) {
       this.broadcast({ t: 'peer-left', id: peerId }, undefined, leaving);
     }
@@ -697,6 +719,18 @@ export class RoomDurableObject {
       await this.ctx.storage.delete('cameras');
     } else {
       await this.ctx.storage.put('cameras', cameras);
+    }
+  }
+
+  private async deafened(): Promise<Deafened> {
+    return (await this.ctx.storage.get<Deafened>('deafened')) ?? [];
+  }
+
+  private async putDeafened(deafened: Deafened): Promise<void> {
+    if (deafened.length === 0) {
+      await this.ctx.storage.delete('deafened');
+    } else {
+      await this.ctx.storage.put('deafened', deafened);
     }
   }
 

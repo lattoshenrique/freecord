@@ -231,6 +231,24 @@ export function FileIcon() {
   );
 }
 
+export function SpeakerIcon() {
+  return (
+    <svg {...base}>
+      <path d="M4 10v4h3l4 3.5v-11L7 10H4z" />
+      <path d="M15 9.5a3.5 3.5 0 0 1 0 5M17.5 7a7 7 0 0 1 0 10" />
+    </svg>
+  );
+}
+
+export function SpeakerOffIcon() {
+  return (
+    <svg {...base}>
+      <path d="M4 10v4h3l4 3.5v-11L7 10H4z" />
+      <path d="M15.5 9.5l5 5M20.5 9.5l-5 5" />
+    </svg>
+  );
+}
+
 export function DownloadIcon() {
   return (
     <svg {...base} width={16} height={16}>

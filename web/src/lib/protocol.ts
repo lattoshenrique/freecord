@@ -50,6 +50,8 @@ export type ServerMessage =
       screen: { id: string; streamId: string } | null;
       /** Live cameras, so joiners and resumers see the slots in use. */
       cameras: string[];
+      /** Who has their speakers off (see `deafen`), so joiners see it too. */
+      deafened: string[];
     }
   | { t: 'peer-joined'; peer: PeerInfo }
   | { t: 'peer-left'; id: string }
@@ -62,6 +64,8 @@ export type ServerMessage =
   | { t: 'camera-started'; id: string }
   | { t: 'camera-stopped'; id: string }
   | { t: 'camera-denied' }
+  /** A peer switched its speakers off (`on: true`) or back on. */
+  | { t: 'peer-deafened'; id: string; on: boolean }
   /**
    * This peer's role in the screen-forwarding tree: who I send to
    * (`children`) and who I receive from (`source`; null for the sharer or
@@ -87,6 +91,11 @@ export type ClientMessage =
   /** Camera slots mirror the screen lock: ask first, publish on grant. */
   | { t: 'camera-request' }
   | { t: 'camera-stop' }
+  /**
+   * Speakers off: nothing about the media changes on the wire (playback
+   * is muted locally), the room is told so nobody talks to a wall.
+   */
+  | { t: 'deafen'; on: boolean }
   /**
    * Deliberate goodbye: leave immediately instead of holding the seat for
    * a resume. A bare transport close is treated as an accident.

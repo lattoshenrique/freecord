@@ -140,6 +140,10 @@ export function useRoomSession(options: JoinOptions) {
   const [camOn, setCamOn] = useState(false);
   /** Peers holding a camera slot right now (self included when granted). */
   const [cameras, setCameras] = useState<Set<string>>(new Set());
+  /** Peers with their speakers off — they are not hearing anyone. */
+  const [deafened, setDeafened] = useState<Set<string>>(new Set());
+  const [speakerOn, setSpeakerOn] = useState(true);
+  const speakerOnRef = useRef(true);
   /** A camera-denied just landed: the UI shows why the toggle did nothing. */
   const [camDenied, setCamDenied] = useState(false);
   const [screenQuality, setScreenQualityState] = useState<ScreenQualityId>(loadQuality);
@@ -475,6 +479,11 @@ export function useRoomSession(options: JoinOptions) {
           setScreen(message.screen);
           const cameraRoster = new Set(message.cameras);
           setCameras(cameraRoster);
+          setDeafened(new Set(message.deafened));
+          if (!speakerOnRef.current) {
+            // Presence is not kept for us across a fresh seat: say it again.
+            signalingRef.current?.send({ t: 'deafen', on: true });
+          }
           if (resumed) {
             // Same seat, mesh intact: reconcile who came and went during
             // the outage. We initiate toward newcomers; perfect
@@ -577,6 +586,14 @@ export function useRoomSession(options: JoinOptions) {
           setPeers((current) => current.filter((p) => p.id !== message.id));
           // The seat took its camera slot along.
           setCameras((current) => {
+            if (!current.has(message.id)) {
+              return current;
+            }
+            const next = new Set(current);
+            next.delete(message.id);
+            return next;
+          });
+          setDeafened((current) => {
             if (!current.has(message.id)) {
               return current;
             }
@@ -694,6 +711,17 @@ export function useRoomSession(options: JoinOptions) {
           setCameras((current) => {
             const next = new Set(current);
             next.delete(message.id);
+            return next;
+          });
+          return;
+        case 'peer-deafened':
+          setDeafened((current) => {
+            const next = new Set(current);
+            if (message.on) {
+              next.add(message.id);
+            } else {
+              next.delete(message.id);
+            }
             return next;
           });
           return;
@@ -1143,6 +1171,17 @@ export function useRoomSession(options: JoinOptions) {
     setMicOn(next);
   }, []);
 
+  /**
+   * Speakers off. Playback is muted in the view (every remote sink reads
+   * `speakerOn`); the room is told so the others see it on the tile.
+   */
+  const toggleSpeaker = useCallback(() => {
+    const next = !speakerOnRef.current;
+    speakerOnRef.current = next;
+    setSpeakerOn(next);
+    signalingRef.current?.send({ t: 'deafen', on: !next });
+  }, []);
+
   const toggleCam = useCallback(() => {
     const videoTrack = localMediaRef.current?.getVideoTracks()[0];
     if (videoTrack?.enabled) {
@@ -1234,6 +1273,8 @@ export function useRoomSession(options: JoinOptions) {
     localScreen,
     micOn,
     camOn,
+    speakerOn,
+    deafened,
     cameras,
     cameraSlotsFull,
     camDenied,
@@ -1254,6 +1295,7 @@ export function useRoomSession(options: JoinOptions) {
     cancelTransfer,
     dismissTransfer,
     toggleMic,
+    toggleSpeaker,
     toggleCam,
     startScreenShare,
     stopScreenShare,
