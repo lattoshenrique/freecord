@@ -17,11 +17,12 @@ export const CAMERA_UPLINK_BUDGET = 4_000_000;
 const CAMERA_MAX_BITRATE = 2_500_000;
 
 /**
- * Floor of the split: below this a face stops being a face. With 12
- * seats the split never reaches it (4 Mbps / 11 ≈ 360 kbps) — it guards
- * against a future cap raise, not today's arithmetic.
+ * Floor of the split AND of the congestion ladder (adaptive-policy.ts):
+ * below this a face stops being a face. With 12 seats the split never
+ * reaches it (4 Mbps / 11 ≈ 360 kbps); adaptation can, on a genuinely
+ * squeezed uplink — and stops here.
  */
-const CAMERA_MIN_BITRATE = 150_000;
+export const CAMERA_MIN_BITRATE = 150_000;
 
 const CAMERA_MAX_FRAMERATE = 30;
 

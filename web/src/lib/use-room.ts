@@ -5,13 +5,23 @@ import {
   saveAudioDevicePrefs,
   type AudioDevicePrefs,
 } from './audio-devices';
-import { cameraEncoding, composeCameraEncoding } from './camera-quality';
+import {
+  CAMERA_ADAPTIVE,
+  SCREEN_ADAPTIVE,
+  advance,
+  adaptedEncoding,
+  congestionFromReports,
+  factorFor,
+  initialAdaptiveState,
+} from './adaptive-policy';
+import { CAMERA_MIN_BITRATE, cameraEncoding, composeCameraEncoding } from './camera-quality';
 import { importRoomKey, openChat, sealChat } from './chat-crypto';
 import { Mesh, type TrackEncoding } from './mesh';
 import { Signaling } from './signaling';
 import { cameraSlotsFor, type PeerInfo, type ServerMessage } from './protocol';
 import {
   DEFAULT_SCREEN_QUALITY,
+  SCREEN_MIN_BITRATE,
   bitrateFor,
   presetById,
   screenCodecPreferences,
@@ -32,7 +42,7 @@ import {
   screenAudioConstraints,
   type MediaSettings,
 } from './media-settings';
-import { StatsSampler, type PeerLatency, type ScreenStats } from './stats';
+import { StatsSampler, senderReports, type PeerLatency, type ScreenStats } from './stats';
 
 export interface JoinOptions {
   slug: string;
@@ -62,6 +72,12 @@ const HEARTBEAT_MS = 10_000;
 /** Mirrors ROOM_LIMITS.peerTimeoutMs: no pong within this and the session is over. */
 const PONG_TIMEOUT_MS = 35_000;
 const STATS_INTERVAL_MS = 2_000;
+/**
+ * What the voice is assumed to ask of the uplink (bps) when the adaptive
+ * ladders gate a step-up on estimated headroom: audio rides uncapped in
+ * practice, so the gate books a round number for it instead of zero.
+ */
+const AUDIO_ASK_BITRATE = 100_000;
 /** How long the "camera denied" feedback stays up before clearing itself. */
 const CAM_DENIED_MS = 4_000;
 const QUALITY_STORAGE_KEY = 'freecord:screen-quality';
@@ -170,6 +186,15 @@ export function useRoomSession(options: JoinOptions) {
   const chatQueueRef = useRef<Promise<void>>(Promise.resolve());
   /** Mirror of chatLocked for callbacks that must not close over state. */
   const chatLockedRef = useRef(false);
+  /**
+   * Congestion ladders (adaptive-policy.ts): level 0 = the preset's full
+   * cap. Applied inside the encoding funnels (roomCameraEncoding /
+   * screenEncoding), so every existing re-application — join/leave,
+   * settings change, mic swap via replaceLocalTrack — carries the current
+   * factor for free.
+   */
+  const camLadderRef = useRef(initialAdaptiveState());
+  const screenLadderRef = useRef(initialAdaptiveState());
 
   const dropLocalScreen = useCallback(() => {
     for (const stream of [pendingScreenRef.current, localScreenRef.current]) {
@@ -182,6 +207,8 @@ export function useRoomSession(options: JoinOptions) {
     }
     pendingScreenRef.current = null;
     localScreenRef.current = null;
+    // The next share re-learns the link instead of inheriting this one's verdict.
+    screenLadderRef.current = initialAdaptiveState();
     setLocalScreen(null);
     setScreenStats(null);
   }, []);
@@ -189,18 +216,24 @@ export function useRoomSession(options: JoinOptions) {
   /**
    * Screen send cap: the preset split across the number of CHILDREN in
    * the tree — at most SCREEN_FANOUT, regardless of room size. Before the
-   * route arrives, the conservative split uses the peer count.
+   * route arrives, the conservative split uses the peer count. The
+   * congestion ladder then takes its cut: the split is an assumption
+   * about the uplink, the ladder is what the uplink actually said.
    */
   const screenEncoding = useCallback((): TrackEncoding => {
     const preset = presetById(qualityRef.current);
     const receivers = routeRef.current?.children.length ?? viewerCountRef.current;
-    return {
-      maxBitrate: bitrateFor(preset, receivers),
-      maxFramerate: preset.frameRate,
-      degradationPreference: preset.degradationPreference,
-      // Below audio, above camera: congestion sacrifices the camera first.
-      priority: 'medium',
-    };
+    return adaptedEncoding(
+      {
+        maxBitrate: bitrateFor(preset, receivers),
+        maxFramerate: preset.frameRate,
+        degradationPreference: preset.degradationPreference,
+        // Below audio, above camera: congestion sacrifices the camera first.
+        priority: 'medium',
+      },
+      screenLadderRef.current,
+      { floor: SCREEN_MIN_BITRATE },
+    );
   }, []);
 
   /** A relay's forwarding cap: the sharer's preset, split across its children. */
@@ -311,11 +344,20 @@ export function useRoomSession(options: JoinOptions) {
     }
   }, [screenEncoding, relayEncoding, teardownRelay]);
 
-  /** Room policy composed with the user's ceiling: caps only lower, never raise. */
+  /**
+   * Room policy composed with the user's ceiling (caps only lower, never
+   * raise), then the congestion ladder's cut. At half factor and below the
+   * encode itself is shrunk — a starved encoder is also a hot one, and
+   * half resolution looks better than full resolution at eighth bitrate.
+   */
   const roomCameraEncoding = useCallback((peerCount: number): TrackEncoding => {
-    return composeCameraEncoding(
-      cameraEncoding(peerCount),
-      cameraUserCaps(cameraPresetById(mediaSettingsRef.current.camera)),
+    return adaptedEncoding(
+      composeCameraEncoding(
+        cameraEncoding(peerCount),
+        cameraUserCaps(cameraPresetById(mediaSettingsRef.current.camera)),
+      ),
+      camLadderRef.current,
+      { floor: CAMERA_MIN_BITRATE, scaleDownAt: 0.5 },
     );
   }, []);
 
@@ -442,9 +484,12 @@ export function useRoomSession(options: JoinOptions) {
             // Our tree role arrives in the screen-route the server re-emits.
           } else {
             // A fresh seat means a fresh mesh: any relay wiring (forward
-            // stream, passthrough pipe) belonged to the old one.
+            // stream, passthrough pipe) belonged to the old one — and so
+            // did the congestion ladders' verdicts about its links.
             teardownRelay();
             meshRef.current?.close();
+            camLadderRef.current = initialAdaptiveState();
+            screenLadderRef.current = initialAdaptiveState();
             const mesh = new Mesh(
               message.selfId,
               (to, data) => signalingRef.current?.send({ t: 'signal', to, data }),
@@ -782,6 +827,47 @@ export function useRoomSession(options: JoinOptions) {
         stall.strikes = 0;
       }
       setScreenStats(stats);
+
+      // The adaptive tick: what the network said this sample — the
+      // encoder's own limitation verdict, RTCP loss from the far ends,
+      // the congestion controller's bandwidth estimate — moves the
+      // ladders, and a moved ladder re-applies its cap through the same
+      // composed encoding every other call site uses. Step-ups are gated
+      // on estimated headroom over everything asked of the uplink right
+      // now: per-transport asks, since the estimate is per-transport.
+      const camTrack = localMediaRef.current?.getVideoTracks()[0] ?? null;
+      const adaptCam = camTrack?.enabled ? camTrack : null;
+      const askBitrate =
+        (adaptCam ? roomCameraEncoding(viewerCountRef.current).maxBitrate : 0) +
+        (sharing ? screenEncoding().maxBitrate : 0) +
+        AUDIO_ASK_BITRATE;
+      if (adaptCam) {
+        const reading = congestionFromReports(await senderReports(mesh, adaptCam));
+        if (stopped) {
+          return;
+        }
+        const before = factorFor(camLadderRef.current);
+        camLadderRef.current = advance(camLadderRef.current, reading, CAMERA_ADAPTIVE, askBitrate);
+        if (factorFor(camLadderRef.current) !== before) {
+          mesh.setTrackEncoding(adaptCam, roomCameraEncoding(viewerCountRef.current));
+        }
+      }
+      if (sharing) {
+        const reading = congestionFromReports(await senderReports(mesh, sharing));
+        if (stopped) {
+          return;
+        }
+        const before = factorFor(screenLadderRef.current);
+        screenLadderRef.current = advance(
+          screenLadderRef.current,
+          reading,
+          SCREEN_ADAPTIVE,
+          askBitrate,
+        );
+        if (factorFor(screenLadderRef.current) !== before) {
+          mesh.setTrackEncoding(sharing, screenEncoding());
+        }
+      }
     };
 
     void sample();
@@ -790,7 +876,7 @@ export function useRoomSession(options: JoinOptions) {
       stopped = true;
       clearInterval(timer);
     };
-  }, [status.kind, screen, screenSource]);
+  }, [status.kind, screen, screenSource, roomCameraEncoding, screenEncoding]);
 
   // The uplink split changes when someone joins or leaves (fallback until
   // the route arrives; with a route, the split is by children and the
@@ -819,6 +905,9 @@ export function useRoomSession(options: JoinOptions) {
     (id: ScreenQualityId) => {
       qualityRef.current = id;
       setScreenQualityState(id);
+      // Whether the NEW preset fits this link is an open question: the
+      // ladder re-learns instead of carrying the old preset's verdict.
+      screenLadderRef.current = initialAdaptiveState();
       // The hardware answer depends on the preset's load: re-ask for AV1.
       void screenCodecPreferences(presetById(id)).then((codecs) => {
         screenCodecsRef.current = codecs;

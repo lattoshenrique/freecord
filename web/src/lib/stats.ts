@@ -65,6 +65,37 @@ function candidatePairRtt(report: RTCStatsReport): number | null {
 }
 
 /**
+ * Raw per-peer reports for a track's senders — the input the adaptive
+ * policy aggregates (adaptive-policy.ts, congestionFromReports). Scoped
+ * per sender on purpose: a full pc.getStats() on a sharer's connection
+ * carries TWO outbound videos, and the camera's ladder must never read
+ * the screen's congestion story as its own.
+ */
+export async function senderReports(
+  mesh: Mesh,
+  track: MediaStreamTrack,
+): Promise<Iterable<Record<string, unknown>>[]> {
+  const reports = await Promise.all(
+    mesh.peerIds().map(async (peerId) => {
+      const sender = mesh
+        .getPeerConnection(peerId)
+        ?.getSenders()
+        .find((candidate) => candidate.track === track);
+      if (!sender) {
+        return null;
+      }
+      try {
+        const report = await sender.getStats();
+        return [...report.values()] as Record<string, unknown>[];
+      } catch {
+        return null;
+      }
+    }),
+  );
+  return reports.filter((report): report is Record<string, unknown>[] => report !== null);
+}
+
+/**
  * Sampler with memory: bitrate only exists as a delta between two readings,
  * so the previous sample is kept per key.
  */

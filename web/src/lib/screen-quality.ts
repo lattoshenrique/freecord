@@ -69,6 +69,15 @@ export const DEFAULT_SCREEN_QUALITY: ScreenQualityId = 'balanced';
 export const SCREEN_UPLINK_BUDGET = 10_000_000;
 
 /**
+ * Floor of the congestion ladder (adaptive-policy.ts): below this, 1080p
+ * text stops being readable at any framerate. Adaptation may cut the
+ * preset's cap down to here and no further — past this point the honest
+ * moves are the sharer picking a lighter preset, or the room accepting
+ * that this link cannot carry a screen.
+ */
+export const SCREEN_MIN_BITRATE = 500_000;
+
+/**
  * The desktop app gets a bigger appetite: someone who installed the app is
  * on a machine and link a browser tab cannot assume — and Electron's capture
  * pipeline sustains it. Browsers keep the conservative numbers. Applied

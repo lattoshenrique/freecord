@@ -97,8 +97,11 @@ tiles used to carry it and were retired with that page's redesign). Nothing
 breaks when this is missed, which is exactly why it gets missed.
 
 - `stats.ts` — reads `getStats()` from the mesh: the RTT of the candidate pair
-  actually in use (the real latency between two people) and the effective
-  quality of the screen.
+  actually in use (the real latency between two people), the effective
+  quality of the screen, and the per-sender congestion readings the
+  adaptive loop consumes.
+- `adaptive-policy.ts` — the pure state machine behind "The adaptive loop"
+  below: congestion evidence in, a per-track cap factor out.
 
 ## Screen sharing: what actually controls quality
 
@@ -191,6 +194,51 @@ the relay's media legs flowing, and rerouting would break a working stream. If
 it ever hurts in practice, the escape is to exclude detached peers from
 `computeScreenTree` and re-emit routes on detach/resume, paying an unnecessary
 re-parent on every WS-only blip.
+
+## The adaptive loop: closing the budgets' open loop
+
+Every cap above is an assumption: `screen-quality.ts` assumes a 10 Mbps
+uplink, `camera-quality.ts` a 4 Mbps one. Whoever has less used to drown —
+and, being a relay candidate, drown their subtree with them; whoever has
+more was undersold. `adaptive-policy.ts` closes the loop on those
+assumptions with what the network actually reports every 2 s sample:
+
+- the encoder's own verdict (`qualityLimitationReason`: bandwidth- or
+  CPU-bound),
+- loss seen by the far ends (RTCP `fractionLost`, worst peer wins — in a
+  mesh the slowest link defines what the room sees),
+- the congestion controller's bandwidth estimate
+  (`availableOutgoingBitrate`, where the browser exposes one).
+
+Each adapted track (the camera, the sharer's screen) rides a **ladder of
+factors** (1 → 0.7 → 0.5 → 0.35 → 0.25) over its composed cap: AIMD with
+hysteresis. Sustained congestion (~4 s) steps down; consecutive steps are
+spaced by a cooldown (~6 s); stepping back up takes ~16 s of proven calm
+AND estimated headroom over everything currently asked of the uplink —
+congestion is answered fast and forgiven slowly, which is the difference
+between adapting and oscillating. Evidence-free samples hold: silence is
+not calm. The user's preset stays the ceiling; the ladder only ever takes
+away, down to a floor where the medium stops working (150 kbps for a
+face, 500 kbps for readable 1080p text), and gives back what it took.
+
+Division of labor with the pieces that already existed: `priority` decides
+*what* congestion sacrifices first (camera, then screen, never voice); the
+ladder decides *how much* is sacrificed, per track. CPU pressure moves only
+the camera's ladder (at half factor its encode is also halved in
+resolution — a starved encoder is a hot one); the screen's
+`degradationPreference` already owns that axis choice, and a second hand on
+the same wheel oscillates. Relays do not adapt: passthrough forwarding
+costs ~nothing, and the re-encode fallback is the exception, not the rule.
+
+The policy is deliberately pure (plain data in, plain data out, unit-tested
+without a browser) and applied inside the two encoding funnels
+(`roomCameraEncoding` / `screenEncoding` in `use-room.ts`), so every
+existing re-application — join/leave, a settings change, a mic swap via
+`replaceLocalTrack` — carries the current factor for free. Readings are
+scoped per sender (`senderReports` in `stats.ts`): a sharer's connection
+carries two outbound videos, and the camera's ladder must never read the
+screen's congestion story as its own. Ladders reset when their story ends:
+a fresh mesh, a share stopping, the sharer picking a new preset.
 
 ## The desktop shell's unfair advantages
 
