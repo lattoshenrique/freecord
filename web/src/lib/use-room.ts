@@ -17,6 +17,7 @@ import {
 import { CAMERA_MIN_BITRATE, cameraEncoding, composeCameraEncoding } from './camera-quality';
 import { importRoomKey, openChat, sealChat } from './chat-crypto';
 import { Mesh, type TrackEncoding } from './mesh';
+import { playJoinChime, playLeaveChime } from './notification-sound';
 import { Signaling } from './signaling';
 import { cameraSlotsFor, type PeerInfo, type ServerMessage } from './protocol';
 import {
@@ -538,9 +539,14 @@ export function useRoomSession(options: JoinOptions) {
         case 'peer-joined':
           // The newly arrived peer initiates; here we only record the name.
           setPeers((current) => [...current.filter((p) => p.id !== message.peer.id), message.peer]);
+          // Presence cue. It rides on the event, not on a diff of the roster,
+          // so a resume — which replays the whole roster in `welcome` — stays
+          // silent instead of announcing everyone who was already there.
+          playJoinChime();
           return;
         case 'peer-left':
           meshRef.current?.removePeer(message.id);
+          playLeaveChime();
           setPeers((current) => current.filter((p) => p.id !== message.id));
           // The seat took its camera slot along.
           setCameras((current) => {
