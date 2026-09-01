@@ -30,19 +30,31 @@ export type RoomStatus =
   | { kind: 'ended'; reason: 'closed' | 'left' | 'room_not_found' | 'room_full' | 'invalid_name' };
 
 const MAX_CHAT_MESSAGES = 200;
-/** Espelha ROOM_LIMITS.heartbeatIntervalMs do servidor. */
+/** Mirrors the server's ROOM_LIMITS.heartbeatIntervalMs. */
 const HEARTBEAT_MS = 10_000;
-/** Espelha ROOM_LIMITS.peerTimeoutMs: sem pong nesse tempo, a sessão acabou. */
+/** Mirrors ROOM_LIMITS.peerTimeoutMs: no pong within this and the session is over. */
 const PONG_TIMEOUT_MS = 35_000;
 const STATS_INTERVAL_MS = 2_000;
-const QUALITY_STORAGE_KEY = 'guest-rooms:screen-quality';
+const QUALITY_STORAGE_KEY = 'freecord:screen-quality';
+/** Pre-rename storage: key from the guest-rooms era, values in Portuguese. */
+const LEGACY_QUALITY_STORAGE_KEY = 'guest-rooms:screen-quality';
+const LEGACY_QUALITY_IDS: Record<string, ScreenQualityId> = {
+  nitida: 'sharp',
+  equilibrada: 'balanced',
+  fluida: 'smooth',
+};
 
 function loadQuality(): ScreenQualityId {
   try {
     const saved = localStorage.getItem(QUALITY_STORAGE_KEY);
-    return saved === 'nitida' || saved === 'equilibrada' || saved === 'fluida'
-      ? saved
-      : DEFAULT_SCREEN_QUALITY;
+    if (saved === 'sharp' || saved === 'balanced' || saved === 'smooth') {
+      return saved;
+    }
+    const legacy = localStorage.getItem(LEGACY_QUALITY_STORAGE_KEY);
+    if (legacy && LEGACY_QUALITY_IDS[legacy]) {
+      return LEGACY_QUALITY_IDS[legacy];
+    }
+    return DEFAULT_SCREEN_QUALITY;
   } catch {
     return DEFAULT_SCREEN_QUALITY;
   }
@@ -62,7 +74,7 @@ export function useRoomSession(options: JoinOptions) {
   const [peerLatency, setPeerLatency] = useState<Map<string, PeerLatency>>(new Map());
   const [signalRttMs, setSignalRttMs] = useState<number | null>(null);
   const [screenStats, setScreenStats] = useState<ScreenStats | null>(null);
-  /** De quem EU recebo a tela na árvore (pode ser um relay, não o sharer). */
+  /** Who I receive the screen from in the tree (may be a relay, not the sharer). */
   const [screenSource, setScreenSource] = useState<{ id: string; streamId: string } | null>(null);
   const [meshVersion, bumpVersion] = useReducer((v: number) => v + 1, 0);
 
@@ -75,13 +87,13 @@ export function useRoomSession(options: JoinOptions) {
   const qualityRef = useRef<ScreenQualityId>(screenQuality);
   const viewerCountRef = useRef(0);
   const lastPongRef = useRef(0);
-  /** Última rota recebida da árvore de retransmissão da tela. */
+  /** Latest route received from the screen-forwarding tree. */
   const routeRef = useRef<{
     children: string[];
     source: { id: string; streamId: string } | null;
     quality: ScreenQualityId;
   } | null>(null);
-  /** Stream local que reencaminha a tela do pai para os filhos. */
+  /** Local stream that forwards the parent's screen to the children. */
   const forwardStreamRef = useRef<MediaStream | null>(null);
   const forwardedTrackRef = useRef<MediaStreamTrack | null>(null);
   const reportedRelayStreamRef = useRef<string | null>(null);
@@ -102,9 +114,9 @@ export function useRoomSession(options: JoinOptions) {
   }, []);
 
   /**
-   * Teto de envio da tela: preset rateado pelo nº de FILHOS na árvore —
-   * no máximo SCREEN_FANOUT, independente do tamanho da sala. Antes da
-   * rota chegar, o rateio conservador usa o nº de pares.
+   * Screen send cap: the preset split across the number of CHILDREN in
+   * the tree — at most SCREEN_FANOUT, regardless of room size. Before the
+   * route arrives, the conservative split uses the peer count.
    */
   const screenEncoding = useCallback((): TrackEncoding => {
     const preset = presetById(qualityRef.current);
@@ -116,7 +128,7 @@ export function useRoomSession(options: JoinOptions) {
     };
   }, []);
 
-  /** Teto de reencaminhamento de um relay: preset do sharer, rateado pelos filhos. */
+  /** A relay's forwarding cap: the sharer's preset, split across its children. */
   const relayEncoding = useCallback(
     (route: { children: string[]; quality: ScreenQualityId }): TrackEncoding => {
       const preset = presetById(route.quality);
@@ -129,7 +141,7 @@ export function useRoomSession(options: JoinOptions) {
     [],
   );
 
-  /** Desfaz o papel de relay: para de reencaminhar sem tocar no track remoto. */
+  /** Undoes the relay role: stops forwarding without touching the remote track. */
   const teardownRelay = useCallback(() => {
     const forwarded = forwardedTrackRef.current;
     if (forwarded) {
@@ -142,12 +154,13 @@ export function useRoomSession(options: JoinOptions) {
   }, []);
 
   /**
-   * Reconcilia o papel deste par na árvore de retransmissão da tela.
+   * Reconciles this peer's role in the screen-forwarding tree.
    *
-   * Chamado quando a rota muda e quando o mesh notifica (o track do pai
-   * pode chegar depois da rota). Sharer: aplica alvos e rateio no track
-   * local. Relay: anuncia o stream de reencaminhamento e liga o track
-   * recebido do pai aos filhos. Folha: desfaz qualquer reencaminhamento.
+   * Called when the route changes and when the mesh notifies (the
+   * parent's track may arrive after the route). Sharer: applies targets
+   * and the split to the local track. Relay: announces its forwarding
+   * stream and wires the track received from the parent to the children.
+   * Leaf: undoes any forwarding.
    */
   const syncScreenTree = useCallback(() => {
     const mesh = meshRef.current;
@@ -184,7 +197,7 @@ export function useRoomSession(options: JoinOptions) {
 
     const forwarded = forwardedTrackRef.current;
     if (forwarded && forwarded !== parentTrack) {
-      // Troca de pai (relay caiu, árvore mudou): solta o track antigo.
+      // Parent changed (a relay dropped, the tree moved): let go of the old track.
       mesh.removeLocalTrack(forwarded);
       stream.removeTrack(forwarded);
       forwardedTrackRef.current = null;
@@ -213,7 +226,7 @@ export function useRoomSession(options: JoinOptions) {
         try {
           media = await navigator.mediaDevices.getUserMedia({ audio: true });
         } catch {
-          media = null; // entra só ouvindo/vendo
+          media = null; // join as listener/viewer only
         }
       }
       if (cancelled) {
@@ -254,7 +267,7 @@ export function useRoomSession(options: JoinOptions) {
               mesh.addLocalTrack(track, media);
             }
           }
-          // Quem chega inicia a conexão com quem já estava.
+          // The newcomer initiates the connection with everyone already in.
           for (const peer of message.peers) {
             mesh.ensurePeer(peer.id);
           }
@@ -262,7 +275,7 @@ export function useRoomSession(options: JoinOptions) {
           return;
         }
         case 'peer-joined':
-          // O par recém-chegado inicia; aqui só registramos o nome.
+          // The newly arrived peer initiates; here we only record the name.
           setPeers((current) => [...current.filter((p) => p.id !== message.peer.id), message.peer]);
           return;
         case 'peer-left':
@@ -284,8 +297,9 @@ export function useRoomSession(options: JoinOptions) {
               localScreenRef.current = stream;
               setLocalScreen(stream);
               for (const track of stream.getTracks()) {
-                // Alvos começam vazios: o screen-route logo atrás diz para
-                // quem enviar — na árvore, os filhos; nunca a sala inteira.
+                // Targets start empty: the screen-route right behind says
+                // who to send to — the children in the tree, never the
+                // whole room.
                 meshRef.current?.addLocalTrack(track, stream, screenEncoding(), []);
               }
               syncScreenTree();
@@ -336,16 +350,17 @@ export function useRoomSession(options: JoinOptions) {
       localMediaRef.current?.getTracks().forEach((track) => track.stop());
       localMediaRef.current = null;
     };
-    // opções de join são estáveis para uma sessão de sala
+    // join options are stable for one room session
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [options.slug, options.name]);
 
   /**
-   * Heartbeat: mede a latência de sinalização e prova ao servidor que a
-   * conexão está viva — sem isso o par vira zumbi e é expulso.
+   * Heartbeat: measures signaling latency and proves to the server that
+   * the connection is alive — without it the peer becomes a zombie and is
+   * kicked.
    *
-   * Também vale ao contrário: rede que some não entrega frame de close
-   * nenhum, então o silêncio do servidor é o que encerra a sessão aqui.
+   * It also works in reverse: a vanished network delivers no close frame,
+   * so the server's silence is what ends the session here.
    */
   useEffect(() => {
     if (status.kind !== 'connected') {
@@ -365,8 +380,8 @@ export function useRoomSession(options: JoinOptions) {
     return () => clearInterval(timer);
   }, [status.kind]);
 
-  // Amostragem periódica de getStats(): latência por par e qualidade real
-  // da tela. Um sampler só, para o bitrate ter delta entre leituras.
+  // Periodic getStats() sampling: per-peer latency and the screen's real
+  // quality. A single sampler, so bitrate has a delta between readings.
   useEffect(() => {
     if (status.kind !== 'connected') {
       return;
@@ -386,8 +401,8 @@ export function useRoomSession(options: JoinOptions) {
       setPeerLatency(latencies);
 
       const sharing = localScreenRef.current?.getVideoTracks()[0] ?? null;
-      // Na árvore, a tela chega do PAI (talvez um relay) — o RTT medido é
-      // até ele, não até quem compartilha.
+      // In the tree, the screen arrives from the PARENT (maybe a relay) —
+      // the measured RTT is to it, not to the sharer.
       const watching =
         screenSource && screen && screen.id !== selfIdRef.current
           ? (mesh
@@ -413,8 +428,9 @@ export function useRoomSession(options: JoinOptions) {
     };
   }, [status.kind, screen, screenSource]);
 
-  // O rateio do uplink muda quando entra ou sai gente (fallback até a rota
-  // chegar; com rota, o rateio é pelos filhos e o servidor reemite a rota).
+  // The uplink split changes when someone joins or leaves (fallback until
+  // the route arrives; with a route, the split is by children and the
+  // server re-emits the route).
   useEffect(() => {
     viewerCountRef.current = peers.length;
     const track = localScreenRef.current?.getVideoTracks()[0];
@@ -423,13 +439,13 @@ export function useRoomSession(options: JoinOptions) {
     }
   }, [peers.length, screenEncoding]);
 
-  // O track do pai pode chegar DEPOIS da rota (negociação em andamento):
-  // cada notificação do mesh reavalia o papel deste par na árvore.
+  // The parent's track may arrive AFTER the route (negotiation still in
+  // flight): every mesh notification re-evaluates this peer's tree role.
   useEffect(() => {
     syncScreenTree();
   }, [meshVersion, syncScreenTree]);
 
-  /** Troca de preset: vale na hora, sem reiniciar o compartilhamento. */
+  /** Preset change: applies immediately, without restarting the share. */
   const setScreenQuality = useCallback(
     (id: ScreenQualityId) => {
       qualityRef.current = id;
@@ -437,18 +453,18 @@ export function useRoomSession(options: JoinOptions) {
       try {
         localStorage.setItem(QUALITY_STORAGE_KEY, id);
       } catch {
-        // navegação privada: a escolha vale só nesta sessão
+        // private browsing: the choice lasts only this session
       }
       const track = localScreenRef.current?.getVideoTracks()[0];
       if (track) {
         const preset = presetById(id);
         track.contentHint = preset.contentHint;
         void track.applyConstraints(screenConstraints(preset)).catch(() => {
-          // a fonte não aceita a resolução pedida: o teto de envio ainda vale
+          // the source rejects the requested resolution: the send cap still applies
         });
         meshRef.current?.setTrackEncoding(track, screenEncoding());
-        // Reanuncia o lock com a qualidade nova: os relays da árvore
-        // recebem o preset atualizado via screen-route.
+        // Re-announce the lock with the new quality: the tree's relays
+        // receive the updated preset via screen-route.
         const streamId = localScreenRef.current?.id;
         if (streamId) {
           signalingRef.current?.send({ t: 'screen-request', streamId, quality: id });
@@ -482,7 +498,7 @@ export function useRoomSession(options: JoinOptions) {
       setCamOn(videoTrack.enabled);
       return;
     }
-    // Câmera não foi pedida no pré-join: adquire e renegocia agora.
+    // Camera not requested at pre-join: acquire and renegotiate now.
     try {
       const cam = await navigator.mediaDevices.getUserMedia({ video: true });
       const track = cam.getVideoTracks()[0];
@@ -501,7 +517,7 @@ export function useRoomSession(options: JoinOptions) {
       setCamOn(true);
       bumpVersion();
     } catch {
-      // permissão negada: mantém sem câmera
+      // permission denied: stay camera-less
     }
   }, []);
 
@@ -518,21 +534,21 @@ export function useRoomSession(options: JoinOptions) {
       pendingScreenRef.current = stream;
       const track = stream.getVideoTracks()[0];
       if (track) {
-        // Diz ao codec o que preservar: nitidez de texto ou fluidez de movimento.
+        // Tells the codec what to preserve: text sharpness or motion fluidity.
         track.contentHint = preset.contentHint;
         track.onended = () => {
           signalingRef.current?.send({ t: 'screen-stop' });
           dropLocalScreen();
         };
       }
-      // O lock é do servidor: só publica quando vier screen-started.
+      // The lock belongs to the server: publish only when screen-started arrives.
       signalingRef.current?.send({
         t: 'screen-request',
         streamId: stream.id,
         quality: qualityRef.current,
       });
     } catch {
-      // usuário cancelou o seletor
+      // the user dismissed the picker
     }
   }, [dropLocalScreen]);
 

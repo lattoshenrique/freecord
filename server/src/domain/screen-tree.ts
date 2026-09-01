@@ -1,33 +1,33 @@
 /**
- * Árvore de retransmissão do compartilhamento de tela.
+ * Screen-share forwarding tree.
  *
- * No mesh puro a tela sobe N−1 vezes de quem compartilha — o teto de
- * qualidade cai conforme a sala enche. Aqui o sharer envia para até
- * `SCREEN_FANOUT` pares e cada um deles reencaminha o track recebido para
- * até `SCREEN_FANOUT` outros: o upload de qualquer participante fica
- * limitado a `SCREEN_FANOUT` cópias, independente do tamanho da sala, e o
- * servidor continua sem tocar mídia.
+ * In a pure mesh the screen is uploaded N−1 times by the sharer — the
+ * quality ceiling drops as the room fills up. Here the sharer sends to at
+ * most `SCREEN_FANOUT` peers and each of them forwards the received track
+ * to at most `SCREEN_FANOUT` others: any participant's upload is capped at
+ * `SCREEN_FANOUT` copies regardless of room size, and the server still
+ * never touches media.
  *
- * O custo é um salto extra de reencode para quem está além do primeiro
- * nível (~100–200 ms e uma geração de compressão) — com 8 participantes a
- * profundidade máxima é 2.
+ * The cost is one extra re-encode hop for anyone beyond the first level
+ * (~100–200 ms and one compression generation) — with 8 participants the
+ * maximum depth is 2.
  */
 
-/** Máximo de cópias da tela que qualquer par envia. */
+/** Maximum number of screen copies any peer uploads. */
 export const SCREEN_FANOUT = 3;
 
 export interface ScreenRoute {
-  /** Para quem este par envia a tela. */
+  /** Who this peer sends the screen to. */
   children: string[];
-  /** De quem este par recebe a tela (null para o sharer). */
+  /** Who this peer receives the screen from (null for the sharer). */
   parentId: string | null;
 }
 
 /**
- * Calcula a árvore: BFS a partir do sharer, preenchendo até `fanout`
- * filhos por nó. Os demais pares entram em ordem lexicográfica de id —
- * determinística nas duas bordas (Node e Durable Object), independente da
- * ordem de conexão.
+ * Computes the tree: BFS from the sharer, filling up to `fanout` children
+ * per node. Remaining peers are taken in lexicographic id order —
+ * deterministic across both edges (Node and Durable Object), regardless
+ * of connection order.
  */
 export function computeScreenTree(
   sharerId: string,

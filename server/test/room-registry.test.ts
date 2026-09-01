@@ -5,7 +5,7 @@ import { ROOM_LIMITS, RoomFullError, RoomNotFoundError } from '../src/domain/roo
 const noop = { send: () => {}, close: () => {} };
 
 describe('RoomRegistry', () => {
-  it('cria sala com slug não adivinhável e nome padrão', () => {
+  it('creates a room with an unguessable slug and a default name', () => {
     const registry = new RoomRegistry();
     const room = registry.createRoom();
     expect(room.slug.length).toBeGreaterThanOrEqual(10);
@@ -13,51 +13,51 @@ describe('RoomRegistry', () => {
     expect(registry.summarize(room.slug).participantCount).toBe(0);
   });
 
-  it('gera slugs únicos', () => {
+  it('generates unique slugs', () => {
     const slugs = new Set(Array.from({ length: 1000 }, () => generateRoomSlug()));
     expect(slugs.size).toBe(1000);
   });
 
-  it('rejeita sala inexistente', () => {
+  it('rejects a nonexistent room', () => {
     const registry = new RoomRegistry();
-    expect(() => registry.summarize('nao-existe')).toThrow(RoomNotFoundError);
+    expect(() => registry.summarize('does-not-exist')).toThrow(RoomNotFoundError);
   });
 
-  it('limita a lotação da sala', () => {
+  it('caps room occupancy', () => {
     const registry = new RoomRegistry();
     const { slug } = registry.createRoom();
     for (let i = 0; i < ROOM_LIMITS.maxParticipants; i += 1) {
       registry.addPeer(slug, `p${i}`, noop);
     }
-    expect(() => registry.addPeer(slug, 'lotado', noop)).toThrow(RoomFullError);
+    expect(() => registry.addPeer(slug, 'overflow', noop)).toThrow(RoomFullError);
   });
 
-  it('expira sala vazia após o timeout, mas não sala ocupada', () => {
+  it('expires an empty room past the timeout, but not an occupied one', () => {
     let clock = 0;
     const registry = new RoomRegistry(() => clock);
-    const vazia = registry.createRoom('Vazia');
-    const ocupada = registry.createRoom('Ocupada');
-    registry.addPeer(ocupada.slug, 'Ana', noop);
+    const empty = registry.createRoom('Empty');
+    const occupied = registry.createRoom('Occupied');
+    registry.addPeer(occupied.slug, 'Ana', noop);
 
     clock = ROOM_LIMITS.emptyTimeoutMs + 1;
     expect(registry.sweepExpired()).toBe(1);
-    expect(() => registry.summarize(vazia.slug)).toThrow(RoomNotFoundError);
-    expect(registry.summarize(ocupada.slug).participantCount).toBe(1);
+    expect(() => registry.summarize(empty.slug)).toThrow(RoomNotFoundError);
+    expect(registry.summarize(occupied.slug).participantCount).toBe(1);
   });
 
-  it('par mudo além do timeout é apontado como zumbi', () => {
+  it('flags a peer silent past the timeout as a zombie', () => {
     let clock = 0;
     const registry = new RoomRegistry(() => clock);
     const { slug } = registry.createRoom();
-    const viva = registry.addPeer(slug, 'Ana', noop);
-    const zumbi = registry.addPeer(slug, 'Bia', noop);
+    const alive = registry.addPeer(slug, 'Ana', noop);
+    const zombie = registry.addPeer(slug, 'Bia', noop);
 
     clock = ROOM_LIMITS.peerTimeoutMs + 1;
-    registry.touchPeer(slug, viva.peerId);
-    expect(registry.stalePeers()).toEqual([{ slug, peerId: zumbi.peerId }]);
+    registry.touchPeer(slug, alive.peerId);
+    expect(registry.stalePeers()).toEqual([{ slug, peerId: zombie.peerId }]);
   });
 
-  it('sala esvaziada volta a contar para expiração', () => {
+  it('a room that empties starts counting toward expiry again', () => {
     let clock = 0;
     const registry = new RoomRegistry(() => clock);
     const { slug } = registry.createRoom();

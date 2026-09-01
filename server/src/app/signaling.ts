@@ -18,12 +18,12 @@ function broadcast(room: Room, message: ServerMessage, exceptId?: string): void 
 }
 
 /**
- * (Re)distribui os papéis da árvore de retransmissão da tela.
+ * (Re)distributes the screen-forwarding tree roles.
  *
- * Chamado a cada mudança que afeta a topologia: tela começou, alguém
- * entrou/saiu ou um relay reportou seu stream de reencaminhamento. Cada
- * par recebe sua rota; filhos de um relay que ainda não reportou ficam
- * com `source: null` até o report chegar.
+ * Called on every change that affects topology: screen started, someone
+ * joined/left, or a relay reported its forwarding stream. Each peer gets
+ * its route; children of a relay that has not reported yet stay with
+ * `source: null` until the report arrives.
  */
 function broadcastScreenRoutes(room: Room): void {
   const sharer = room.screenSharer;
@@ -54,10 +54,10 @@ function broadcastScreenRoutes(room: Room): void {
 }
 
 /**
- * Sessão de sinalização de um participante: relay de SDP/ICE entre pares,
- * chat e o lock server-side de "uma tela por vez". Independente de
- * transporte — o WebSocket entra só como PeerChannel + chamadas a
- * handleMessage/close.
+ * One participant's signaling session: SDP/ICE relay between peers, chat,
+ * and the server-side "one screen at a time" lock. Transport-independent —
+ * the WebSocket only appears as a PeerChannel plus handleMessage/close
+ * calls.
  */
 export class SignalingSession {
   private readonly registry: RoomRegistry;
@@ -85,7 +85,7 @@ export class SignalingSession {
         : null,
     });
     broadcast(room, { t: 'peer-joined', peer: { id: peerId, name } }, peerId);
-    // Tela em andamento: quem chega precisa de rota, e a árvore muda.
+    // Screen share in progress: the newcomer needs a route, and the tree changes.
     broadcastScreenRoutes(room);
   }
 
@@ -100,7 +100,7 @@ export class SignalingSession {
 
     switch (message.t) {
       case 'ping': {
-        // Prova de vida + medida de latência: o cliente cronometra o eco.
+        // Proof of life + latency measure: the client times the echo.
         this.registry.touchPeer(this.slug, this.peerId);
         room.peers.get(this.peerId)?.channel.send({ t: 'pong', ts: message.ts });
         return;
@@ -124,12 +124,12 @@ export class SignalingSession {
         return;
       }
       case 'screen-request': {
-        // Regra de produto garantida no servidor: uma tela por vez.
+        // Product rule enforced on the server: one screen at a time.
         if (room.screenSharer && room.screenSharer.id !== this.peerId) {
           room.peers.get(this.peerId)?.channel.send({ t: 'screen-denied' });
           return;
         }
-        // Reenvio do próprio sharer = troca de qualidade ao vivo.
+        // A re-send by the sharer itself = live quality change.
         const restarted = room.screenSharer?.streamId !== message.streamId;
         room.screenSharer = {
           id: this.peerId,
@@ -144,7 +144,7 @@ export class SignalingSession {
         return;
       }
       case 'screen-relay': {
-        // Só relays da árvore atual podem anunciar stream de reencaminhamento.
+        // Only relays in the current tree may announce a forwarding stream.
         if (!room.screenSharer || room.screenSharer.id === this.peerId) {
           return;
         }
@@ -179,17 +179,18 @@ export class SignalingSession {
         broadcast(room, { t: 'screen-stopped' });
       }
       broadcast(room, { t: 'peer-left', id: this.peerId });
-      // Saiu um relay ou uma folha: a árvore de tela muda de forma.
+      // A relay or a leaf left: the screen tree changes shape.
       broadcastScreenRoutes(room);
     }
   }
 }
 
 /**
- * Expulsa pares que pararam de dar sinal de vida e avisa quem ficou.
+ * Kicks peers that stopped showing signs of life and tells the others.
  *
- * Sem isso uma conexão zumbi (rede que sumiu, sem close) segura a vaga para
- * sempre: a sala nunca fica vazia e nunca expira. Retorna quantos saíram.
+ * Without this, a zombie connection (network gone, no close frame) holds
+ * its seat forever: the room never empties and never expires. Returns how
+ * many were removed.
  */
 export function sweepStalePeers(registry: RoomRegistry): number {
   const stale = registry.stalePeers();
@@ -210,7 +211,7 @@ export function sweepStalePeers(registry: RoomRegistry): number {
   return stale.length;
 }
 
-/** Parse defensivo da borda: só formatos do protocolo fechado passam. */
+/** Defensive edge parsing: only closed-protocol shapes get through. */
 export function parseClientMessage(raw: unknown): ClientMessage | null {
   if (typeof raw !== 'string') {
     return null;
@@ -237,7 +238,7 @@ export function parseClientMessage(raw: unknown): ClientMessage | null {
         return null;
       }
       const quality: ScreenQuality =
-        message.quality === 'nitida' || message.quality === 'fluida' ? message.quality : 'equilibrada';
+        message.quality === 'sharp' || message.quality === 'smooth' ? message.quality : 'balanced';
       return { t: 'screen-request', streamId: message.streamId, quality };
     }
     case 'screen-relay':

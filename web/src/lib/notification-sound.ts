@@ -1,9 +1,9 @@
 /**
- * Aviso sonoro de mensagem nova — sintetizado na hora, sem arquivo de áudio.
+ * New-message sound cue — synthesized on the fly, no audio file.
  *
- * Duas senoides curtas subindo uma quarta justa (Sol5 → Dó6): som de "aviso",
- * não de alarme. Volume baixo e decaimento exponencial para não cortar a
- * conversa de quem está falando na sala.
+ * Two short sine tones rising a perfect fourth (G5 → C6): a "heads-up" sound,
+ * not an alarm. Low volume and exponential decay so it doesn't cut into the
+ * conversation of whoever is talking in the room.
  */
 
 const ATTACK_S = 0.008;
@@ -31,8 +31,8 @@ export function playMessageChime(): void {
   if (!ctx) {
     return;
   }
-  // Autoplay: o contexto nasce suspenso até um gesto do usuário — entrar na
-  // sala já é um, mas a retomada pode falhar e não pode derrubar o chat.
+  // Autoplay: the context is born suspended until a user gesture — joining
+  // the room already is one, but resuming can fail and must not take down the chat.
   void ctx.resume?.().catch(() => {});
 
   const start = ctx.currentTime;
@@ -46,7 +46,7 @@ export function playMessageChime(): void {
 
     gain.gain.setValueAtTime(0, at);
     gain.gain.linearRampToValueAtTime(PEAK_GAIN, at + ATTACK_S);
-    // Exponencial nunca chega a zero: termina em ~0 e corta no stop.
+    // Exponential never reaches zero: it lands at ~0 and gets cut off by stop.
     gain.gain.exponentialRampToValueAtTime(0.0001, at + NOTE_S);
 
     oscillator.connect(gain).connect(ctx.destination);

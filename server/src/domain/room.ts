@@ -1,7 +1,7 @@
 /**
- * Modelo de domínio das salas. Mídia flui P2P entre navegadores (WebRTC
- * mesh); o servidor é dono do estado das salas, da sinalização e das
- * regras de produto (lotação, uma tela por vez, expiração).
+ * Room domain model. Media flows P2P between browsers (WebRTC mesh); the
+ * server owns room state, signaling, and the product rules (capacity, one
+ * screen at a time, expiration).
  */
 
 export interface PeerInfo {
@@ -10,8 +10,9 @@ export interface PeerInfo {
 }
 
 /**
- * Canal de saída de um participante — abstrai o WebSocket (testável).
- * Precisa saber desligar: um par sem sinal de vida é expulso pelo servidor.
+ * A participant's outbound channel — abstracts the WebSocket (testable).
+ * It must know how to disconnect: a peer with no sign of life gets kicked
+ * by the server.
  */
 export interface PeerChannel {
   send(message: ServerMessage): void;
@@ -21,44 +22,45 @@ export interface PeerChannel {
 export interface Peer {
   name: string;
   channel: PeerChannel;
-  /** Último ping recebido — base para expulsar conexões zumbis. */
+  /** Last ping received — the basis for kicking zombie connections. */
   lastSeen: number;
 }
 
-/** Preset de qualidade escolhido por quem compartilha — os relays o replicam. */
-export type ScreenQuality = 'nitida' | 'equilibrada' | 'fluida';
+/** Quality preset chosen by the sharer — relays in the tree replicate it. */
+export type ScreenQuality = 'sharp' | 'balanced' | 'smooth';
 
 export interface Room {
   slug: string;
   displayName: string;
   peers: Map<string, Peer>;
-  /** Quem detém o lock de compartilhamento de tela, se alguém. */
+  /** Who holds the screen-share lock, if anyone. */
   screenSharer: { id: string; streamId: string; quality: ScreenQuality } | null;
   /**
-   * Streams de retransmissão reportados pelos relays da árvore de tela:
-   * peerId do relay → streamId que ele usa para reencaminhar aos filhos.
+   * Forwarding streams reported by the screen tree's relays:
+   * relay peerId → streamId it uses to forward to its children.
    */
   screenRelays: Map<string, string>;
-  /** Marca de quando a sala ficou vazia, para expiração. */
+  /** When the room became empty, for expiration. */
   emptyAt: number | null;
 }
 
 export const ROOM_LIMITS = {
   /**
-   * Mesh P2P: cada par mantém conexão com todos. Com vídeo, acima de ~8
-   * o upload dos participantes vira o gargalo — limite de produto E técnico.
+   * P2P mesh: every peer keeps a connection to every other. With video,
+   * beyond ~8 the participants' upload becomes the bottleneck — a product
+   * AND technical limit.
    */
   maxParticipants: 8,
-  /** Sala vazia expira depois disso (ms) — dá tempo do link circular. */
+  /** An empty room expires after this (ms) — enough time for the link to circulate. */
   emptyTimeoutMs: 15 * 60 * 1000,
-  /** Cadência do ping do cliente: mede latência e prova que ainda está vivo. */
+  /** Client ping cadence: measures latency and proves the peer is still alive. */
   heartbeatIntervalMs: 10 * 1000,
   /**
-   * Sem ping nesse tempo, o par é considerado morto e removido.
+   * With no ping for this long, the peer is considered dead and removed.
    *
-   * Queda de rede sem FIN (tampa do notebook, wi-fi que some) não gera
-   * evento de close: sem isso a sala fica ocupada por fantasmas e nunca
-   * chega a ficar vazia — logo, nunca expira.
+   * A network drop without a FIN (laptop lid closed, wi-fi vanishing)
+   * fires no close event: without this, the room stays occupied by ghosts
+   * and never becomes empty — hence never expires.
    */
   peerTimeoutMs: 35 * 1000,
   displayNameMaxLength: 60,
@@ -80,7 +82,7 @@ export class RoomFullError extends Error {
   }
 }
 
-/** Mensagens servidor → cliente. Espelhadas em web/src/lib/protocol.ts. */
+/** Server → client messages. Mirrored in web/src/lib/protocol.ts. */
 export type ServerMessage =
   | {
       t: 'welcome';
@@ -97,12 +99,12 @@ export type ServerMessage =
   | { t: 'screen-stopped' }
   | { t: 'screen-denied' }
   /**
-   * Papel deste par na árvore de retransmissão da tela.
+   * This peer's role in the screen-forwarding tree.
    *
-   * `children`: para quem devo enviar a tela (o sharer envia a original;
-   * um relay reencaminha o track recebido). `source`: de quem eu recebo
-   * (null para o sharer, ou enquanto o relay pai ainda não reportou o
-   * stream de retransmissão). Reemitida a cada mudança na árvore.
+   * `children`: who I must send the screen to (the sharer sends the
+   * original; a relay forwards the received track). `source`: who I
+   * receive from (null for the sharer, or while the parent relay has not
+   * yet reported its forwarding stream). Re-emitted on every tree change.
    */
   | {
       t: 'screen-route';
@@ -110,16 +112,16 @@ export type ServerMessage =
       source: { id: string; streamId: string } | null;
       quality: ScreenQuality;
     }
-  /** Eco do ping: o cliente mede a latência de sinalização com `ts`. */
+  /** Ping echo: the client measures signaling latency with `ts`. */
   | { t: 'pong'; ts: number }
   | { t: 'error'; code: 'room_not_found' | 'room_full' | 'invalid_name' };
 
-/** Mensagens cliente → servidor. Espelhadas em web/src/lib/protocol.ts. */
+/** Client → server messages. Mirrored in web/src/lib/protocol.ts. */
 export type ClientMessage =
   | { t: 'signal'; to: string; data: unknown }
   | { t: 'chat'; text: string }
   | { t: 'screen-request'; streamId: string; quality: ScreenQuality }
   | { t: 'screen-stop' }
-  /** Relay da árvore de tela anuncia o stream que usa para reencaminhar. */
+  /** A screen-tree relay announces the stream it uses for forwarding. */
   | { t: 'screen-relay'; streamId: string }
   | { t: 'ping'; ts: number };

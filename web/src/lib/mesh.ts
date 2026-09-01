@@ -1,28 +1,29 @@
 /**
- * Mesh P2P: uma RTCPeerConnection por par, com o padrão de negociação
- * perfeita (MDN) para resolver glare em renegociações (ex.: ligar câmera
- * ou compartilhar tela no meio da chamada).
+ * P2P mesh: one RTCPeerConnection per peer, using the perfect negotiation
+ * pattern (MDN) to resolve glare on renegotiations (e.g. turning on the
+ * camera or starting a screen share mid-call).
  *
- * A mídia flui direto entre navegadores; o servidor só transporta os
- * envelopes de sinalização (SDP/ICE) — solução 100% própria.
+ * Media flows directly between browsers; the server only transports the
+ * signaling envelopes (SDP/ICE) — a fully self-owned solution.
  */
 
 const ICE_SERVERS: RTCIceServer[] = [
-  // STUN público para descoberta de endereço. TURN próprio (coturn) entra
-  // como hardening — ver docs/architecture.md.
+  // Public STUN for address discovery. Self-hosted TURN (coturn) comes in
+  // as hardening — see docs/architecture.md.
   { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
 ];
 
 interface PeerState {
   pc: RTCPeerConnection;
-  /** No glare, o polite cede (rollback); o impolite ignora a oferta rival. */
+  /** On glare, the polite side yields (rollback); the impolite one ignores the rival offer. */
   polite: boolean;
   makingOffer: boolean;
   ignoreOffer: boolean;
   /**
-   * Sinais do mesmo par são aplicados um por vez, na ordem de chegada.
-   * Sem isso, um offer examina o signalingState antes do answer anterior
-   * terminar de aplicar e é descartado como colisão falsa.
+   * Signals from the same peer are applied one at a time, in arrival
+   * order. Without this, an offer inspects signalingState before the
+   * previous answer finishes applying and gets dropped as a false
+   * collision.
    */
   queue: Promise<void>;
   streams: Map<string, MediaStream>;
@@ -33,7 +34,7 @@ interface SignalPayload {
   candidate?: RTCIceCandidateInit;
 }
 
-/** Teto de envio de um track — aplicado igual em todos os pares. */
+/** A track's send cap — applied identically across all peers. */
 export interface TrackEncoding {
   maxBitrate: number;
   maxFramerate: number;
@@ -44,14 +45,14 @@ interface LocalTrack {
   stream: MediaStream;
   encoding: TrackEncoding | null;
   /**
-   * Para quem este track é enviado; null = todos os pares (câmera/voz).
-   * A tela usa alvos explícitos: na árvore de retransmissão cada par envia
-   * só para os próprios filhos, não para a sala inteira.
+   * Who this track is sent to; null = every peer (camera/voice). The
+   * screen uses explicit targets: in the forwarding tree each peer sends
+   * only to its own children, never to the whole room.
    */
   targets: Set<string> | null;
 }
 
-/** Chrome/Edge: pede o menor buffer de reprodução possível (não está no lib.dom). */
+/** Chrome/Edge: requests the smallest playout buffer possible (not in lib.dom). */
 interface LowLatencyReceiver extends RTCRtpReceiver {
   playoutDelayHint?: number;
 }
@@ -80,7 +81,7 @@ export class Mesh {
     }
   }
 
-  /** Streams remotos de um par, na ordem de chegada. */
+  /** A peer's remote streams, in arrival order. */
   getPeerStreams(peerId: string): MediaStream[] {
     return [...(this.peers.get(peerId)?.streams.values() ?? [])];
   }
@@ -110,8 +111,8 @@ export class Mesh {
   }
 
   /**
-   * Reconcilia para quem um track é enviado: adiciona sender nos alvos
-   * novos e remove dos que saíram — cada mudança renegocia só aquele par.
+   * Reconciles who a track is sent to: adds a sender for new targets and
+   * removes it from dropped ones — each change renegotiates only that peer.
    */
   setTrackTargets(track: MediaStreamTrack, targets: string[]): void {
     const local = this.localTracks.get(track);
@@ -132,10 +133,10 @@ export class Mesh {
   }
 
   /**
-   * Reaplica o teto de envio de um track em todos os pares.
+   * Re-applies a track's send cap across all peers.
    *
-   * Chamado quando a qualidade escolhida muda ou quando entra/sai gente —
-   * o rateio do uplink depende de quantos estão recebendo.
+   * Called when the chosen quality changes or when someone joins/leaves —
+   * the uplink split depends on how many are receiving.
    */
   setTrackEncoding(track: MediaStreamTrack, encoding: TrackEncoding): void {
     const local = this.localTracks.get(track);
@@ -155,7 +156,7 @@ export class Mesh {
       return;
     }
     const parameters = sender.getParameters();
-    // Sender recém-criado pode vir sem encodings até a primeira negociação.
+    // A freshly created sender may come without encodings until the first negotiation.
     if (parameters.encodings.length === 0) {
       parameters.encodings = [{}];
     }
@@ -167,7 +168,7 @@ export class Mesh {
     try {
       await sender.setParameters(parameters);
     } catch {
-      // parâmetros recusados (par caindo): a próxima aplicação tenta de novo
+      // parameters rejected (peer going down): the next application retries
     }
   }
 
@@ -202,8 +203,8 @@ export class Mesh {
         void this.applyEncoding(pc, track);
       }
     }
-    // Sem mídia local (permissão negada), ainda precisamos negociar para
-    // RECEBER os outros: transceivers recvonly disparam a oferta.
+    // With no local media (permission denied), we still need to negotiate
+    // in order to RECEIVE the others: recvonly transceivers trigger the offer.
     if (pc.getSenders().length === 0) {
       pc.addTransceiver('audio', { direction: 'recvonly' });
       pc.addTransceiver('video', { direction: 'recvonly' });
@@ -217,7 +218,7 @@ export class Mesh {
           this.sendSignal(peerId, { description: pc.localDescription.toJSON() });
         }
       } catch {
-        // conexão fechada no meio da negociação
+        // connection closed mid-negotiation
       } finally {
         state.makingOffer = false;
       }
@@ -241,8 +242,9 @@ export class Mesh {
         return;
       }
       if (event.track.kind === 'video') {
-        // Sem isso o navegador acumula centenas de ms de buffer: numa tela
-        // compartilhada isso é a diferença entre acompanhar e ver o passado.
+        // Without this the browser accumulates hundreds of ms of buffer: on
+        // a shared screen that is the difference between following along
+        // and watching the past.
         (event.receiver as LowLatencyReceiver).playoutDelayHint = 0;
       }
       state.streams.set(stream.id, stream);
@@ -296,7 +298,7 @@ export class Mesh {
         }
       }
     } catch {
-      // sinalização de par que já caiu: estado local é limpo no peer-left
+      // signaling from a peer that already dropped: local state is cleaned on peer-left
     }
   }
 

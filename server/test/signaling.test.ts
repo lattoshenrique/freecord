@@ -19,12 +19,12 @@ function connect(registry: RoomRegistry, slug: string, name: string) {
 
 function setup(now?: () => number) {
   const registry = new RoomRegistry(now);
-  const { slug } = registry.createRoom('Sala');
+  const { slug } = registry.createRoom('Room');
   return { registry, slug };
 }
 
 describe('SignalingSession', () => {
-  it('welcome traz os pares existentes; entrada é anunciada aos demais', () => {
+  it('welcome carries the existing peers; joining is announced to the others', () => {
     const { registry, slug } = setup();
     const ana = connect(registry, slug, 'Ana');
     const bia = connect(registry, slug, 'Bia');
@@ -40,7 +40,7 @@ describe('SignalingSession', () => {
     });
   });
 
-  it('relay de signal chega só ao destinatário', () => {
+  it('signal relay reaches only the addressee', () => {
     const { registry, slug } = setup();
     const ana = connect(registry, slug, 'Ana');
     const bia = connect(registry, slug, 'Bia');
@@ -51,22 +51,22 @@ describe('SignalingSession', () => {
     expect(carla.inbox.some((m) => m.t === 'signal')).toBe(false);
   });
 
-  it('chat é broadcast para todos, inclusive quem enviou', () => {
+  it('chat is broadcast to everyone, including the sender', () => {
     const { registry, slug } = setup();
     const ana = connect(registry, slug, 'Ana');
     const bia = connect(registry, slug, 'Bia');
 
-    ana.session.handleMessage({ t: 'chat', text: '  oi!  ' });
+    ana.session.handleMessage({ t: 'chat', text: '  hi!  ' });
     const received = bia.last();
     expect(received.t).toBe('chat');
     if (received.t === 'chat') {
-      expect(received.text).toBe('oi!');
+      expect(received.text).toBe('hi!');
       expect(received.from.name).toBe('Ana');
     }
     expect(ana.last().t).toBe('chat');
   });
 
-  it('ping é ecoado como pong só para quem perguntou', () => {
+  it('ping is echoed as pong only to whoever asked', () => {
     const { registry, slug } = setup();
     const ana = connect(registry, slug, 'Ana');
     const bia = connect(registry, slug, 'Bia');
@@ -76,12 +76,12 @@ describe('SignalingSession', () => {
     expect(bia.inbox.some((m) => m.t === 'pong')).toBe(false);
   });
 
-  it('lock de tela: um por vez, negado ao segundo, liberado ao parar', () => {
+  it('screen lock: one at a time, denied to the second, released on stop', () => {
     const { registry, slug } = setup();
     const ana = connect(registry, slug, 'Ana');
     const bia = connect(registry, slug, 'Bia');
 
-    ana.session.handleMessage({ t: 'screen-request', streamId: 's-ana', quality: 'equilibrada' });
+    ana.session.handleMessage({ t: 'screen-request', streamId: 's-ana', quality: 'balanced' });
     expect(bia.inbox.map((m) => m.t)).toContain('screen-started');
     expect(bia.inbox.at(-2)).toEqual({
       t: 'screen-started',
@@ -89,24 +89,24 @@ describe('SignalingSession', () => {
       streamId: 's-ana',
     });
 
-    bia.session.handleMessage({ t: 'screen-request', streamId: 's-bia', quality: 'equilibrada' });
+    bia.session.handleMessage({ t: 'screen-request', streamId: 's-bia', quality: 'balanced' });
     expect(bia.last()).toEqual({ t: 'screen-denied' });
 
     ana.session.handleMessage({ t: 'screen-stop' });
     expect(bia.last()).toEqual({ t: 'screen-stopped' });
 
-    bia.session.handleMessage({ t: 'screen-request', streamId: 's-bia', quality: 'equilibrada' });
+    bia.session.handleMessage({ t: 'screen-request', streamId: 's-bia', quality: 'balanced' });
     expect(ana.inbox.some((m) => m.t === 'screen-started' && m.id === bia.session.peerId)).toBe(
       true,
     );
   });
 
-  it('desconexão libera o lock de tela e anuncia a saída', () => {
+  it('disconnecting releases the screen lock and announces the departure', () => {
     const { registry, slug } = setup();
     const ana = connect(registry, slug, 'Ana');
     const bia = connect(registry, slug, 'Bia');
 
-    ana.session.handleMessage({ t: 'screen-request', streamId: 's-ana', quality: 'equilibrada' });
+    ana.session.handleMessage({ t: 'screen-request', streamId: 's-ana', quality: 'balanced' });
     ana.session.close();
 
     expect(bia.inbox.map((m) => m.t)).toContain('screen-stopped');
@@ -119,7 +119,7 @@ describe('SignalingSession', () => {
 });
 
 describe('sweepStalePeers', () => {
-  it('expulsa quem parou de dar sinal de vida, esvaziando a sala', () => {
+  it('kicks whoever stopped giving signs of life, emptying the room', () => {
     let clock = 0;
     const { registry, slug } = setup(() => clock);
     const ana = connect(registry, slug, 'Ana');
@@ -133,7 +133,7 @@ describe('sweepStalePeers', () => {
     expect(ana.last()).toEqual({ t: 'peer-left', id: bia.session.peerId });
     expect(registry.summarize(slug).participantCount).toBe(1);
 
-    // Sem ninguém dando sinal de vida, a sala esvazia e passa a expirar.
+    // With nobody giving signs of life, the room empties and starts expiring.
     clock += ROOM_LIMITS.peerTimeoutMs + 1;
     expect(sweepStalePeers(registry)).toBe(1);
     expect(registry.summarize(slug).participantCount).toBe(0);
@@ -141,43 +141,43 @@ describe('sweepStalePeers', () => {
     expect(registry.sweepExpired()).toBe(1);
   });
 
-  it('libera o lock de tela de quem foi expulso', () => {
+  it('releases the screen lock of whoever got kicked', () => {
     let clock = 0;
     const { registry, slug } = setup(() => clock);
     const ana = connect(registry, slug, 'Ana');
     const bia = connect(registry, slug, 'Bia');
 
-    ana.session.handleMessage({ t: 'screen-request', streamId: 's-ana', quality: 'equilibrada' });
+    ana.session.handleMessage({ t: 'screen-request', streamId: 's-ana', quality: 'balanced' });
     clock = ROOM_LIMITS.peerTimeoutMs + 1;
     bia.session.handleMessage({ t: 'ping', ts: 1 });
     sweepStalePeers(registry);
 
     expect(bia.inbox.map((m) => m.t)).toContain('screen-stopped');
-    bia.session.handleMessage({ t: 'screen-request', streamId: 's-bia', quality: 'equilibrada' });
+    bia.session.handleMessage({ t: 'screen-request', streamId: 's-bia', quality: 'balanced' });
     expect(bia.inbox.some((m) => m.t === 'screen-started' && m.id === bia.session.peerId)).toBe(
       true,
     );
   });
 });
 
-describe('árvore de retransmissão da tela', () => {
+describe('screen relay tree', () => {
   function routesOf(inbox: ServerMessage[]) {
     return inbox.filter((m) => m.t === 'screen-route');
   }
 
-  it('sharer recebe os filhos; com fanout sobrando, todos são filhos diretos', () => {
+  it('sharer receives its children; with fanout to spare, everyone is a direct child', () => {
     const { registry, slug } = setup();
     const ana = connect(registry, slug, 'Ana');
     const bia = connect(registry, slug, 'Bia');
     const carla = connect(registry, slug, 'Carla');
 
-    ana.session.handleMessage({ t: 'screen-request', streamId: 's-ana', quality: 'nitida' });
+    ana.session.handleMessage({ t: 'screen-request', streamId: 's-ana', quality: 'sharp' });
 
     const anaRoute = routesOf(ana.inbox).at(-1)!;
     expect(anaRoute.t).toBe('screen-route');
     if (anaRoute.t === 'screen-route') {
       expect(anaRoute.source).toBeNull();
-      expect(anaRoute.quality).toBe('nitida');
+      expect(anaRoute.quality).toBe('sharp');
       expect([...anaRoute.children].sort()).toEqual(
         [bia.session.peerId, carla.session.peerId].sort(),
       );
@@ -189,28 +189,28 @@ describe('árvore de retransmissão da tela', () => {
     }
   });
 
-  it('com sala cheia, um relay recebe filhos e o report atualiza o source deles', () => {
+  it('with a full room, a relay receives children and its report updates their source', () => {
     const { registry, slug } = setup();
     const sharer = connect(registry, slug, 'Sharer');
     const others = ['B', 'C', 'D', 'E'].map((name) => connect(registry, slug, name));
 
-    sharer.session.handleMessage({ t: 'screen-request', streamId: 's-1', quality: 'equilibrada' });
+    sharer.session.handleMessage({ t: 'screen-request', streamId: 's-1', quality: 'balanced' });
 
-    // 4 espectadores, fanout 3: um deles é relay do quarto.
+    // 4 viewers, fanout 3: one of them relays to the fourth.
     const sharerRoute = routesOf(sharer.inbox).at(-1)!;
-    if (sharerRoute.t !== 'screen-route') throw new Error('sem rota do sharer');
+    if (sharerRoute.t !== 'screen-route') throw new Error('no sharer route');
     expect(sharerRoute.children).toHaveLength(3);
 
     const byId = new Map(others.map((o) => [o.session.peerId, o]));
-    const relayId = [...byId.keys()].sort()[0]!; // BFS em ordem lexicográfica
+    const relayId = [...byId.keys()].sort()[0]!; // BFS in lexicographic order
     const relay = byId.get(relayId)!;
     const relayRoute = routesOf(relay.inbox).at(-1)!;
-    if (relayRoute.t !== 'screen-route') throw new Error('sem rota do relay');
+    if (relayRoute.t !== 'screen-route') throw new Error('no relay route');
     expect(relayRoute.children).toHaveLength(1);
     const leafId = relayRoute.children[0]!;
     const leaf = byId.get(leafId)!;
 
-    // Antes do report do relay, a folha não sabe de onde receber.
+    // Before the relay's report, the leaf doesn't know where to receive from.
     const leafBefore = routesOf(leaf.inbox).at(-1)!;
     if (leafBefore.t === 'screen-route') {
       expect(leafBefore.source).toBeNull();
@@ -223,33 +223,33 @@ describe('árvore de retransmissão da tela', () => {
     }
   });
 
-  it('folha não pode se anunciar como relay', () => {
+  it('a leaf cannot announce itself as a relay', () => {
     const { registry, slug } = setup();
     const sharer = connect(registry, slug, 'Sharer');
     const bia = connect(registry, slug, 'Bia');
 
-    sharer.session.handleMessage({ t: 'screen-request', streamId: 's-1', quality: 'equilibrada' });
+    sharer.session.handleMessage({ t: 'screen-request', streamId: 's-1', quality: 'balanced' });
     const before = routesOf(bia.inbox).length;
-    bia.session.handleMessage({ t: 'screen-relay', streamId: 'forjado' });
-    // Sem filhos na árvore, o report é ignorado: nenhuma rota nova sai.
+    bia.session.handleMessage({ t: 'screen-relay', streamId: 'forged' });
+    // With no children in the tree, the report is ignored: no new route goes out.
     expect(routesOf(bia.inbox).length).toBe(before);
   });
 
-  it('saída de um relay reroteia os órfãos', () => {
+  it('a relay leaving reroutes the orphans', () => {
     const { registry, slug } = setup();
     const sharer = connect(registry, slug, 'Sharer');
     const others = ['B', 'C', 'D', 'E'].map((name) => connect(registry, slug, name));
 
-    sharer.session.handleMessage({ t: 'screen-request', streamId: 's-1', quality: 'equilibrada' });
+    sharer.session.handleMessage({ t: 'screen-request', streamId: 's-1', quality: 'balanced' });
     const byId = new Map(others.map((o) => [o.session.peerId, o]));
     const relayId = [...byId.keys()].sort()[0]!;
     const relay = byId.get(relayId)!;
 
     relay.session.close();
 
-    // Com 3 espectadores restantes, todos viram filhos diretos do sharer.
+    // With 3 viewers left, everyone becomes a direct child of the sharer.
     const sharerRoute = routesOf(sharer.inbox).at(-1)!;
-    if (sharerRoute.t !== 'screen-route') throw new Error('sem rota do sharer');
+    if (sharerRoute.t !== 'screen-route') throw new Error('no sharer route');
     expect([...sharerRoute.children].sort()).toEqual(
       [...byId.keys()].filter((id) => id !== relayId).sort(),
     );
@@ -263,26 +263,26 @@ describe('árvore de retransmissão da tela', () => {
     }
   });
 
-  it('quem entra durante a tela recebe rota', () => {
+  it('whoever joins during the share receives a route', () => {
     const { registry, slug } = setup();
     const sharer = connect(registry, slug, 'Sharer');
-    sharer.session.handleMessage({ t: 'screen-request', streamId: 's-1', quality: 'fluida' });
+    sharer.session.handleMessage({ t: 'screen-request', streamId: 's-1', quality: 'smooth' });
 
     const late = connect(registry, slug, 'Zoe');
     const route = routesOf(late.inbox).at(-1)!;
     expect(route.t).toBe('screen-route');
     if (route.t === 'screen-route') {
       expect(route.source).toEqual({ id: sharer.session.peerId, streamId: 's-1' });
-      expect(route.quality).toBe('fluida');
+      expect(route.quality).toBe('smooth');
     }
   });
 });
 
 describe('parseClientMessage', () => {
-  it('aceita apenas o protocolo fechado', () => {
-    expect(parseClientMessage(JSON.stringify({ t: 'chat', text: 'oi' }))).toEqual({
+  it('accepts only the closed protocol', () => {
+    expect(parseClientMessage(JSON.stringify({ t: 'chat', text: 'hi' }))).toEqual({
       t: 'chat',
-      text: 'oi',
+      text: 'hi',
     });
     expect(parseClientMessage(JSON.stringify({ t: 'signal', to: 'x', data: 1 }))).toEqual({
       t: 'signal',
@@ -294,21 +294,21 @@ describe('parseClientMessage', () => {
     expect(parseClientMessage(JSON.stringify({ t: 'chat' }))).toBeNull();
     expect(parseClientMessage(JSON.stringify({ t: 'signal', to: 7, data: 1 }))).toBeNull();
     expect(parseClientMessage(JSON.stringify({ t: 'ping', ts: 42 }))).toEqual({ t: 'ping', ts: 42 });
-    expect(parseClientMessage(JSON.stringify({ t: 'ping', ts: 'agora' }))).toBeNull();
+    expect(parseClientMessage(JSON.stringify({ t: 'ping', ts: 'now' }))).toBeNull();
   });
 
-  it('screen-request sem qualidade válida cai no padrão; screen-relay é validado', () => {
+  it('screen-request without a valid quality falls back to the default; screen-relay is validated', () => {
     expect(parseClientMessage(JSON.stringify({ t: 'screen-request', streamId: 's' }))).toEqual({
       t: 'screen-request',
       streamId: 's',
-      quality: 'equilibrada',
+      quality: 'balanced',
     });
     expect(
-      parseClientMessage(JSON.stringify({ t: 'screen-request', streamId: 's', quality: 'nitida' })),
-    ).toEqual({ t: 'screen-request', streamId: 's', quality: 'nitida' });
+      parseClientMessage(JSON.stringify({ t: 'screen-request', streamId: 's', quality: 'sharp' })),
+    ).toEqual({ t: 'screen-request', streamId: 's', quality: 'sharp' });
     expect(
       parseClientMessage(JSON.stringify({ t: 'screen-request', streamId: 's', quality: '4k' })),
-    ).toEqual({ t: 'screen-request', streamId: 's', quality: 'equilibrada' });
+    ).toEqual({ t: 'screen-request', streamId: 's', quality: 'balanced' });
     expect(parseClientMessage(JSON.stringify({ t: 'screen-relay', streamId: 'fwd' }))).toEqual({
       t: 'screen-relay',
       streamId: 'fwd',

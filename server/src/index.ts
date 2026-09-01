@@ -1,5 +1,5 @@
 /**
- * Raiz de composição do servidor de salas + sinalização.
+ * Composition root for the rooms + signaling server.
  */
 import { RoomRegistry } from './app/room-registry.js';
 import { sweepStalePeers } from './app/signaling.js';
@@ -15,8 +15,8 @@ async function main(): Promise<void> {
     webDist: config.WEB_DIST,
   });
 
-  // Duas varreduras: pares zumbis saem rápido para a sala poder esvaziar;
-  // sala vazia além do timeout deixa de existir.
+  // Two sweeps: zombie peers leave quickly so the room can empty out;
+  // a room empty past the timeout ceases to exist.
   const sweeper = setInterval(() => {
     sweepStalePeers(registry);
     registry.sweepExpired();

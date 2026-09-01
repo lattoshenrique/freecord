@@ -1,7 +1,7 @@
 import { SIGNALING_ORIGIN } from '../api';
 import type { ClientMessage, ServerMessage } from './protocol';
 
-/** Base wss:// do servidor de salas — a origem configurada ou a da página. */
+/** wss:// base of the rooms server — the configured origin, or the page's own. */
 function signalingBase(): string {
   if (SIGNALING_ORIGIN) {
     return SIGNALING_ORIGIN.replace(/^http/, 'ws');
@@ -12,11 +12,11 @@ function signalingBase(): string {
 
 export interface SignalingHandlers {
   onMessage: (message: ServerMessage) => void;
-  /** Chamado quando a conexão cai ou é fechada pelo servidor. */
+  /** Called when the connection drops or is closed by the server. */
   onClose: () => void;
 }
 
-/** Cliente fino do WebSocket de sinalização. */
+/** Thin client for the signaling WebSocket. */
 export class Signaling {
   private readonly ws: WebSocket;
   private closedByUs = false;
@@ -28,7 +28,7 @@ export class Signaling {
       try {
         handlers.onMessage(JSON.parse(event.data as string) as ServerMessage);
       } catch {
-        // mensagem fora do protocolo: ignora
+        // message outside the protocol: ignore it
       }
     };
     this.ws.onclose = () => {

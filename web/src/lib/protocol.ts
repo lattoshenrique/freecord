@@ -1,6 +1,6 @@
 /**
- * Protocolo de sinalização — espelho de server/src/domain/room.ts.
- * Mudou lá, muda aqui (e vice-versa).
+ * Signaling protocol — mirror of server/src/domain/room.ts.
+ * Changed there, change here (and vice versa).
  */
 
 import type { ScreenQualityId } from './screen-quality';
@@ -26,9 +26,9 @@ export type ServerMessage =
   | { t: 'screen-stopped' }
   | { t: 'screen-denied' }
   /**
-   * Papel deste par na árvore de retransmissão da tela: para quem envio
-   * (`children`) e de quem recebo (`source`; null para o sharer ou enquanto
-   * o relay pai não reportou o stream de reencaminhamento).
+   * This peer's role in the screen-forwarding tree: who I send to
+   * (`children`) and who I receive from (`source`; null for the sharer or
+   * while the parent relay has not yet reported its forwarding stream).
    */
   | {
       t: 'screen-route';
@@ -36,7 +36,7 @@ export type ServerMessage =
       source: { id: string; streamId: string } | null;
       quality: ScreenQualityId;
     }
-  /** Eco do ping: o cliente mede a latência de sinalização com `ts`. */
+  /** Ping echo: the client measures signaling latency with `ts`. */
   | { t: 'pong'; ts: number }
   | { t: 'error'; code: 'room_not_found' | 'room_full' | 'invalid_name' };
 
@@ -45,6 +45,6 @@ export type ClientMessage =
   | { t: 'chat'; text: string }
   | { t: 'screen-request'; streamId: string; quality: ScreenQualityId }
   | { t: 'screen-stop' }
-  /** Relay da árvore de tela anuncia o stream que usa para reencaminhar. */
+  /** A screen-tree relay announces the stream it uses for forwarding. */
   | { t: 'screen-relay'; streamId: string }
   | { t: 'ping'; ts: number };

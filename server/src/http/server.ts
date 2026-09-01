@@ -9,7 +9,7 @@ import { registerRoutes } from './routes.js';
 export interface BuildServerOptions {
   registry: RoomRegistry;
   corsOrigin?: string;
-  /** Quando definido, serve o build do web (produção single-process). */
+  /** When set, serves the web build (single-process production). */
   webDist?: string;
   logger?: boolean;
 }
@@ -19,8 +19,8 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
 
   await app.register(cors, { origin: options.corsOrigin ?? true });
 
-  // Convidados não autenticados podem criar salas: rate limit é a
-  // primeira linha de defesa contra abuso.
+  // Unauthenticated guests can create rooms: rate limiting is the
+  // first line of defense against abuse.
   await app.register(rateLimit, { max: 60, timeWindow: '1 minute' });
 
   await app.register(websocket, {
@@ -31,7 +31,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
 
   if (options.webDist) {
     await app.register(fastifyStatic, { root: options.webDist, wildcard: false });
-    // SPA fallback: /r/:slug cai no index.html.
+    // SPA fallback: /r/:slug lands on index.html.
     app.setNotFoundHandler((request, reply) => {
       if (request.method === 'GET' && !request.url.startsWith('/api/')) {
         return reply.sendFile('index.html');

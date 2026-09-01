@@ -1,11 +1,11 @@
 /**
- * Leitura de `getStats()` da malha: latência real par a par e a qualidade
- * efetiva da tela — o que está chegando, não o que foi pedido.
+ * Reading the mesh's `getStats()`: real peer-to-peer latency and the effective
+ * screen quality — what is actually arriving, not what was requested.
  */
 import type { Mesh } from './mesh';
 
 export interface PeerLatency {
-  /** Ida e volta pelo caminho P2P, em ms. Null antes do ICE fechar. */
+  /** Round trip over the P2P path, in ms. Null until ICE settles. */
   rttMs: number | null;
   state: RTCPeerConnectionState;
 }
@@ -39,7 +39,7 @@ function defined(values: (number | null)[]): number[] {
   return values.filter((value): value is number => value !== null);
 }
 
-/** RTT do par de candidatos em uso — a latência de rede entre as pessoas. */
+/** RTT of the candidate pair in use — the network latency between the people. */
 function candidatePairRtt(report: RTCStatsReport): number | null {
   let rtt: number | null = null;
   let bestBytes = -1;
@@ -47,7 +47,7 @@ function candidatePairRtt(report: RTCStatsReport): number | null {
     if (stat.type !== 'candidate-pair' || stat.state !== 'succeeded') {
       continue;
     }
-    // O par nomeado é o que está em uso; sem ele, o que mais recebeu bytes.
+    // The nominated pair is the one in use; failing that, the one that received the most bytes.
     const weight = stat.nominated === true ? Number.MAX_SAFE_INTEGER : (num(stat.bytesReceived) ?? 0);
     if (weight > bestBytes) {
       bestBytes = weight;
@@ -58,8 +58,8 @@ function candidatePairRtt(report: RTCStatsReport): number | null {
 }
 
 /**
- * Amostrador com memória: bitrate só existe como delta entre duas leituras,
- * então a amostra anterior fica guardada por chave.
+ * Sampler with memory: bitrate only exists as a delta between two readings,
+ * so the previous sample is kept per key.
  */
 export class StatsSampler {
   private readonly previous = new Map<string, { bytes: number; at: number }>();
@@ -94,7 +94,7 @@ export class StatsSampler {
     return new Map(entries.filter((entry): entry is [string, PeerLatency] => entry !== null));
   }
 
-  /** Qualidade de quem está recebendo a tela de `peerId`. */
+  /** Quality on the receiving end of `peerId`'s screen. */
   async receivingScreen(
     mesh: Mesh,
     peerId: string,
@@ -126,8 +126,8 @@ export class StatsSampler {
   }
 
   /**
-   * Qualidade de quem está enviando: soma o que sobe para todos os pares —
-   * é esse total que estoura o uplink numa malha.
+   * Quality on the sending end: sums what goes up to every peer —
+   * that total is what blows the uplink in a mesh.
    */
   async sendingScreen(mesh: Mesh, track: MediaStreamTrack): Promise<ScreenStats | null> {
     const at = performance.now();
@@ -171,7 +171,7 @@ export class StatsSampler {
     const heights = defined(live.map((sample) => sample.height));
     return {
       direction: 'sending',
-      // O pior par manda no que a sala está vendo; o bitrate é a soma que sobe.
+      // The worst peer dictates what the room is seeing; the bitrate is the total going up.
       fps: fps.length ? Math.min(...fps) : null,
       width: widths.length ? Math.min(...widths) : null,
       height: heights.length ? Math.min(...heights) : null,

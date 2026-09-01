@@ -7,7 +7,7 @@ import {
   type Room,
 } from '../domain/room.js';
 
-/** Slug não adivinhável: o link É a credencial de descoberta da sala. */
+/** Unguessable slug: the link IS the room's discovery credential. */
 export function generateRoomSlug(): string {
   return randomBytes(9).toString('base64url');
 }
@@ -19,11 +19,11 @@ export interface RoomSummary {
 }
 
 /**
- * Estado das salas em memória — a fonte de verdade do que está vivo.
+ * In-memory room state — the source of truth for what is alive.
  *
- * Uma instância por processo atende milhares de salas pequenas (o custo
- * pesado, a mídia, nem passa por aqui). O caminho para múltiplas
- * instâncias está mapeado em docs/architecture.md.
+ * One instance per process serves thousands of small rooms (the heavy
+ * cost, the media, never passes through here). The path to multiple
+ * instances is mapped in docs/architecture.md.
  */
 export class RoomRegistry {
   private readonly rooms = new Map<string, Room>();
@@ -79,7 +79,7 @@ export class RoomRegistry {
     return { room, peerId };
   }
 
-  /** Ping recebido: o par continua vivo. */
+  /** Ping received: the peer is still alive. */
   touchPeer(slug: string, peerId: string): void {
     const peer = this.rooms.get(slug)?.peers.get(peerId);
     if (peer) {
@@ -103,7 +103,7 @@ export class RoomRegistry {
     return room;
   }
 
-  /** Pares mudos além do timeout — conexões que caíram sem avisar. */
+  /** Peers silent past the timeout — connections that dropped without saying so. */
   stalePeers(): Array<{ slug: string; peerId: string }> {
     const cutoff = this.now() - ROOM_LIMITS.peerTimeoutMs;
     const stale: Array<{ slug: string; peerId: string }> = [];
@@ -117,7 +117,7 @@ export class RoomRegistry {
     return stale;
   }
 
-  /** Remove salas vazias há mais tempo que o timeout. Retorna quantas. */
+  /** Removes rooms empty for longer than the timeout. Returns how many. */
   sweepExpired(): number {
     const cutoff = this.now() - ROOM_LIMITS.emptyTimeoutMs;
     let removed = 0;

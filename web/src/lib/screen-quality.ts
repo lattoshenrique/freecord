@@ -1,22 +1,24 @@
 /**
- * Presets de compartilhamento de tela.
+ * Screen-share quality presets.
  *
- * Deixar o navegador escolher sozinho (`getDisplayMedia({ video: true })`)
- * entrega o pior dos mundos: ele degrada resolução E fps ao mesmo tempo e
- * mira um bitrate conservador. Aqui a escolha é explícita — e o que
- * sacrificar quando a banda aperta vira decisão de quem compartilha.
+ * Letting the browser decide (`getDisplayMedia({ video: true })`) gives
+ * the worst of both worlds: it degrades resolution AND fps at the same
+ * time while aiming at a conservative bitrate. Here the choice is
+ * explicit — and what to sacrifice when bandwidth gets tight becomes the
+ * sharer's decision.
+ *
+ * User-facing preset names and hints live in the i18n catalog, keyed by
+ * id (`quality.<id>.label` / `quality.<id>.hint`) — never hardcoded here.
  */
 
-export type ScreenQualityId = 'nitida' | 'equilibrada' | 'fluida';
+export type ScreenQualityId = 'sharp' | 'balanced' | 'smooth';
 
 export interface ScreenQualityPreset {
   id: ScreenQualityId;
-  label: string;
-  hint: string;
   width: number;
   height: number;
   frameRate: number;
-  /** Teto por par (bps), antes do rateio do uplink. */
+  /** Per-peer cap (bps), before the uplink split. */
   maxBitrate: number;
   contentHint: 'text' | 'detail' | 'motion';
   degradationPreference: RTCDegradationPreference;
@@ -24,9 +26,7 @@ export interface ScreenQualityPreset {
 
 export const SCREEN_QUALITY_PRESETS: readonly ScreenQualityPreset[] = [
   {
-    id: 'nitida',
-    label: 'Nítida',
-    hint: 'Código e texto — 1080p a 15 fps, nunca borra',
+    id: 'sharp',
     width: 1920,
     height: 1080,
     frameRate: 15,
@@ -35,9 +35,7 @@ export const SCREEN_QUALITY_PRESETS: readonly ScreenQualityPreset[] = [
     degradationPreference: 'maintain-resolution',
   },
   {
-    id: 'equilibrada',
-    label: 'Equilibrada',
-    hint: 'Padrão — 1080p a 30 fps',
+    id: 'balanced',
     width: 1920,
     height: 1080,
     frameRate: 30,
@@ -46,9 +44,7 @@ export const SCREEN_QUALITY_PRESETS: readonly ScreenQualityPreset[] = [
     degradationPreference: 'maintain-resolution',
   },
   {
-    id: 'fluida',
-    label: 'Fluida',
-    hint: 'Vídeo e jogo — 720p a 60 fps, prioriza movimento',
+    id: 'smooth',
     width: 1280,
     height: 720,
     frameRate: 60,
@@ -58,15 +54,15 @@ export const SCREEN_QUALITY_PRESETS: readonly ScreenQualityPreset[] = [
   },
 ];
 
-export const DEFAULT_SCREEN_QUALITY: ScreenQualityId = 'equilibrada';
+export const DEFAULT_SCREEN_QUALITY: ScreenQualityId = 'balanced';
 
 /**
- * Orçamento de upload assumido para a tela (bps).
+ * Assumed upload budget for the screen (bps).
  *
- * Com a árvore de retransmissão (server/src/domain/screen-tree.ts), cada
- * par envia no máximo SCREEN_FANOUT cópias — o rateio divide o orçamento
- * pelos FILHOS na árvore, não por N−1, então o teto não cai mais com o
- * tamanho da sala.
+ * With the forwarding tree (server/src/domain/screen-tree.ts) each peer
+ * uploads at most SCREEN_FANOUT copies — the split divides the budget by
+ * the CHILDREN in the tree, not by N−1, so the ceiling no longer drops
+ * with room size.
  */
 export const SCREEN_UPLINK_BUDGET = 10_000_000;
 
@@ -74,7 +70,7 @@ export function presetById(id: ScreenQualityId): ScreenQualityPreset {
   return SCREEN_QUALITY_PRESETS.find((preset) => preset.id === id) ?? SCREEN_QUALITY_PRESETS[1]!;
 }
 
-/** Teto por par: o menor entre o do preset e a fatia do uplink. */
+/** Per-peer cap: the lower of the preset's cap and the uplink share. */
 export function bitrateFor(preset: ScreenQualityPreset, viewerCount: number): number {
   return Math.min(preset.maxBitrate, Math.floor(SCREEN_UPLINK_BUDGET / Math.max(1, viewerCount)));
 }
