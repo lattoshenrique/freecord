@@ -105,6 +105,8 @@ export const zhCN: Catalog = {
 
   'chat.title': '房间聊天',
   'chat.empty': '还没有消息，打个招呼吧 👋',
+  'chat.locked':
+    '已加密 —— 你没有这个房间的密钥',
   'chat.messageLabel': '聊天消息',
   'chat.placeholder': '消息…  **粗体**、`代码`、- 列表',
   'chat.send': '发送消息',

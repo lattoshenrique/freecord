@@ -110,6 +110,8 @@ export const enUS = {
 
   'chat.title': 'Room chat',
   'chat.empty': 'No messages yet. Say hi 👋',
+  'chat.locked':
+    'Encrypted — you don’t have this room’s key',
   'chat.messageLabel': 'Chat message',
   'chat.placeholder': 'Message…  **bold**, `code`, - list',
   'chat.send': 'Send message',

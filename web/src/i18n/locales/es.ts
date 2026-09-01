@@ -106,6 +106,8 @@ export const esES: Catalog = {
 
   'chat.title': 'Chat de la sala',
   'chat.empty': 'Aún no hay mensajes. Saluda 👋',
+  'chat.locked':
+    'Cifrado — no tienes la clave de esta sala',
   'chat.messageLabel': 'Mensaje del chat',
   'chat.placeholder': 'Mensaje…  **negrita**, `código`, - lista',
   'chat.send': 'Enviar mensaje',

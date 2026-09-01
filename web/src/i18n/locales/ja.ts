@@ -106,6 +106,8 @@ export const jaJP: Catalog = {
 
   'chat.title': 'ルームチャット',
   'chat.empty': 'まだメッセージはありません。挨拶してみましょう 👋',
+  'chat.locked':
+    '暗号化されています — このルームの鍵がありません',
   'chat.messageLabel': 'チャットメッセージ',
   'chat.placeholder': 'メッセージ…  **太字**、`コード`、- リスト',
   'chat.send': 'メッセージを送信',
