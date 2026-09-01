@@ -87,6 +87,8 @@ export const esES: Catalog = {
   'prejoin.empty': 'Todavía no hay nadie: sé la primera persona en entrar.',
   'prejoin.inRoom': { one: '{count} persona en la sala.', other: '{count} personas en la sala.' },
   'prejoin.joinRoom': 'Entrar en la sala',
+  'prejoin.renameRoom': 'Renombrar la sala',
+  'prejoin.renameFailed': 'No se pudo renombrar la sala.',
 
   'room.loading': 'Cargando sala…',
   'room.connecting': 'Conectando a la sala…',

@@ -86,6 +86,8 @@ export const zhCN: Catalog = {
   'prejoin.empty': '还没有人 —— 你可以第一个进来。',
   'prejoin.inRoom': { other: '房间里有 {count} 人。' },
   'prejoin.joinRoom': '进入房间',
+  'prejoin.renameRoom': '重命名房间',
+  'prejoin.renameFailed': '无法重命名房间。',
 
   'room.loading': '正在加载房间…',
   'room.connecting': '正在连接房间…',

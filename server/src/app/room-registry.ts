@@ -72,6 +72,16 @@ export class RoomRegistry {
     };
   }
 
+  /**
+   * Renames a room from its doorstep. Empty is a valid name — it means
+   * "unnamed", and the client renders the localized label, as on create.
+   */
+  renameRoom(slug: string, displayNameRaw: string): RoomSummary {
+    const room = this.getRoom(slug);
+    room.displayName = displayNameRaw.trim();
+    return this.summarize(slug);
+  }
+
   addPeer(slug: string, name: string, channel: PeerChannel): { room: Room; peerId: string } {
     const room = this.getRoom(slug);
     // Detached peers still hold seats: a full room stays full during a grace.

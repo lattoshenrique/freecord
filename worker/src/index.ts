@@ -118,7 +118,7 @@ function randomId(bytes: number): string {
 function corsHeaders(env: Env): Record<string, string> {
   return {
     'Access-Control-Allow-Origin': env.CORS_ORIGIN ?? '*',
-    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+    'Access-Control-Allow-Methods': 'GET,POST,PATCH,OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
   };
 }
@@ -150,6 +150,8 @@ export class RoomDurableObject {
         return this.create(request);
       case '/summary':
         return this.summary();
+      case '/rename':
+        return this.rename(request);
       case '/join':
         return this.join(request);
       default:
@@ -174,6 +176,22 @@ export class RoomDurableObject {
     return Response.json({
       slug: meta.slug,
       displayName: meta.displayName,
+      participantCount: this.ctx.getWebSockets().length + Object.keys(detached).length,
+    });
+  }
+
+  /** Mirror of RoomRegistry.renameRoom: the outer Worker validates the body. */
+  private async rename(request: Request): Promise<Response> {
+    const meta = await this.ctx.storage.get<RoomMeta>('meta');
+    if (!meta) {
+      return Response.json({ error: 'room_not_found' }, { status: 404 });
+    }
+    const { displayName } = (await request.json()) as { displayName: string };
+    const renamed = { slug: meta.slug, displayName: displayName.trim() } satisfies RoomMeta;
+    await this.ctx.storage.put('meta', renamed);
+    const detached = await this.detachedPeers();
+    return Response.json({
+      ...renamed,
       participantCount: this.ctx.getWebSockets().length + Object.keys(detached).length,
     });
   }
@@ -852,6 +870,26 @@ async function handleApi(request: Request, env: Env, url: URL): Promise<Response
     }
     const room = env.ROOMS.get(env.ROOMS.idFromName(slug));
     const response = await room.fetch('https://room/summary');
+    return json(await response.json(), response.status, env);
+  }
+
+  if (summary && request.method === 'PATCH') {
+    const slug = decodeURIComponent(summary[1]);
+    if (slug.length > 64) {
+      return json({ error: 'invalid_slug' }, 400, env);
+    }
+    const body = (await request.json().catch(() => ({}))) as { displayName?: unknown };
+    if (
+      typeof body.displayName !== 'string' ||
+      body.displayName.length > ROOM_LIMITS.displayNameMaxLength
+    ) {
+      return json({ error: 'invalid_body' }, 400, env);
+    }
+    const room = env.ROOMS.get(env.ROOMS.idFromName(slug));
+    const response = await room.fetch('https://room/rename', {
+      method: 'POST',
+      body: JSON.stringify({ displayName: body.displayName }),
+    });
     return json(await response.json(), response.status, env);
   }
 

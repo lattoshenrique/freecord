@@ -87,6 +87,8 @@ export const jaJP: Catalog = {
   'prejoin.empty': 'まだ誰もいません — 最初の一人になりましょう。',
   'prejoin.inRoom': { other: 'ルームに {count} 人います。' },
   'prejoin.joinRoom': 'ルームに参加',
+  'prejoin.renameRoom': 'ルーム名を変更',
+  'prejoin.renameFailed': 'ルーム名を変更できませんでした。',
 
   'room.loading': 'ルームを読み込み中…',
   'room.connecting': 'ルームに接続中…',

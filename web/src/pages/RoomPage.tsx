@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ApiError, getRoom, type RoomSummary } from '../api';
+import { ApiError, getRoom, renameRoom, type RoomSummary } from '../api';
 import { roomKeyFromHash } from '../lib/chat-crypto';
 import { randomNickname } from '../lib/identity';
 import { useI18n } from '../i18n';
@@ -30,6 +30,14 @@ export default function RoomPage() {
   const [micEnabled, setMicEnabled] = useState(false);
   const [camEnabled, setCamEnabled] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
+  // The room's own name is the title, and the title is an input: null while
+  // nobody is typing in it, the draft while someone is.
+  const [roomDraft, setRoomDraft] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState(false);
+  const [renameError, setRenameError] = useState(false);
+  const roomNameRef = useRef<HTMLInputElement>(null);
+  // Escape reverts: the blur that follows must not save the draft.
+  const discardRef = useRef(false);
 
   useEffect(() => {
     if (!slug) {
@@ -99,6 +107,31 @@ export default function RoomPage() {
 
   if (phase.kind === 'prejoin') {
     const { room } = phase;
+    const commitRename = async () => {
+      if (roomDraft === null || renaming) {
+        return;
+      }
+      const next = roomDraft.trim();
+      if (next === room.displayName) {
+        setRoomDraft(null);
+        return;
+      }
+      setRenaming(true);
+      setRenameError(false);
+      try {
+        const renamed = await renameRoom(slug, next);
+        setPhase({ kind: 'prejoin', room: renamed });
+        setRoomDraft(null);
+      } catch {
+        // Keep the draft so nothing typed is lost; the title shows it still.
+        setRenameError(true);
+      } finally {
+        setRenaming(false);
+      }
+    };
+
+    const shownName = roomDraft ?? room.displayName;
+
     return (
       <main className="join">
         <form
@@ -128,7 +161,56 @@ export default function RoomPage() {
             <span>{t('app.name')}</span>
           </Link>
 
-          <h1>{room.displayName || t('room.unnamed')}</h1>
+          {/* The heading is the field: click the name and type. */}
+          <h1 className="join-room-name" data-value={shownName || t('room.unnamed')}>
+            <input
+              ref={roomNameRef}
+              type="text"
+              value={shownName}
+              // No intrinsic width: the mirror in the heading sizes the field.
+              size={1}
+              maxLength={60}
+              placeholder={t('room.unnamed')}
+              aria-label={t('prejoin.renameRoom')}
+              title={t('prejoin.renameRoom')}
+              aria-invalid={renameError || undefined}
+              disabled={renaming}
+              onFocus={() => {
+                discardRef.current = false;
+                setRoomDraft((draft) => draft ?? room.displayName);
+              }}
+              onChange={(event) => {
+                setRoomDraft(event.target.value);
+                setRenameError(false);
+              }}
+              onBlur={() => {
+                if (discardRef.current) {
+                  discardRef.current = false;
+                  setRoomDraft(null);
+                  setRenameError(false);
+                  return;
+                }
+                void commitRename();
+              }}
+              onKeyDown={(event) => {
+                // The form's Enter is "join": here it just leaves the field,
+                // and leaving the field saves.
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  event.currentTarget.blur();
+                } else if (event.key === 'Escape') {
+                  event.preventDefault();
+                  discardRef.current = true;
+                  event.currentTarget.blur();
+                }
+              }}
+            />
+          </h1>
+          {renameError ? (
+            <p className="join-room-error" role="alert">
+              {t('prejoin.renameFailed')}
+            </p>
+          ) : null}
           <p className="join-sub">
             {room.participantCount === 0
               ? t('prejoin.empty')

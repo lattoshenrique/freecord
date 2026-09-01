@@ -86,6 +86,8 @@ export const ptBR: Catalog = {
   'prejoin.empty': 'Ninguém aqui ainda — seja a primeira pessoa a entrar.',
   'prejoin.inRoom': { one: '{count} pessoa na sala.', other: '{count} pessoas na sala.' },
   'prejoin.joinRoom': 'Entrar na sala',
+  'prejoin.renameRoom': 'Renomear a sala',
+  'prejoin.renameFailed': 'Não foi possível renomear a sala.',
 
   'room.loading': 'Carregando sala…',
   'room.connecting': 'Conectando à sala…',

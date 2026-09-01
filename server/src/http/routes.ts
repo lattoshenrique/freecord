@@ -17,6 +17,10 @@ const createRoomBody = z.object({
   displayName: z.string().max(ROOM_LIMITS.displayNameMaxLength).optional(),
 });
 
+const renameRoomBody = z.object({
+  displayName: z.string().max(ROOM_LIMITS.displayNameMaxLength),
+});
+
 const slugParam = z.object({
   slug: z.string().min(1).max(64),
 });
@@ -82,6 +86,25 @@ export function registerRoutes(
     }
     try {
       return registry.summarize(params.data.slug);
+    } catch (error) {
+      if (error instanceof RoomNotFoundError) {
+        return reply.code(404).send({ error: 'room_not_found' });
+      }
+      throw error;
+    }
+  });
+
+  app.patch('/api/rooms/:slug', async (request, reply) => {
+    const params = slugParam.safeParse(request.params);
+    if (!params.success) {
+      return reply.code(400).send({ error: 'invalid_slug' });
+    }
+    const body = renameRoomBody.safeParse(request.body ?? {});
+    if (!body.success) {
+      return reply.code(400).send({ error: 'invalid_body' });
+    }
+    try {
+      return registry.renameRoom(params.data.slug, body.data.displayName);
     } catch (error) {
       if (error instanceof RoomNotFoundError) {
         return reply.code(404).send({ error: 'room_not_found' });

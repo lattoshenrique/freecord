@@ -90,6 +90,8 @@ export const enUS = {
   'prejoin.empty': 'Nobody here yet — be the first to join.',
   'prejoin.inRoom': { one: '{count} person in the room.', other: '{count} people in the room.' },
   'prejoin.joinRoom': 'Join the room',
+  'prejoin.renameRoom': 'Rename the room',
+  'prejoin.renameFailed': "Couldn't rename the room.",
 
   'room.loading': 'Loading room…',
   'room.connecting': 'Connecting to the room…',

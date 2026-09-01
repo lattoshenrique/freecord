@@ -75,6 +75,14 @@ export function getRoom(slug: string): Promise<RoomSummary> {
   return request(`/api/rooms/${encodeURIComponent(slug)}`);
 }
 
+/** Renames from the doorstep; an empty name means "unnamed" again. */
+export function renameRoom(slug: string, displayName: string): Promise<RoomSummary> {
+  return request(`/api/rooms/${encodeURIComponent(slug)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ displayName }),
+  });
+}
+
 /** Desktop app catalog — the edge resolves which Release is the latest. */
 export function getDownloads(): Promise<DesktopCatalog> {
   return request('/api/downloads');

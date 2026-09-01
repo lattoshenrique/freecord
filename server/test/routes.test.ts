@@ -54,4 +54,34 @@ describe('HTTP routes', () => {
       participantCount: 0,
     });
   });
+
+  it('PATCH /api/rooms/:slug renames the room and trims the name', async () => {
+    const created = await app.inject({ method: 'POST', url: '/api/rooms', payload: {} });
+    const { slug } = created.json() as { slug: string };
+    const renamed = await app.inject({
+      method: 'PATCH',
+      url: `/api/rooms/${slug}`,
+      payload: { displayName: '  Friday night  ' },
+    });
+    expect(renamed.statusCode).toBe(200);
+    expect(renamed.json()).toEqual({ slug, displayName: 'Friday night', participantCount: 0 });
+    expect(registry.summarize(slug).displayName).toBe('Friday night');
+  });
+
+  it('PATCH /api/rooms/:slug rejects a name over the limit and an unknown room', async () => {
+    const created = await app.inject({ method: 'POST', url: '/api/rooms', payload: {} });
+    const { slug } = created.json() as { slug: string };
+    const tooLong = await app.inject({
+      method: 'PATCH',
+      url: `/api/rooms/${slug}`,
+      payload: { displayName: 'x'.repeat(61) },
+    });
+    expect(tooLong.statusCode).toBe(400);
+    const missing = await app.inject({
+      method: 'PATCH',
+      url: '/api/rooms/does-not-exist',
+      payload: { displayName: 'x' },
+    });
+    expect(missing.statusCode).toBe(404);
+  });
 });
