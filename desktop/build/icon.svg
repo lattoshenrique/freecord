@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Fonte do icon.png (electron-builder). Regenerar com:
+       qlmanage -t -s 1024 -o . icon.svg && mv icon.svg.png icon.png -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5865f2"/>
+      <stop offset="1" stop-color="#a855f7"/>
+    </linearGradient>
+  </defs>
+  <rect x="32" y="32" width="960" height="960" rx="224" fill="url(#bg)"/>
+  <g transform="translate(205 205) scale(9.6)" fill="#fff" stroke="#fff">
+    <path d="M40.1 14.4 49.5 49.5 14.4 40.1Z" fill="none" stroke-width="5.5" stroke-linejoin="round"/>
+    <circle cx="40.1" cy="14.4" r="7.5" stroke="none"/>
+    <circle cx="49.5" cy="49.5" r="7.5" stroke="none"/>
+    <circle cx="14.4" cy="40.1" r="7.5" stroke="none"/>
+  </g>
+</svg>
