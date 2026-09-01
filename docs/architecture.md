@@ -76,6 +76,15 @@ same `welcome.ice` field) stays real. With no `TURN_KEY_ID`/`TURN_API_TOKEN`
 configured (dev default), joins get an empty list and the client falls back to
 public STUN, exactly as before.
 
+That dev default is also production's state today: the hosted service runs
+with no TURN credentials set, so every call is direct P2P or does not
+connect. Whoever flips the secrets on owns a coupled edit in the same
+movement — several public strings are written to be literally true only
+while TURN is off (the "no TURN configured" notes in `llms.txt`, the JSON-LD
+FAQ answer in `web/index.html`, one CONTRIBUTING paragraph, and the
+`home.dev.p2p.title`/`home.dev.lead` catalog keys). Nothing breaks when this
+is missed, which is exactly why it gets missed.
+
 - `stats.ts` — reads `getStats()` from the mesh: the RTT of the candidate pair
   actually in use (the real latency between two people) and the effective
   quality of the screen.
