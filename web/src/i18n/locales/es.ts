@@ -2,7 +2,7 @@ import type { Catalog } from '..';
 
 export const esES: Catalog = {
   'app.name': 'Freecord',
-  'app.tagline': 'Voz, vídeo, chat y pantalla. Sin registro — solo un enlace.',
+  'app.tagline': 'Voz, vídeo, chat y pantalla en una malla P2P. Los medios nunca tocan un servidor.',
 
   'home.roomName': 'Nombre de la sala',
   'home.roomNamePlaceholder': 'Nombre de la sala (opcional)',
@@ -14,6 +14,11 @@ export const esES: Catalog = {
   'home.chip.opensource': 'Open source · MIT',
   'home.chip.p2p': 'WebRTC P2P nativo',
   'home.chip.nosignup': 'Sin registro',
+
+  'home.hero.titleA': 'Una sala es',
+  'home.hero.titleB': 'solo un enlace.',
+  'home.footer.product': 'Producto',
+  'home.footer.downloads': 'Descargas',
 
   'home.card.title': 'Empieza una sala',
   'home.card.hint': 'El enlace es la invitación.',

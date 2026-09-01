@@ -6,7 +6,8 @@
  */
 export const enUS = {
   'app.name': 'Freecord',
-  'app.tagline': 'Voice, video, chat and screen sharing. No signup — just a link.',
+  'app.tagline':
+    'Voice, video, chat and screen sharing over a P2P mesh. Media never touches a server.',
 
   'home.roomName': 'Room name',
   'home.roomNamePlaceholder': 'Room name (optional)',
@@ -18,6 +19,11 @@ export const enUS = {
   'home.chip.opensource': 'Open source · MIT',
   'home.chip.p2p': 'Native WebRTC P2P',
   'home.chip.nosignup': 'No signup',
+
+  'home.hero.titleA': 'A room is',
+  'home.hero.titleB': 'just a link.',
+  'home.footer.product': 'Product',
+  'home.footer.downloads': 'Downloads',
 
   'home.card.title': 'Start a room',
   'home.card.hint': 'The link is the invite.',
