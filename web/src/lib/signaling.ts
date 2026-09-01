@@ -91,6 +91,11 @@ export class Signaling {
         if (message.t === 'welcome') {
           this.attempts = 0;
         }
+        if (message.t === 'error' && message.code === 'resume_invalid') {
+          // The seat is gone: retrying with the dead token would only
+          // spray refused connections until the attempts ran out.
+          this.resumeToken = null;
+        }
         this.handlers.onMessage(message);
       } catch {
         // message outside the protocol: ignore it

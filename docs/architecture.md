@@ -139,6 +139,15 @@ latency — which is why fanout 3 keeps the depth at 2. Relays are chosen
 lexicographically for determinism, not for capacity: a weak laptop can become a
 bottleneck. Picking relays by RTT/stability is the natural next step.
 
+A second deliberate price came with session resume: detached peers stay in the
+tree, so a relay that dies for real (transport AND media together) freezes its
+subtree for up to the 35 s seat clock, where a clean close used to recover it
+in seconds. That is the right trade for the common case — a WS-only drop keeps
+the relay's media legs flowing, and rerouting would break a working stream. If
+it ever hurts in practice, the escape is to exclude detached peers from
+`computeScreenTree` and re-emit routes on detach/resume, paying an unnecessary
+re-parent on every WS-only blip.
+
 ## Product decisions that control cost and complexity
 
 | Decision | Effect |
@@ -238,7 +247,9 @@ never extends the worst case):
    zombie alike — and `peer-left` goes out. One exception is faster: a
    detached **sharer** loses the screen lock after `screenLockGraceMs` (10 s),
    because one frozen screen blocks the whole room while a frozen tile blocks
-   nobody. The seat itself survives the full 35 s.
+   nobody. The seat itself survives the full 35 s. The 10 s is a cutoff, not
+   a deadline: release rides the sweep, so it lands at ~10 s on the Worker
+   (detach schedules an early alarm) and 10–20 s on Node (10 s sweep cadence).
 2. A room with nobody in it for `emptyTimeoutMs` (15 min) ceases to exist; the
    link starts answering `room_not_found`. Detached seats count as occupancy
    (and toward `maxParticipants`) until they expire.
