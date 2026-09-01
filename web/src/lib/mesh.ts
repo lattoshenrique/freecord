@@ -7,9 +7,11 @@
  * signaling envelopes (SDP/ICE) — a fully self-owned solution.
  */
 
-const ICE_SERVERS: RTCIceServer[] = [
-  // Public STUN for address discovery. Self-hosted TURN (coturn) comes in
-  // as hardening — see docs/architecture.md.
+/**
+ * Fallback when the edge hands out no ICE servers (TURN unconfigured):
+ * public STUN for address discovery, as before TURN existed.
+ */
+export const DEFAULT_ICE_SERVERS: RTCIceServer[] = [
   { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
 ];
 
@@ -50,6 +52,12 @@ interface LocalTrack {
    * only to its own children, never to the whole room.
    */
   targets: Set<string> | null;
+  /**
+   * Codec order offered for this track (e.g. AV1 first for a screen when
+   * hardware-encodable); null = the browser's default. Applied per
+   * transceiver, so each hop negotiates independently.
+   */
+  codecs: RTCRtpCodec[] | null;
 }
 
 /** Chrome/Edge: requests the smallest playout buffer possible (not in lib.dom). */
@@ -60,14 +68,20 @@ interface LowLatencyReceiver extends RTCRtpReceiver {
 export class Mesh {
   private readonly selfId: string;
   private readonly sendSignal: (to: string, data: SignalPayload) => void;
+  private readonly iceServers: RTCIceServer[];
   private readonly peers = new Map<string, PeerState>();
   private readonly localTracks = new Map<MediaStreamTrack, LocalTrack>();
   private readonly listeners = new Set<() => void>();
   private closed = false;
 
-  constructor(selfId: string, sendSignal: (to: string, data: SignalPayload) => void) {
+  constructor(
+    selfId: string,
+    sendSignal: (to: string, data: SignalPayload) => void,
+    iceServers?: RTCIceServer[],
+  ) {
     this.selfId = selfId;
     this.sendSignal = sendSignal;
+    this.iceServers = iceServers && iceServers.length > 0 ? iceServers : DEFAULT_ICE_SERVERS;
   }
 
   subscribe(listener: () => void): () => void {
@@ -99,15 +113,39 @@ export class Mesh {
     stream: MediaStream,
     encoding?: TrackEncoding,
     targets?: string[] | null,
+    codecs?: RTCRtpCodec[] | null,
   ): void {
     const targetSet = targets === undefined || targets === null ? null : new Set(targets);
-    this.localTracks.set(track, { stream, encoding: encoding ?? null, targets: targetSet });
+    const local: LocalTrack = {
+      stream,
+      encoding: encoding ?? null,
+      targets: targetSet,
+      codecs: codecs ?? null,
+    };
+    this.localTracks.set(track, local);
     for (const [peerId, state] of this.peers) {
       if (targetSet === null || targetSet.has(peerId)) {
-        state.pc.addTrack(track, stream);
-        void this.applyEncoding(state.pc, track);
+        this.addSender(state.pc, track, local);
       }
     }
+  }
+
+  /**
+   * Creates the sender and, in the same tick, its codec preference — it
+   * must land on the transceiver before `negotiationneeded` fires, or the
+   * first offer goes out with the default order.
+   */
+  private addSender(pc: RTCPeerConnection, track: MediaStreamTrack, local: LocalTrack): void {
+    const sender = pc.addTrack(track, local.stream);
+    if (local.codecs) {
+      const transceiver = pc.getTransceivers().find((t) => t.sender === sender);
+      try {
+        transceiver?.setCodecPreferences(local.codecs);
+      } catch {
+        // codec list rejected by this browser: negotiation falls back
+      }
+    }
+    void this.applyEncoding(pc, track);
   }
 
   /**
@@ -124,8 +162,7 @@ export class Mesh {
     for (const [peerId, state] of this.peers) {
       const sender = state.pc.getSenders().find((s) => s.track === track);
       if (targetSet.has(peerId) && !sender) {
-        state.pc.addTrack(track, local.stream);
-        void this.applyEncoding(state.pc, track);
+        this.addSender(state.pc, track, local);
       } else if (!targetSet.has(peerId) && sender) {
         state.pc.removeTrack(sender);
       }
@@ -186,7 +223,7 @@ export class Mesh {
     if (this.closed || this.peers.has(peerId)) {
       return;
     }
-    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+    const pc = new RTCPeerConnection({ iceServers: this.iceServers });
     const state: PeerState = {
       pc,
       polite: this.selfId < peerId,
@@ -199,8 +236,7 @@ export class Mesh {
 
     for (const [track, local] of this.localTracks) {
       if (local.targets === null || local.targets.has(peerId)) {
-        pc.addTrack(track, local.stream);
-        void this.applyEncoding(pc, track);
+        this.addSender(pc, track, local);
       }
     }
     // With no local media (permission denied), we still need to negotiate

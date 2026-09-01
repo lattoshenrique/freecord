@@ -4,6 +4,7 @@ import fastifyStatic from '@fastify/static';
 import websocket from '@fastify/websocket';
 import Fastify, { type FastifyInstance } from 'fastify';
 import type { RoomRegistry } from '../app/room-registry.js';
+import { TurnCredentialProvider } from '../app/turn.js';
 import { registerRoutes } from './routes.js';
 
 export interface BuildServerOptions {
@@ -11,6 +12,8 @@ export interface BuildServerOptions {
   corsOrigin?: string;
   /** When set, serves the web build (single-process production). */
   webDist?: string;
+  /** Unset = STUN-only joins (dev default, no external credential). */
+  turn?: TurnCredentialProvider;
   logger?: boolean;
 }
 
@@ -27,7 +30,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     options: { maxPayload: 64 * 1024 },
   });
 
-  registerRoutes(app, options.registry);
+  registerRoutes(app, options.registry, options.turn ?? new TurnCredentialProvider(null));
 
   if (options.webDist) {
     await app.register(fastifyStatic, { root: options.webDist, wildcard: false });

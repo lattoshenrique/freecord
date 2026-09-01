@@ -6,6 +6,7 @@ import {
   DEFAULT_SCREEN_QUALITY,
   bitrateFor,
   presetById,
+  screenCodecPreferences,
   screenConstraints,
   type ScreenQualityId,
 } from './screen-quality';
@@ -62,6 +63,8 @@ function loadQuality(): ScreenQualityId {
 
 export function useRoomSession(options: JoinOptions) {
   const [status, setStatus] = useState<RoomStatus>({ kind: 'connecting' });
+  /** Signaling dropped and is resuming — the media mesh keeps flowing meanwhile. */
+  const [reconnecting, setReconnecting] = useState(false);
   const [selfId, setSelfId] = useState<string | null>(null);
   const [peers, setPeers] = useState<PeerInfo[]>([]);
   const [chat, setChat] = useState<ChatMessage[]>([]);
@@ -97,6 +100,8 @@ export function useRoomSession(options: JoinOptions) {
   const forwardStreamRef = useRef<MediaStream | null>(null);
   const forwardedTrackRef = useRef<MediaStreamTrack | null>(null);
   const reportedRelayStreamRef = useRef<string | null>(null);
+  /** AV1-first when hardware-encodable at the current preset; null = browser default. */
+  const screenCodecsRef = useRef<RTCRtpCodec[] | null>(null);
 
   const dropLocalScreen = useCallback(() => {
     for (const stream of [pendingScreenRef.current, localScreenRef.current]) {
@@ -205,7 +210,14 @@ export function useRoomSession(options: JoinOptions) {
     if (parentTrack && forwardedTrackRef.current !== parentTrack) {
       stream.addTrack(parentTrack);
       forwardedTrackRef.current = parentTrack;
-      mesh.addLocalTrack(parentTrack, stream, relayEncoding(route), route.children);
+      // A relay re-encodes: the codec gate (hardware AV1 or default) is its own.
+      mesh.addLocalTrack(
+        parentTrack,
+        stream,
+        relayEncoding(route),
+        route.children,
+        screenCodecsRef.current,
+      );
     } else if (parentTrack) {
       mesh.setTrackTargets(parentTrack, route.children);
       mesh.setTrackEncoding(parentTrack, relayEncoding(route));
@@ -245,32 +257,66 @@ export function useRoomSession(options: JoinOptions) {
       const signaling = new Signaling(options.slug, options.name, {
         onMessage: handleMessage,
         onClose: () => setStatus({ kind: 'ended', reason: 'closed' }),
+        onReconnecting: () => setReconnecting(true),
       });
       signalingRef.current = signaling;
+      void screenCodecPreferences(presetById(qualityRef.current)).then((codecs) => {
+        screenCodecsRef.current = codecs;
+      });
     }
 
     function handleMessage(message: ServerMessage): void {
       switch (message.t) {
         case 'welcome': {
+          setReconnecting(false);
+          signalingRef.current?.setResumeToken(message.resumeToken);
+          const resumed = meshRef.current !== null && selfIdRef.current === message.selfId;
           selfIdRef.current = message.selfId;
           setSelfId(message.selfId);
           setPeers(message.peers);
           setScreen(message.screen);
-          const mesh = new Mesh(message.selfId, (to, data) =>
-            signalingRef.current?.send({ t: 'signal', to, data }),
-          );
-          mesh.subscribe(bumpVersion);
-          meshRef.current = mesh;
-          const media = localMediaRef.current;
-          if (media) {
-            for (const track of media.getTracks()) {
-              mesh.addLocalTrack(track, media);
+          if (resumed) {
+            // Same seat, mesh intact: reconcile who came and went during
+            // the outage. We initiate toward newcomers; perfect
+            // negotiation absorbs the glare if they offered first.
+            const mesh = meshRef.current!;
+            for (const peer of message.peers) {
+              mesh.ensurePeer(peer.id);
+            }
+            for (const id of mesh.peerIds()) {
+              if (!message.peers.some((peer) => peer.id === id)) {
+                mesh.removePeer(id);
+              }
+            }
+            if (!message.screen) {
+              // The share ended while we were away (ours may have hit the
+              // lock's grace); the missed screen-stopped is applied here.
+              routeRef.current = null;
+              teardownRelay();
+              dropLocalScreen();
+            }
+            // Our tree role arrives in the screen-route the server re-emits.
+          } else {
+            meshRef.current?.close();
+            const mesh = new Mesh(
+              message.selfId,
+              (to, data) => signalingRef.current?.send({ t: 'signal', to, data }),
+              message.ice,
+            );
+            mesh.subscribe(bumpVersion);
+            meshRef.current = mesh;
+            const media = localMediaRef.current;
+            if (media) {
+              for (const track of media.getTracks()) {
+                mesh.addLocalTrack(track, media);
+              }
+            }
+            // The newcomer initiates the connection with everyone already in.
+            for (const peer of message.peers) {
+              mesh.ensurePeer(peer.id);
             }
           }
-          // The newcomer initiates the connection with everyone already in.
-          for (const peer of message.peers) {
-            mesh.ensurePeer(peer.id);
-          }
+          lastPongRef.current = Date.now();
           setStatus({ kind: 'connected' });
           return;
         }
@@ -300,7 +346,13 @@ export function useRoomSession(options: JoinOptions) {
                 // Targets start empty: the screen-route right behind says
                 // who to send to — the children in the tree, never the
                 // whole room.
-                meshRef.current?.addLocalTrack(track, stream, screenEncoding(), []);
+                meshRef.current?.addLocalTrack(
+                  track,
+                  stream,
+                  screenEncoding(),
+                  [],
+                  screenCodecsRef.current,
+                );
               }
               syncScreenTree();
             }
@@ -331,7 +383,12 @@ export function useRoomSession(options: JoinOptions) {
           setSignalRttMs(Math.max(0, Math.round(Date.now() - message.ts)));
           return;
         case 'error':
-          setStatus({ kind: 'ended', reason: message.code });
+          // A refused resume means the seat was swept: to the user, the
+          // connection was simply lost.
+          setStatus({
+            kind: 'ended',
+            reason: message.code === 'resume_invalid' ? 'closed' : message.code,
+          });
           return;
       }
     }
@@ -360,7 +417,9 @@ export function useRoomSession(options: JoinOptions) {
    * kicked.
    *
    * It also works in reverse: a vanished network delivers no close frame,
-   * so the server's silence is what ends the session here.
+   * so the server's silence is what makes the client act — not by ending
+   * the session, but by forcing the transport down and going through the
+   * resume path. The session only ends when the resume gives up.
    */
   useEffect(() => {
     if (status.kind !== 'connected') {
@@ -369,8 +428,8 @@ export function useRoomSession(options: JoinOptions) {
     lastPongRef.current = Date.now();
     const beat = () => {
       if (Date.now() - lastPongRef.current > PONG_TIMEOUT_MS) {
-        signalingRef.current?.close();
-        setStatus({ kind: 'ended', reason: 'closed' });
+        lastPongRef.current = Date.now();
+        signalingRef.current?.reconnectNow();
         return;
       }
       signalingRef.current?.send({ t: 'ping', ts: Date.now() });
@@ -379,6 +438,16 @@ export function useRoomSession(options: JoinOptions) {
     const timer = setInterval(beat, HEARTBEAT_MS);
     return () => clearInterval(timer);
   }, [status.kind]);
+
+  // Closing the tab is a goodbye, not an accident: without this, the seat
+  // (and a screen lock) would linger for the whole resume grace.
+  useEffect(() => {
+    const onPageHide = () => {
+      signalingRef.current?.send({ t: 'leave' });
+    };
+    window.addEventListener('pagehide', onPageHide);
+    return () => window.removeEventListener('pagehide', onPageHide);
+  }, []);
 
   // Periodic getStats() sampling: per-peer latency and the screen's real
   // quality. A single sampler, so bitrate has a delta between readings.
@@ -450,6 +519,10 @@ export function useRoomSession(options: JoinOptions) {
     (id: ScreenQualityId) => {
       qualityRef.current = id;
       setScreenQualityState(id);
+      // The hardware answer depends on the preset's load: re-ask for AV1.
+      void screenCodecPreferences(presetById(id)).then((codecs) => {
+        screenCodecsRef.current = codecs;
+      });
       try {
         localStorage.setItem(QUALITY_STORAGE_KEY, id);
       } catch {
@@ -560,11 +633,14 @@ export function useRoomSession(options: JoinOptions) {
 
   const leave = useCallback(() => {
     setStatus({ kind: 'ended', reason: 'left' });
+    // A deliberate goodbye skips the server's resume grace.
+    signalingRef.current?.send({ t: 'leave' });
     signalingRef.current?.close();
   }, []);
 
   return {
     status,
+    reconnecting,
     selfId,
     peers,
     chat,

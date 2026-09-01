@@ -72,13 +72,86 @@ export class RoomRegistry {
 
   addPeer(slug: string, name: string, channel: PeerChannel): { room: Room; peerId: string } {
     const room = this.getRoom(slug);
+    // Detached peers still hold seats: a full room stays full during a grace.
     if (room.peers.size >= ROOM_LIMITS.maxParticipants) {
       throw new RoomFullError(slug);
     }
     const peerId = randomBytes(8).toString('base64url');
-    room.peers.set(peerId, { name, channel, lastSeen: this.now() });
+    room.peers.set(peerId, {
+      name,
+      channel,
+      lastSeen: this.now(),
+      resumeToken: randomBytes(16).toString('base64url'),
+      disconnectedAt: null,
+    });
     room.emptyAt = null;
     return { room, peerId };
+  }
+
+  /**
+   * Transport dropped without a goodbye: keep the seat for a resume.
+   *
+   * Only detaches when `channel` is still the peer's current one — a close
+   * event from a socket that was already replaced by a resume must not
+   * mark the fresh connection as gone.
+   */
+  detachPeer(slug: string, peerId: string, channel: PeerChannel): void {
+    const peer = this.rooms.get(slug)?.peers.get(peerId);
+    if (peer && peer.channel === channel && peer.disconnectedAt === null) {
+      peer.disconnectedAt = this.now();
+    }
+  }
+
+  /**
+   * A reconnecting client reclaims its seat by resume token.
+   *
+   * Also covers the half-dead case where the server never saw the old
+   * socket close: the stale channel is closed and replaced. Returns null
+   * for an unknown token — the seat may already have been swept.
+   */
+  resumePeer(
+    slug: string,
+    token: string,
+    channel: PeerChannel,
+  ): { room: Room; peerId: string; name: string } | null {
+    const room = this.rooms.get(slug);
+    if (!room) {
+      return null;
+    }
+    for (const [peerId, peer] of room.peers) {
+      if (peer.resumeToken === token) {
+        if (peer.disconnectedAt === null) {
+          peer.channel.close();
+        }
+        peer.channel = channel;
+        peer.disconnectedAt = null;
+        peer.lastSeen = this.now();
+        return { room, peerId, name: peer.name };
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Screen locks whose holder has been detached past the lock's grace.
+   *
+   * The seat survives longer than the lock (see ROOM_LIMITS): the lock is
+   * released here so the room can move on, while the sharer may still
+   * resume as a regular participant. Returns the affected rooms so the
+   * caller can announce `screen-stopped`.
+   */
+  releaseAbandonedScreenLocks(): Room[] {
+    const cutoff = this.now() - ROOM_LIMITS.screenLockGraceMs;
+    const affected: Room[] = [];
+    for (const room of this.rooms.values()) {
+      const sharer = room.screenSharer && room.peers.get(room.screenSharer.id);
+      if (sharer && sharer.disconnectedAt !== null && sharer.disconnectedAt <= cutoff) {
+        room.screenSharer = null;
+        room.screenRelays.clear();
+        affected.push(room);
+      }
+    }
+    return affected;
   }
 
   /** Ping received: the peer is still alive. */

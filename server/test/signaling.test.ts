@@ -13,7 +13,7 @@ function connect(registry: RoomRegistry, slug: string, name: string) {
   channel.close = () => {
     channel.closed = true;
   };
-  const session = new SignalingSession(registry, slug, name, channel);
+  const session = SignalingSession.join(registry, slug, name, channel);
   return { session, inbox, channel, last: () => inbox[inbox.length - 1] };
 }
 
@@ -101,14 +101,15 @@ describe('SignalingSession', () => {
     );
   });
 
-  it('disconnecting releases the screen lock and announces the departure', () => {
+  it('a deliberate leave releases the screen lock and announces the departure', () => {
     const { registry, slug } = setup();
     const ana = connect(registry, slug, 'Ana');
     const bia = connect(registry, slug, 'Bia');
 
     ana.session.handleMessage({ t: 'screen-request', streamId: 's-ana', quality: 'balanced' });
-    ana.session.close();
+    ana.session.handleMessage({ t: 'leave' });
 
+    expect(ana.channel.closed).toBe(true);
     expect(bia.inbox.map((m) => m.t)).toContain('screen-stopped');
     expect(bia.last()).toEqual({ t: 'peer-left', id: ana.session.peerId });
     expect(registry.summarize(slug).participantCount).toBe(1);
@@ -245,7 +246,9 @@ describe('screen relay tree', () => {
     const relayId = [...byId.keys()].sort()[0]!;
     const relay = byId.get(relayId)!;
 
-    relay.session.close();
+    // A deliberate leave (a bare transport close keeps the seat — and the
+    // relay's still-flowing P2P legs — for a resume; see resume.test.ts).
+    relay.session.handleMessage({ t: 'leave' });
 
     // With 3 viewers left, everyone becomes a direct child of the sharer.
     const sharerRoute = routesOf(sharer.inbox).at(-1)!;

@@ -4,6 +4,7 @@ import { z } from 'zod';
 import type { RoomRegistry } from '../app/room-registry.js';
 import { DESKTOP_CATALOG_TTL_MS, fetchDesktopCatalog } from '../app/desktop-catalog.js';
 import { SignalingSession, parseClientMessage } from '../app/signaling.js';
+import type { TurnCredentialProvider } from '../app/turn.js';
 import { EMPTY_DESKTOP_CATALOG, type DesktopCatalog } from '../domain/downloads.js';
 import {
   ROOM_LIMITS,
@@ -20,13 +21,18 @@ const slugParam = z.object({
   slug: z.string().min(1).max(64),
 });
 
-const joinQuery = z.object({
-  name: z
-    .string()
-    .min(1)
-    .max(ROOM_LIMITS.guestNameMaxLength)
-    .refine((value) => value.trim().length > 0, 'blank name'),
-});
+/** A join carries a guest name; a reconnection carries a resume token instead. */
+const joinQuery = z
+  .object({
+    name: z
+      .string()
+      .min(1)
+      .max(ROOM_LIMITS.guestNameMaxLength)
+      .refine((value) => value.trim().length > 0, 'blank name')
+      .optional(),
+    resume: z.string().min(1).max(64).optional(),
+  })
+  .refine((query) => query.name !== undefined || query.resume !== undefined, 'name or resume');
 
 /**
  * Desktop app catalog in memory: the same route as the Cloudflare edge, with
@@ -50,7 +56,11 @@ async function desktopCatalog(): Promise<DesktopCatalog> {
   return catalog;
 }
 
-export function registerRoutes(app: FastifyInstance, registry: RoomRegistry): void {
+export function registerRoutes(
+  app: FastifyInstance,
+  registry: RoomRegistry,
+  turn: TurnCredentialProvider,
+): void {
   app.get('/healthz', async () => ({ status: 'ok' }));
 
   app.post('/api/rooms', async (request, reply) => {
@@ -80,7 +90,7 @@ export function registerRoutes(app: FastifyInstance, registry: RoomRegistry): vo
     }
   });
 
-  app.get('/ws/rooms/:slug', { websocket: true }, (socket: WebSocket, request) => {
+  app.get('/ws/rooms/:slug', { websocket: true }, async (socket: WebSocket, request) => {
     const params = slugParam.safeParse(request.params);
     const query = joinQuery.safeParse(request.query);
     if (!params.success || !query.success) {
@@ -98,14 +108,15 @@ export function registerRoutes(app: FastifyInstance, registry: RoomRegistry): vo
       close: () => socket.close(),
     };
 
-    let session: SignalingSession;
+    // Cached after the first join; the client sends nothing before `welcome`,
+    // so nothing is missed while this resolves.
+    const ice = await turn.iceServers();
+
+    let session: SignalingSession | null;
     try {
-      session = new SignalingSession(
-        registry,
-        params.data.slug,
-        query.data.name.trim(),
-        channel,
-      );
+      session = query.data.resume
+        ? SignalingSession.resume(registry, params.data.slug, query.data.resume, channel, ice)
+        : SignalingSession.join(registry, params.data.slug, query.data.name!.trim(), channel, ice);
     } catch (error) {
       const code =
         error instanceof RoomNotFoundError
@@ -120,14 +131,22 @@ export function registerRoutes(app: FastifyInstance, registry: RoomRegistry): vo
       socket.close();
       return;
     }
+    if (!session) {
+      // Unknown resume token: the seat was already swept. The client
+      // starts over with a fresh join instead of retrying.
+      socket.send(JSON.stringify({ t: 'error', code: 'resume_invalid' }));
+      socket.close();
+      return;
+    }
+    const live = session;
 
     socket.on('message', (raw: Buffer | string) => {
       const message = parseClientMessage(raw.toString());
       if (message) {
-        session.handleMessage(message);
+        live.handleMessage(message);
       }
     });
-    socket.on('close', () => session.close());
-    socket.on('error', () => session.close());
+    socket.on('close', () => live.close());
+    socket.on('error', () => live.close());
   });
 }

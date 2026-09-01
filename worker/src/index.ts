@@ -8,6 +8,7 @@
  */
 import {
   ROOM_LIMITS,
+  type IceServerConfig,
   type PeerInfo,
   type ScreenQuality,
   type ServerMessage,
@@ -20,6 +21,7 @@ import {
   type DesktopCatalog,
 } from '../../server/src/domain/downloads.js';
 import { parseClientMessage } from '../../server/src/app/signaling.js';
+import { TurnCredentialProvider } from '../../server/src/app/turn.js';
 import { fetchDesktopCatalog } from '../../server/src/app/desktop-catalog.js';
 
 export interface Env {
@@ -28,6 +30,12 @@ export interface Env {
   /** Origin allowed by CORS (e.g. https://app.example.com). */
   CORS_ORIGIN?: string;
   RATE_LIMITER: { limit(options: { key: string }): Promise<{ success: boolean }> };
+  /**
+   * Cloudflare Realtime TURN credentials (secrets, set via `wrangler secret`).
+   * Both unset is the credential-free default: joins get STUN only.
+   */
+  TURN_KEY_ID?: string;
+  TURN_API_TOKEN?: string;
 }
 
 /** Each WebSocket's attachment: survives Durable Object hibernation. */
@@ -36,6 +44,38 @@ interface PeerAttachment {
   name: string;
   /** Last ping — the basis for kicking zombie connections (see alarm). */
   lastSeen: number;
+  /** Secret that lets a dropped connection reclaim this seat (same peerId). */
+  resumeToken: string;
+  /** Set right before a server-side close: suppresses the resume grace. */
+  left?: boolean;
+}
+
+/**
+ * A seat kept for a resume after its socket dropped — mirror of the Node
+ * core's detached Peer. Lives in storage (keyed by resume token) because a
+ * hibernated DO only remembers live sockets.
+ */
+interface DetachedPeer {
+  peerId: string;
+  name: string;
+  resumeToken: string;
+  /** Last ping before the drop: the seat expires on the zombie clock. */
+  lastSeen: number;
+  disconnectedAt: number;
+}
+type DetachedPeers = Record<string, DetachedPeer>;
+
+/** ICE servers resolved by the outer Worker travel on an internal header. */
+const ICE_HEADER = 'X-Ice-Servers';
+
+function readIceServers(request: Request): IceServerConfig[] {
+  try {
+    const raw = request.headers.get(ICE_HEADER);
+    const parsed = raw ? (JSON.parse(raw) as unknown) : [];
+    return Array.isArray(parsed) ? (parsed as IceServerConfig[]) : [];
+  } catch {
+    return [];
+  }
 }
 
 interface RoomMeta {
@@ -115,23 +155,34 @@ export class RoomDurableObject {
     if (!meta) {
       return Response.json({ error: 'room_not_found' }, { status: 404 });
     }
+    const detached = await this.detachedPeers();
     return Response.json({
       slug: meta.slug,
       displayName: meta.displayName,
-      participantCount: this.ctx.getWebSockets().length,
+      participantCount: this.ctx.getWebSockets().length + Object.keys(detached).length,
     });
   }
 
   private async join(request: Request): Promise<Response> {
-    const name = new URL(request.url).searchParams.get('name')!;
+    const url = new URL(request.url);
+    const resume = url.searchParams.get('resume');
+    const ice = readIceServers(request);
+    if (resume) {
+      return this.resumeSeat(resume, ice);
+    }
+
+    const name = url.searchParams.get('name')!;
     const pair = new WebSocketPair();
     const [client, server] = [pair[0], pair[1]];
 
     const meta = await this.ctx.storage.get<RoomMeta>('meta');
     const peers = this.ctx.getWebSockets();
+    const detached = await this.detachedPeers();
+    // Detached peers still hold seats: a full room stays full during a grace.
+    const seats = peers.length + Object.keys(detached).length;
     const rejection: 'room_not_found' | 'room_full' | null = !meta
       ? 'room_not_found'
-      : peers.length >= ROOM_LIMITS.maxParticipants
+      : seats >= ROOM_LIMITS.maxParticipants
         ? 'room_full'
         : null;
 
@@ -144,8 +195,14 @@ export class RoomDurableObject {
     }
 
     const peerId = randomId(8);
+    const resumeToken = randomId(16);
     this.ctx.acceptWebSocket(server);
-    server.serializeAttachment({ peerId, name, lastSeen: Date.now() } satisfies PeerAttachment);
+    server.serializeAttachment({
+      peerId,
+      name,
+      lastSeen: Date.now(),
+      resumeToken,
+    } satisfies PeerAttachment);
     // With people inside, the expiration clock stops and the zombie sweep begins.
     await this.ctx.storage.delete('emptyAt');
     await this.ctx.storage.setAlarm(Date.now() + SWEEP_INTERVAL_MS);
@@ -154,12 +211,88 @@ export class RoomDurableObject {
     this.send(server, {
       t: 'welcome',
       selfId: peerId,
+      resumeToken,
+      ice,
       room: { slug: meta!.slug, displayName: meta!.displayName },
-      peers: peers.map((ws) => this.peerInfo(ws)),
+      peers: [
+        ...peers.map((ws) => this.peerInfo(ws)),
+        ...Object.values(detached).map((seat) => ({ id: seat.peerId, name: seat.name })),
+      ],
       screen: screen ? { id: screen.id, streamId: screen.streamId } : null,
     });
     this.broadcast({ t: 'peer-joined', peer: { id: peerId, name } }, peerId);
     // Screen share in progress: the newcomer needs a route, and the tree changes.
+    await this.broadcastScreenRoutes();
+
+    return new Response(null, { status: 101, webSocket: client });
+  }
+
+  /**
+   * A dropped connection reclaims its seat by resume token — mirror of
+   * SignalingSession.resume on the Node edge. Also covers the half-dead
+   * case where this side never saw the old socket close: the stale socket
+   * is replaced and told to go.
+   */
+  private async resumeSeat(token: string, ice: IceServerConfig[]): Promise<Response> {
+    const pair = new WebSocketPair();
+    const [client, server] = [pair[0], pair[1]];
+
+    const meta = await this.ctx.storage.get<RoomMeta>('meta');
+    const detached = await this.detachedPeers();
+    const record = detached[token] ?? null;
+    const stale = record
+      ? null
+      : (this.ctx.getWebSockets().find((ws) => this.attachment(ws).resumeToken === token) ?? null);
+
+    if (!meta || (!record && !stale)) {
+      // Unknown token: the seat was already swept. The client starts over.
+      server.accept();
+      server.send(JSON.stringify({ t: 'error', code: 'resume_invalid' } satisfies ServerMessage));
+      server.close();
+      return new Response(null, { status: 101, webSocket: client });
+    }
+
+    const identity = record ?? this.attachment(stale!);
+    if (record) {
+      delete detached[token];
+      await this.putDetachedPeers(detached);
+    }
+    this.ctx.acceptWebSocket(server);
+    server.serializeAttachment({
+      peerId: identity.peerId,
+      name: identity.name,
+      lastSeen: Date.now(),
+      resumeToken: token,
+    } satisfies PeerAttachment);
+    if (stale) {
+      this.markLeft(stale);
+      try {
+        stale.close(1000, 'replaced by resume');
+      } catch {
+        // the socket is already gone
+      }
+    }
+    await this.ctx.storage.delete('emptyAt');
+    await this.ctx.storage.setAlarm(Date.now() + SWEEP_INTERVAL_MS);
+
+    const screen = (await this.ctx.storage.get<ScreenLock>('screen')) ?? null;
+    const others = this.ctx.getWebSockets().filter((ws) => ws !== server);
+    this.send(server, {
+      t: 'welcome',
+      selfId: identity.peerId,
+      resumeToken: token,
+      ice,
+      room: { slug: meta.slug, displayName: meta.displayName },
+      peers: [
+        ...others
+          .filter((ws) => this.attachment(ws).peerId !== identity.peerId)
+          .map((ws) => this.peerInfo(ws)),
+        ...Object.values(detached).map((seat) => ({ id: seat.peerId, name: seat.name })),
+      ],
+      screen: screen ? { id: screen.id, streamId: screen.streamId } : null,
+    });
+    // The seat was never vacated: no peer-joined. The tree may have changed
+    // shape during the absence, so routes are re-emitted.
     await this.broadcastScreenRoutes();
 
     return new Response(null, { status: 101, webSocket: client });
@@ -245,15 +378,58 @@ export class RoomDurableObject {
         }
         return;
       }
+      case 'leave': {
+        // Deliberate goodbye: vacate the seat now, no resume grace.
+        await this.leave([ws]);
+        try {
+          ws.close(1000, 'left');
+        } catch {
+          // the socket is already gone
+        }
+        return;
+      }
     }
   }
 
   async webSocketClose(ws: WebSocket): Promise<void> {
-    await this.leave([ws]);
+    await this.detach(ws);
   }
 
   async webSocketError(ws: WebSocket): Promise<void> {
-    await this.leave([ws]);
+    await this.detach(ws);
+  }
+
+  /**
+   * Transport dropped without a goodbye: keep the seat for a resume.
+   *
+   * The media mesh is P2P, so an intact WebRTC path keeps flowing while
+   * the signaling reconnects. No `peer-left` goes out here; if no resume
+   * arrives, the alarm announces it on the same clock as a zombie.
+   */
+  private async detach(ws: WebSocket): Promise<void> {
+    const attachment = this.attachment(ws);
+    // A deliberate leave, or a socket already replaced by a resume, gets no grace.
+    if (attachment.left) {
+      return;
+    }
+    const replaced = this.ctx
+      .getWebSockets()
+      .some((peer) => peer !== ws && this.attachment(peer).peerId === attachment.peerId);
+    if (replaced) {
+      return;
+    }
+    const detached = await this.detachedPeers();
+    detached[attachment.resumeToken] = {
+      peerId: attachment.peerId,
+      name: attachment.name,
+      resumeToken: attachment.resumeToken,
+      lastSeen: attachment.lastSeen,
+      disconnectedAt: Date.now(),
+    };
+    await this.putDetachedPeers(detached);
+    // The screen lock's grace is shorter than the sweep cadence: wake up
+    // early enough to release an abandoned lock on time.
+    await this.ensureAlarmWithin(ROOM_LIMITS.screenLockGraceMs);
   }
 
   /**
@@ -266,6 +442,38 @@ export class RoomDurableObject {
    */
   async alarm(): Promise<void> {
     const now = Date.now();
+    const detached = await this.detachedPeers();
+
+    // The screen lock's grace is shorter than the seat's: a sharer that
+    // dropped and did not resume in time frees the room's screen first.
+    const screen = (await this.ctx.storage.get<ScreenLock>('screen')) ?? null;
+    if (screen) {
+      const holder = Object.values(detached).find((seat) => seat.peerId === screen.id);
+      if (holder && now - holder.disconnectedAt >= ROOM_LIMITS.screenLockGraceMs) {
+        await this.ctx.storage.delete('screen');
+        await this.ctx.storage.delete('screenRelays');
+        this.broadcast({ t: 'screen-stopped' });
+      }
+    }
+
+    // Detached seats expire on the zombie clock: no ping past the timeout.
+    const expired = Object.values(detached).filter(
+      (seat) => now - seat.lastSeen > ROOM_LIMITS.peerTimeoutMs,
+    );
+    if (expired.length > 0) {
+      const relays = (await this.ctx.storage.get<ScreenRelays>('screenRelays')) ?? {};
+      for (const seat of expired) {
+        delete detached[seat.resumeToken];
+        delete relays[seat.peerId];
+      }
+      await this.putDetachedPeers(detached);
+      await this.ctx.storage.put('screenRelays', relays);
+      for (const seat of expired) {
+        this.broadcast({ t: 'peer-left', id: seat.peerId });
+      }
+      await this.broadcastScreenRoutes();
+    }
+
     const zombies = this.ctx
       .getWebSockets()
       .filter((ws) => now - this.attachment(ws).lastSeen > ROOM_LIMITS.peerTimeoutMs);
@@ -273,6 +481,7 @@ export class RoomDurableObject {
     if (zombies.length > 0) {
       await this.leave(zombies);
       for (const ws of zombies) {
+        this.markLeft(ws);
         try {
           ws.close(1001, 'no sign of life');
         } catch {
@@ -287,6 +496,10 @@ export class RoomDurableObject {
 
   /** One or more peers leaving: tells the rest and re-evaluates the room's end. */
   private async leave(leaving: WebSocket[]): Promise<void> {
+    // Their close events must not resurrect them as detached seats.
+    for (const ws of leaving) {
+      this.markLeft(ws);
+    }
     const gone = new Set(leaving.map((ws) => this.attachment(ws).peerId));
     const screen = (await this.ctx.storage.get<ScreenLock>('screen')) ?? null;
     // The screen lock is released even on a dropped connection.
@@ -320,10 +533,13 @@ export class RoomDurableObject {
     }
     const sockets = this.remaining(excluded);
     const relays = (await this.ctx.storage.get<ScreenRelays>('screenRelays')) ?? {};
-    const tree = computeScreenTree(
-      screen.id,
-      sockets.map((ws) => this.attachment(ws).peerId),
-    );
+    // Detached seats stay in the tree: their P2P legs may still be flowing,
+    // and yanking them would reroute everyone below for a blip that resumes.
+    const detached = await this.detachedPeers();
+    const tree = computeScreenTree(screen.id, [
+      ...sockets.map((ws) => this.attachment(ws).peerId),
+      ...Object.values(detached).map((seat) => seat.peerId),
+    ]);
     for (const ws of sockets) {
       const route = tree.get(this.attachment(ws).peerId);
       if (!route) {
@@ -343,7 +559,9 @@ export class RoomDurableObject {
 
   private async rescheduleSweep(excluded: WebSocket[]): Promise<void> {
     const now = Date.now();
-    if (this.remaining(excluded).length > 0) {
+    const detachedCount = Object.keys(await this.detachedPeers()).length;
+    // A seat held for a resume still counts as occupancy.
+    if (this.remaining(excluded).length + detachedCount > 0) {
       await this.ctx.storage.setAlarm(now + SWEEP_INTERVAL_MS);
       return;
     }
@@ -363,6 +581,35 @@ export class RoomDurableObject {
 
   private remaining(excluded: WebSocket[]): WebSocket[] {
     return this.ctx.getWebSockets().filter((ws) => !excluded.includes(ws));
+  }
+
+  private async detachedPeers(): Promise<DetachedPeers> {
+    return (await this.ctx.storage.get<DetachedPeers>('detached')) ?? {};
+  }
+
+  private async putDetachedPeers(detached: DetachedPeers): Promise<void> {
+    if (Object.keys(detached).length === 0) {
+      await this.ctx.storage.delete('detached');
+    } else {
+      await this.ctx.storage.put('detached', detached);
+    }
+  }
+
+  private markLeft(ws: WebSocket): void {
+    try {
+      ws.serializeAttachment({ ...this.attachment(ws), left: true } satisfies PeerAttachment);
+    } catch {
+      // the socket is already gone
+    }
+  }
+
+  /** Moves the alarm earlier when needed; never postpones an existing one. */
+  private async ensureAlarmWithin(delayMs: number): Promise<void> {
+    const at = Date.now() + delayMs;
+    const current = await this.ctx.storage.getAlarm();
+    if (current === null || current > at) {
+      await this.ctx.storage.setAlarm(at);
+    }
   }
 
   private attachment(ws: WebSocket): PeerAttachment {
@@ -440,6 +687,18 @@ async function desktopCatalog(env: Env): Promise<DesktopCatalog> {
 
 const API_ROOM = /^\/api\/rooms\/([^/]+)$/;
 const WS_ROOM = /^\/ws\/rooms\/([^/]+)$/;
+
+/** One credential set per isolate: every room shares the 6h cache. */
+let turnProvider: TurnCredentialProvider | null = null;
+
+function turnIceServers(env: Env): Promise<IceServerConfig[]> {
+  turnProvider ??= new TurnCredentialProvider(
+    env.TURN_KEY_ID && env.TURN_API_TOKEN
+      ? { keyId: env.TURN_KEY_ID, apiToken: env.TURN_API_TOKEN }
+      : null,
+  );
+  return turnProvider.iceServers();
+}
 
 async function handleApi(request: Request, env: Env, url: URL): Promise<Response | null> {
   if (url.pathname === '/healthz') {
@@ -519,11 +778,21 @@ export default {
       }
       const slug = decodeURIComponent(ws[1]);
       const name = url.searchParams.get('name')?.trim() ?? '';
-      if (!slug || slug.length > 64 || !name || name.length > ROOM_LIMITS.guestNameMaxLength) {
+      const resume = url.searchParams.get('resume')?.trim() ?? '';
+      const invalid = resume
+        ? resume.length > 64
+        : !name || name.length > ROOM_LIMITS.guestNameMaxLength;
+      if (!slug || slug.length > 64 || invalid) {
         return new Response('invalid request', { status: 400 });
       }
       const room = env.ROOMS.get(env.ROOMS.idFromName(slug));
-      return room.fetch(`https://room/join?name=${encodeURIComponent(name)}`, request);
+      const query = resume
+        ? `resume=${encodeURIComponent(resume)}`
+        : `name=${encodeURIComponent(name)}`;
+      // ICE is resolved out here so every room shares the credential cache.
+      const forwarded = new Request(`https://room/join?${query}`, request);
+      forwarded.headers.set(ICE_HEADER, JSON.stringify(await turnIceServers(env)));
+      return room.fetch(forwarded);
     }
 
     // Short shareable link: /download/mac-arm64 → the Release asset.

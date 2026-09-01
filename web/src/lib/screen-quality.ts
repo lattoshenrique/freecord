@@ -82,3 +82,43 @@ export function screenConstraints(preset: ScreenQualityPreset): MediaTrackConstr
     frameRate: { ideal: preset.frameRate, max: preset.frameRate },
   };
 }
+
+/**
+ * Codec order for hops that ENCODE the screen (the sharer and the tree's
+ * relays, which re-encode for their children).
+ *
+ * AV1's screen-content tools give sharper text at the same bitrate, but a
+ * software AV1 encoder is expensive — and a relay pays that price for its
+ * whole subtree. So AV1 is only put first when MediaCapabilities reports
+ * a power-efficient (hardware) encoder at the preset's load; otherwise
+ * `null` keeps the browser's default order (VP9/H.264). The receive side
+ * follows the offer, so each hop negotiates independently and a mixed
+ * room just works.
+ */
+export async function screenCodecPreferences(
+  preset: ScreenQualityPreset,
+): Promise<RTCRtpCodec[] | null> {
+  const capabilities = RTCRtpSender.getCapabilities?.('video');
+  const av1 = capabilities?.codecs.filter((c) => c.mimeType.toLowerCase() === 'video/av1') ?? [];
+  if (!capabilities || av1.length === 0) {
+    return null;
+  }
+  try {
+    const info = await navigator.mediaCapabilities.encodingInfo({
+      type: 'webrtc',
+      video: {
+        contentType: 'video/av1',
+        width: preset.width,
+        height: preset.height,
+        framerate: preset.frameRate,
+        bitrate: preset.maxBitrate,
+      },
+    } as MediaEncodingConfiguration);
+    if (!info.supported || !info.powerEfficient) {
+      return null;
+    }
+  } catch {
+    return null;
+  }
+  return [...av1, ...capabilities.codecs.filter((c) => c.mimeType.toLowerCase() !== 'video/av1')];
+}

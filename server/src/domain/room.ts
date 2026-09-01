@@ -24,6 +24,25 @@ export interface Peer {
   channel: PeerChannel;
   /** Last ping received — the basis for kicking zombie connections. */
   lastSeen: number;
+  /** Secret that lets a dropped connection reclaim this seat (same peerId). */
+  resumeToken: string;
+  /**
+   * When the transport dropped without a goodbye; null while attached.
+   * A detached peer keeps its seat until `lastSeen` crosses
+   * `peerTimeoutMs` — same clock as a zombie, so a resume never extends
+   * the worst case the room already tolerates.
+   */
+  disconnectedAt: number | null;
+}
+
+/**
+ * An ICE server handed to joining peers (STUN/TURN). Mirrors the shape of
+ * the browser's RTCIceServer; credentials are ephemeral (see app/turn.ts).
+ */
+export interface IceServerConfig {
+  urls: string[];
+  username?: string;
+  credential?: string;
 }
 
 /** Quality preset chosen by the sharer — relays in the tree replicate it. */
@@ -63,6 +82,12 @@ export const ROOM_LIMITS = {
    * and never becomes empty — hence never expires.
    */
   peerTimeoutMs: 35 * 1000,
+  /**
+   * A disconnected sharer keeps the screen lock only this long. Shorter
+   * than the seat's grace on purpose: one frozen screen blocks the whole
+   * room, while a frozen tile blocks nobody.
+   */
+  screenLockGraceMs: 10 * 1000,
   displayNameMaxLength: 60,
   guestNameMaxLength: 40,
   chatMessageMaxLength: 500,
@@ -87,6 +112,10 @@ export type ServerMessage =
   | {
       t: 'welcome';
       selfId: string;
+      /** Presenting this on reconnect reclaims the same peerId (see `resume`). */
+      resumeToken: string;
+      /** STUN/TURN for the mesh; empty = client falls back to public STUN. */
+      ice: IceServerConfig[];
       room: { slug: string; displayName: string };
       peers: PeerInfo[];
       screen: { id: string; streamId: string } | null;
@@ -114,7 +143,7 @@ export type ServerMessage =
     }
   /** Ping echo: the client measures signaling latency with `ts`. */
   | { t: 'pong'; ts: number }
-  | { t: 'error'; code: 'room_not_found' | 'room_full' | 'invalid_name' };
+  | { t: 'error'; code: 'room_not_found' | 'room_full' | 'invalid_name' | 'resume_invalid' };
 
 /** Client → server messages. Mirrored in web/src/lib/protocol.ts. */
 export type ClientMessage =
@@ -124,4 +153,9 @@ export type ClientMessage =
   | { t: 'screen-stop' }
   /** A screen-tree relay announces the stream it uses for forwarding. */
   | { t: 'screen-relay'; streamId: string }
+  /**
+   * Deliberate goodbye: leave immediately instead of holding the seat for
+   * a resume. A bare transport close is treated as an accident.
+   */
+  | { t: 'leave' }
   | { t: 'ping'; ts: number };

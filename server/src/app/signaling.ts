@@ -1,6 +1,7 @@
 import {
   ROOM_LIMITS,
   type ClientMessage,
+  type IceServerConfig,
   type PeerChannel,
   type Room,
   type ScreenQuality,
@@ -64,29 +65,78 @@ export class SignalingSession {
   private readonly slug: string;
   readonly peerId: string;
   private readonly name: string;
+  private readonly channel: PeerChannel;
   private closed = false;
 
-  constructor(registry: RoomRegistry, slug: string, name: string, channel: PeerChannel) {
+  private constructor(
+    registry: RoomRegistry,
+    slug: string,
+    peerId: string,
+    name: string,
+    channel: PeerChannel,
+  ) {
     this.registry = registry;
     this.slug = slug;
-    this.name = name;
-    const { room, peerId } = registry.addPeer(slug, name, channel);
     this.peerId = peerId;
+    this.name = name;
+    this.channel = channel;
+  }
 
-    channel.send({
+  /** A new participant takes a seat and everyone is told. */
+  static join(
+    registry: RoomRegistry,
+    slug: string,
+    name: string,
+    channel: PeerChannel,
+    ice: IceServerConfig[] = [],
+  ): SignalingSession {
+    const { room, peerId } = registry.addPeer(slug, name, channel);
+    const session = new SignalingSession(registry, slug, peerId, name, channel);
+    session.sendWelcome(room, ice);
+    broadcast(room, { t: 'peer-joined', peer: { id: peerId, name } }, peerId);
+    // Screen share in progress: the newcomer needs a route, and the tree changes.
+    broadcastScreenRoutes(room);
+    return session;
+  }
+
+  /**
+   * A dropped connection reclaims its seat by resume token.
+   *
+   * No `peer-joined` goes out — the seat was never vacated, and clients
+   * de-duplicate peers by id anyway. Routes are re-emitted because the
+   * tree may have changed shape while this peer was away.
+   */
+  static resume(
+    registry: RoomRegistry,
+    slug: string,
+    token: string,
+    channel: PeerChannel,
+    ice: IceServerConfig[] = [],
+  ): SignalingSession | null {
+    const resumed = registry.resumePeer(slug, token, channel);
+    if (!resumed) {
+      return null;
+    }
+    const session = new SignalingSession(registry, slug, resumed.peerId, resumed.name, channel);
+    session.sendWelcome(resumed.room, ice);
+    broadcastScreenRoutes(resumed.room);
+    return session;
+  }
+
+  private sendWelcome(room: Room, ice: IceServerConfig[]): void {
+    this.channel.send({
       t: 'welcome',
-      selfId: peerId,
+      selfId: this.peerId,
+      resumeToken: room.peers.get(this.peerId)!.resumeToken,
+      ice,
       room: { slug: room.slug, displayName: room.displayName },
       peers: [...room.peers.entries()]
-        .filter(([id]) => id !== peerId)
+        .filter(([id]) => id !== this.peerId)
         .map(([id, peer]) => ({ id, name: peer.name })),
       screen: room.screenSharer
         ? { id: room.screenSharer.id, streamId: room.screenSharer.streamId }
         : null,
     });
-    broadcast(room, { t: 'peer-joined', peer: { id: peerId, name } }, peerId);
-    // Screen share in progress: the newcomer needs a route, and the tree changes.
-    broadcastScreenRoutes(room);
   }
 
   handleMessage(message: ClientMessage): void {
@@ -164,16 +214,38 @@ export class SignalingSession {
         }
         return;
       }
+      case 'leave': {
+        // Deliberate goodbye: vacate the seat now, no resume grace.
+        this.terminate();
+        return;
+      }
     }
   }
 
+  /**
+   * Transport dropped without a goodbye: keep the seat (and, briefly, any
+   * screen lock — see ROOM_LIMITS.screenLockGraceMs) for a resume. The
+   * media mesh is P2P, so an intact WebRTC path keeps flowing while the
+   * signaling reconnects. No `peer-left` goes out here; if no resume
+   * arrives, the regular zombie sweep announces it on the same clock as
+   * before this grace existed.
+   */
   close(): void {
+    if (this.closed) {
+      return;
+    }
+    this.closed = true;
+    this.registry.detachPeer(this.slug, this.peerId, this.channel);
+  }
+
+  private terminate(): void {
     if (this.closed) {
       return;
     }
     this.closed = true;
     const hadScreen = this.registry.getRoomSafe(this.slug)?.screenSharer?.id === this.peerId;
     const room = this.registry.removePeer(this.slug, this.peerId);
+    this.channel.close();
     if (room) {
       if (hadScreen) {
         broadcast(room, { t: 'screen-stopped' });
@@ -193,6 +265,11 @@ export class SignalingSession {
  * many were removed.
  */
 export function sweepStalePeers(registry: RoomRegistry): number {
+  // The screen lock's grace is shorter than the seat's: a sharer that
+  // dropped and did not resume in time frees the room's screen first.
+  for (const room of registry.releaseAbandonedScreenLocks()) {
+    broadcast(room, { t: 'screen-stopped' });
+  }
   const stale = registry.stalePeers();
   for (const { slug, peerId } of stale) {
     const before = registry.getRoomSafe(slug);
@@ -247,6 +324,8 @@ export function parseClientMessage(raw: unknown): ClientMessage | null {
         : null;
     case 'screen-stop':
       return { t: 'screen-stop' };
+    case 'leave':
+      return { t: 'leave' };
     case 'ping':
       return typeof message.ts === 'number' && Number.isFinite(message.ts)
         ? { t: 'ping', ts: message.ts }
