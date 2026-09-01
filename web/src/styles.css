@@ -1356,8 +1356,16 @@ button {
 }
 
 @media (max-width: 640px) {
+  /* A bottom sheet above the dock. It floats over the tiles, so the glass
+     goes opaque: a tile showing through the messages read as a defect. */
   .chat-panel {
-    height: min(85dvh, 100% - 2rem);
+    position: fixed;
+    inset: auto 0 5.4rem 0;
+    width: auto;
+    margin: 0.5rem;
+    max-height: 55dvh;
+    z-index: 10;
+    background: var(--panel);
   }
 
   .tiles-strip .tile {
