@@ -3,8 +3,16 @@
   "private": true,
   "version": "0.1.0",
   "description": "Freecord desktop app (Electron)",
+  "homepage": "https://freecord.lattoshenrique.workers.dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lattoshenrique/freecord.git"
+  },
   "main": "dist/main.js",
-  "author": "Freecord",
+  "author": {
+    "name": "Henrique Brito",
+    "email": "lattoshenrique@users.noreply.github.com"
+  },
   "license": "MIT",
   "scripts": {
     "build": "tsc -p tsconfig.json",
