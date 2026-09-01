@@ -50,9 +50,14 @@ export const ptBR: Catalog = {
   'room.someone': 'Alguém',
   'room.micMuted': 'Microfone desativado',
   'room.leftTitle': 'Você saiu da sala',
-  'room.endedFull': 'A sala está cheia (máximo de 8 pessoas).',
+  'room.endedFull': 'A sala está cheia (máximo de 12 pessoas).',
   'room.endedNotFound': 'A sala não existe mais.',
   'room.endedClosed': 'A conexão com a sala caiu.',
+  'room.seatsAria': 'Assentos: {count} de {max} ocupados',
+  'room.seatOpen': 'Assento livre',
+  'room.camSlotsFull': 'Sala cheia para câmeras — o áudio continua livre',
+  'room.camDenied':
+    'Nenhuma vaga de câmera livre agora. A sua pode ligar quando alguém desligar a dela.',
 
   'screen.yours': 'Sua tela',
   'screen.of': 'Tela de {name}',
@@ -63,8 +68,6 @@ export const ptBR: Catalog = {
   'screen.exitFullscreen': 'Sair da tela cheia',
 
   'quality.title': 'Qualidade da tela',
-  'quality.note':
-    'Vale na hora, mesmo compartilhando. A tela é retransmitida entre os pares, então a qualidade não cai mais conforme a sala enche.',
   'quality.sharp.label': 'Nítida',
   'quality.sharp.hint': 'Código e texto — 1080p a 15 fps, nunca borra',
   'quality.balanced.label': 'Equilibrada',

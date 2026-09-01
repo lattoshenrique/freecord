@@ -50,9 +50,13 @@ export const zhCN: Catalog = {
   'room.someone': '某人',
   'room.micMuted': '麦克风已关闭',
   'room.leftTitle': '你已离开房间',
-  'room.endedFull': '房间已满（最多 8 人）。',
+  'room.endedFull': '房间已满（最多 12 人）。',
   'room.endedNotFound': '该房间已不存在。',
   'room.endedClosed': '与房间的连接已断开。',
+  'room.seatsAria': '座位：{max} 个中已占 {count} 个',
+  'room.seatOpen': '空位',
+  'room.camSlotsFull': '摄像头名额已满 — 语音始终畅通',
+  'room.camDenied': '当前没有空余的摄像头名额。等有人关闭摄像头后，你的就能开启。',
 
   'screen.yours': '你的屏幕',
   'screen.of': '{name} 的屏幕',
@@ -63,7 +67,6 @@ export const zhCN: Catalog = {
   'screen.exitFullscreen': '退出全屏',
 
   'quality.title': '屏幕画质',
-  'quality.note': '立即生效，共享过程中也可切换。屏幕画面在成员之间接力转发，因此房间人数增加时画质不再下降。',
   'quality.sharp.label': '清晰',
   'quality.sharp.hint': '代码和文字 —— 1080p 15 fps，绝不模糊',
   'quality.balanced.label': '均衡',

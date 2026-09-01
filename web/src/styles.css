@@ -1025,13 +1025,6 @@ button {
   color: rgba(255, 255, 255, 0.85);
 }
 
-.quality-menu-note {
-  margin: 0.5rem 0.6rem 0.3rem;
-  font-size: 0.72rem;
-  line-height: 1.4;
-  color: var(--muted);
-}
-
 /* ---- contador de mensagens novas ---- */
 
 /* Irmão do dock, não filho: a lib de vidro corta overflow e impõe fonte

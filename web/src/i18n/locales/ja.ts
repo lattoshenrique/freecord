@@ -50,9 +50,14 @@ export const jaJP: Catalog = {
   'room.someone': '誰か',
   'room.micMuted': 'マイクはオフです',
   'room.leftTitle': 'ルームから退出しました',
-  'room.endedFull': 'ルームが満員です（最大 8 人）。',
+  'room.endedFull': 'ルームが満員です（最大 12 人）。',
   'room.endedNotFound': 'このルームはもう存在しません。',
   'room.endedClosed': 'ルームとの接続が切れました。',
+  'room.seatsAria': '座席: {max} 席中 {count} 席が埋まっています',
+  'room.seatOpen': '空席',
+  'room.camSlotsFull': 'カメラの枠は今いっぱいです — 音声はいつでも使えます',
+  'room.camDenied':
+    '今はカメラの空き枠がありません。誰かがカメラをオフにすると、あなたのカメラをオンにできます。',
 
   'screen.yours': 'あなたの画面',
   'screen.of': '{name} の画面',
@@ -63,8 +68,6 @@ export const jaJP: Catalog = {
   'screen.exitFullscreen': '全画面を終了',
 
   'quality.title': '画面の品質',
-  'quality.note':
-    '共有中でもすぐに反映されます。画面はピア同士で中継されるため、参加者が増えても品質は落ちません。',
   'quality.sharp.label': '鮮明',
   'quality.sharp.hint': 'コードや文字向け — 1080p 15 fps、にじみません',
   'quality.balanced.label': 'バランス',

@@ -50,9 +50,14 @@ export const esES: Catalog = {
   'room.someone': 'Alguien',
   'room.micMuted': 'Micrófono desactivado',
   'room.leftTitle': 'Has salido de la sala',
-  'room.endedFull': 'La sala está llena (máximo 8 personas).',
+  'room.endedFull': 'La sala está llena (máximo 12 personas).',
   'room.endedNotFound': 'La sala ya no existe.',
   'room.endedClosed': 'Se perdió la conexión con la sala.',
+  'room.seatsAria': 'Asientos: {count} de {max} ocupados',
+  'room.seatOpen': 'Asiento libre',
+  'room.camSlotsFull': 'Las cámaras están completas por ahora — el audio sigue libre',
+  'room.camDenied':
+    'No hay hueco de cámara libre ahora mismo. La tuya podrá encenderse cuando alguien apague la suya.',
 
   'screen.yours': 'Tu pantalla',
   'screen.of': 'Pantalla de {name}',
@@ -63,8 +68,6 @@ export const esES: Catalog = {
   'screen.exitFullscreen': 'Salir de pantalla completa',
 
   'quality.title': 'Calidad de la pantalla',
-  'quality.note':
-    'Se aplica al instante, incluso compartiendo. La pantalla se retransmite entre pares, así que la calidad ya no baja cuando se llena la sala.',
   'quality.sharp.label': 'Nítida',
   'quality.sharp.hint': 'Código y texto — 1080p a 15 fps, nunca se difumina',
   'quality.balanced.label': 'Equilibrada',

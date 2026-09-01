@@ -54,9 +54,14 @@ export const enUS = {
   'room.someone': 'Someone',
   'room.micMuted': 'Microphone off',
   'room.leftTitle': 'You left the room',
-  'room.endedFull': 'The room is full (8 people max).',
+  'room.endedFull': 'The room is full (12 people max).',
   'room.endedNotFound': 'This room no longer exists.',
   'room.endedClosed': 'The connection to the room dropped.',
+  'room.seatsAria': 'Seats: {count} of {max} taken',
+  'room.seatOpen': 'Open seat',
+  'room.camSlotsFull': 'Camera seats are full for now — audio is always open',
+  'room.camDenied':
+    'No camera slot is free right now. Yours can come on when someone turns theirs off.',
 
   'screen.yours': 'Your screen',
   'screen.of': "{name}'s screen",
@@ -67,8 +72,6 @@ export const enUS = {
   'screen.exitFullscreen': 'Exit fullscreen',
 
   'quality.title': 'Screen quality',
-  'quality.note':
-    'Applies immediately, even while sharing. Screen video is relayed peer to peer, so quality no longer drops as the room fills up.',
   'quality.sharp.label': 'Sharp',
   'quality.sharp.hint': 'Code and text — 1080p at 15 fps, never blurry',
   'quality.balanced.label': 'Balanced',
