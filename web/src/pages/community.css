@@ -1,141 +1,269 @@
 /*
  * Styles for the community page.
  *
- * Deliberately outside styles.css: that file belongs to another agent, and a
- * self-contained block carries no overwrite risk. It consumes the global
- * tokens (--glass-*, --radius, --ease) so the page ages with the rest of the UI.
+ * Deliberately outside styles.css: a self-contained block carries no
+ * overwrite risk while other sessions edit the global sheet. It consumes the
+ * global tokens (--glass-*, --mono, --ease) and mirrors the landing's shape:
+ * sticky glass nav, display-type hero, bento promises, card grid.
  */
 
 .community {
   min-height: 100dvh;
   /* The page scrolls; the room pages don't. #root is a fixed 100dvh box. */
   overflow-y: auto;
-  padding: 3rem 1.5rem 4rem;
-  display: flex;
-  justify-content: center;
+  padding-bottom: 4rem;
 }
 
+/* ---- sticky nav (same silhouette as the landing's) ---- */
+
+.community-nav {
+  position: sticky;
+  top: 0.75rem;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  max-width: 72rem;
+  margin: 0.75rem auto 0;
+  padding: 0.55rem 0.9rem;
+  border-radius: 999px;
+  background: var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-highlight);
+  animation: fade-in 0.5s var(--ease) both;
+}
+
+.community-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.community-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.community-nav-links a {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+  padding: 0.45rem 0.8rem;
+  border-radius: 999px;
+  transition:
+    color 0.15s ease,
+    background 0.15s ease;
+}
+
+.community-nav-links a:hover {
+  color: var(--text);
+  background: var(--glass-bg);
+}
+
+.community-nav-github {
+  border: 1px solid var(--glass-border);
+}
+
+/* ---- content column ---- */
+
 .community-inner {
-  width: 100%;
-  max-width: 46rem;
+  max-width: 64rem;
+  margin: 0 auto;
+  padding: 0 1.5rem;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 2.5rem;
 }
 
 /* ---- hero ---- */
 
 .community-hero {
-  text-align: center;
-  padding: 0 0.5rem 0.5rem;
-  animation: rise-in 0.4s var(--ease) both;
-}
-
-.community-back {
-  display: inline-block;
-  margin-bottom: 1.5rem;
-  color: var(--muted);
-  text-decoration: none;
-  font-size: 0.9rem;
-  transition: color 0.15s ease;
-}
-
-.community-back:hover {
-  color: var(--text);
+  padding-top: 3.5rem;
+  animation: rise-in 0.5s var(--ease) both;
 }
 
 .community-hero h1 {
-  margin: 0 0 0.75rem;
-  font-size: clamp(1.9rem, 5vw, 2.6rem);
-  line-height: 1.15;
+  margin: 0 0 0.9rem;
+  font-size: clamp(2.2rem, 4.6vw, 3.2rem);
+  line-height: 1.08;
+  letter-spacing: -0.03em;
 }
 
 .community-lead {
-  margin: 0 auto;
-  max-width: 34rem;
+  margin: 0;
+  max-width: 38rem;
   color: var(--muted);
-  font-size: 1.05rem;
+  font-size: 1.1rem;
   line-height: 1.6;
 }
 
-/* ---- glass sections ---- */
+.community-heading {
+  margin: 0 0 1.1rem;
+  font-size: clamp(1.4rem, 2.4vw, 1.8rem);
+  letter-spacing: -0.02em;
+}
 
-.community-card {
+/* ---- the four promises: bento tiles ---- */
+
+.community-bento {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+.community-tile {
   background: var(--glass-bg);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
   border: 1px solid var(--glass-border);
-  border-radius: 20px;
-  padding: 1.75rem;
-  box-shadow: var(--shadow), var(--glass-highlight);
-  animation: rise-in 0.5s var(--ease) both;
+  border-radius: 18px;
+  padding: 1.5rem;
+  box-shadow: var(--glass-highlight);
+  animation: rise-in 0.55s var(--ease) both;
   transition:
     transform 0.25s var(--ease),
     border-color 0.25s ease;
 }
 
-.community-card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(255, 255, 255, 0.22);
+.community-tile:hover {
+  transform: translateY(-3px);
+  border-color: rgba(255, 255, 255, 0.24);
 }
 
-/* Each card lands a beat after the one above it. */
-.community-card:nth-of-type(1) {
+.community-tile:nth-child(1) {
   animation-delay: 0.05s;
 }
-.community-card:nth-of-type(2) {
-  animation-delay: 0.1s;
-}
-.community-card:nth-of-type(3) {
-  animation-delay: 0.15s;
-}
-.community-card:nth-of-type(4) {
-  animation-delay: 0.2s;
-}
-.community-card:nth-of-type(5) {
-  animation-delay: 0.25s;
+
+.community-tile:nth-child(2) {
+  animation-delay: 0.12s;
 }
 
-.community-card h2 {
-  margin: 0 0 0.75rem;
-  font-size: 1.25rem;
+.community-tile:nth-child(3) {
+  animation-delay: 0.19s;
 }
 
-.community-card > p {
-  margin: 0;
-  color: var(--muted);
-  line-height: 1.65;
+.community-tile:nth-child(4) {
+  animation-delay: 0.26s;
 }
 
-/* ---- the four promises ---- */
-
-.community-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
-  gap: 1.25rem;
-  margin-top: 1.25rem;
-}
-
-.community-pillar h3 {
-  margin: 0 0 0.4rem;
-  font-size: 1rem;
+.community-tile h3 {
+  margin: 0 0 0.45rem;
+  font-size: 1.02rem;
   font-weight: 600;
 }
 
-.community-pillar p {
+.community-tile p {
   margin: 0;
   color: var(--muted);
   font-size: 0.92rem;
   line-height: 1.6;
 }
 
-/* ---- link rows ---- */
+.community-mesh {
+  display: block;
+  margin-bottom: 0.9rem;
+}
+
+/* The mesh nodes breathe: the room is alive. */
+.community-mesh circle {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: community-breathe 3s ease-in-out infinite;
+}
+
+.community-mesh circle:nth-of-type(2) {
+  animation-delay: 0.5s;
+}
+
+.community-mesh circle:nth-of-type(3) {
+  animation-delay: 1s;
+}
+
+@keyframes community-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.18);
+  }
+}
+
+/* ---- source / contribute / issues / desktop ---- */
+
+.community-cards {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+.community-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: 18px;
+  padding: 1.75rem;
+  box-shadow: var(--glass-highlight);
+  animation: rise-in 0.55s var(--ease) both;
+  transition:
+    transform 0.25s var(--ease),
+    border-color 0.25s ease;
+}
+
+.community-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(255, 255, 255, 0.24);
+}
+
+.community-card:nth-child(1) {
+  animation-delay: 0.1s;
+}
+
+.community-card:nth-child(2) {
+  animation-delay: 0.17s;
+}
+
+.community-card:nth-child(3) {
+  animation-delay: 0.24s;
+}
+
+.community-card:nth-child(4) {
+  animation-delay: 0.31s;
+}
+
+.community-card h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.15rem;
+  letter-spacing: -0.01em;
+}
+
+.community-card > p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1.65;
+}
+
+/* ---- link pills ---- */
 
 .community-links {
   display: flex;
   flex-wrap: wrap;
   gap: 0.6rem;
-  margin-top: 1.25rem;
+  margin-top: auto;
+  padding-top: 1.25rem;
 }
 
 .community-link {
@@ -177,17 +305,27 @@
 
 .community-footer {
   margin: 1rem 0 0;
-  text-align: center;
+  padding-top: 2rem;
+  border-top: 1px solid var(--border);
   color: var(--muted);
   font-size: 0.85rem;
 }
 
-@media (max-width: 480px) {
-  .community {
-    padding: 2rem 1rem 3rem;
+/* ---- responsive ---- */
+
+@media (max-width: 780px) {
+  .community-bento,
+  .community-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .community-nav {
+    margin-inline: 0.75rem;
   }
 
-  .community-card {
-    padding: 1.35rem;
+  .community-hero {
+    padding-top: 2.5rem;
   }
 }

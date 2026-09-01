@@ -203,6 +203,62 @@ button {
   transform: scale(1.08);
 }
 
+/* The pre-join card is the room's doorstep: bigger type, row-style
+   toggles and the brand-gradient CTA, choreographed on entry. */
+.prejoin .home-card {
+  padding: 2.5rem 2.25rem;
+}
+
+.prejoin .home-card h1 {
+  font-size: 1.65rem;
+  letter-spacing: -0.02em;
+}
+
+.prejoin .toggle {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.8rem 1rem;
+  transition: border-color 0.15s ease;
+}
+
+.prejoin .toggle:hover {
+  border-color: rgba(88, 101, 242, 0.6);
+}
+
+.prejoin .home-card form > * {
+  animation: rise-in 0.4s var(--ease) both;
+}
+
+.prejoin .home-card form > :nth-child(1) {
+  animation-delay: 0.05s;
+}
+
+.prejoin .home-card form > :nth-child(2) {
+  animation-delay: 0.1s;
+}
+
+.prejoin .home-card form > :nth-child(3) {
+  animation-delay: 0.15s;
+}
+
+.prejoin .home-card form > :nth-child(4) {
+  animation-delay: 0.2s;
+}
+
+.prejoin .home-card button[type='submit'] {
+  background: linear-gradient(135deg, var(--accent), #a855f7);
+  transition:
+    filter 0.15s ease,
+    transform 0.15s var(--ease),
+    opacity 0.15s ease;
+}
+
+.prejoin .home-card button[type='submit']:hover:not(:disabled) {
+  background: linear-gradient(135deg, var(--accent), #a855f7);
+  filter: brightness(1.12);
+}
+
 .centered .spinner {
   margin-bottom: 0.5rem;
 }
@@ -547,10 +603,16 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
   animation: rise-in 0.35s var(--ease) both;
   transition:
     width 0.25s var(--ease),
-    height 0.25s var(--ease);
+    height 0.25s var(--ease),
+    border-color 0.2s ease;
+}
+
+.tile:hover {
+  border-color: rgba(255, 255, 255, 0.22);
 }
 
 .tile-video {
@@ -576,6 +638,7 @@ button {
   font-size: clamp(1.4rem, 11cqmin, 2.75rem);
   font-weight: 700;
   color: white;
+  border: 2px solid rgba(255, 255, 255, 0.16);
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
 }
 
@@ -697,7 +760,7 @@ button {
 
 .chat-bubble.mine {
   align-self: flex-end;
-  background: var(--accent);
+  background: linear-gradient(135deg, var(--accent), #8b5cf6);
   border-radius: 14px;
   border-bottom-right-radius: 4px;
 }
@@ -787,19 +850,19 @@ button {
   width: 2.4rem;
   height: 2.4rem;
   flex: 0 0 auto;
-  background: var(--accent);
+  background: linear-gradient(135deg, var(--accent), #8b5cf6);
   border: none;
   border-radius: 50%;
   color: white;
   cursor: pointer;
   transition:
-    background 0.15s ease,
+    filter 0.15s ease,
     transform 0.15s var(--ease),
     opacity 0.15s ease;
 }
 
 .chat-send:hover:not(:disabled) {
-  background: var(--accent-hover);
+  filter: brightness(1.12);
 }
 
 .chat-send:active:not(:disabled) {
@@ -837,7 +900,7 @@ button {
 .controls {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.65rem;
   font-size: 0.95rem;
 }
 
@@ -846,8 +909,8 @@ button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.9rem;
-  height: 2.9rem;
+  width: 3.05rem;
+  height: 3.05rem;
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid var(--glass-border);
   border-radius: 50%;
@@ -915,7 +978,18 @@ button {
   background: var(--danger);
   border-color: var(--danger);
   color: white;
-  margin-left: 0.5rem;
+  margin-left: 0.95rem;
+}
+
+/* Hairline separating "leave" from the reversible controls. */
+.control-leave::before {
+  content: '';
+  position: absolute;
+  left: -0.82rem;
+  top: 18%;
+  bottom: 18%;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.18);
 }
 
 .control-leave:hover:not(:disabled) {
@@ -950,7 +1024,8 @@ button {
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 999px;
   padding: 0.15rem 0.5rem;
-  font-size: 0.7rem;
+  font-family: var(--mono);
+  font-size: 0.66rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
@@ -1035,7 +1110,7 @@ button {
 }
 
 .quality-option.selected {
-  background: var(--accent);
+  background: linear-gradient(135deg, var(--accent), #8b5cf6);
 }
 
 .quality-option-label {
