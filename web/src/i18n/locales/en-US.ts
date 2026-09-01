@@ -10,10 +10,13 @@ export const enUS = {
     'Voice, video, chat and screen sharing over a P2P mesh. No media server in the middle.',
 
   'home.roomName': 'Room name',
-  'home.roomNamePlaceholder': 'Room name (optional)',
+  'home.roomNamePlaceholder': 'Room name — or paste an invite link',
   'home.create': 'Create room',
   'home.creating': 'Creating…',
   'home.createFailed': "Couldn't create the room. Please try again.",
+  'home.join': 'Join room',
+  'home.joinHint': 'Invite link — the button takes you into that room.',
+  'home.invalidInvite': "That looks like an invite link, but it's incomplete. Paste the whole link.",
   'home.community': 'Community',
 
   'home.hero.titleA': 'A room is',
