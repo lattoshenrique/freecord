@@ -2,7 +2,7 @@ import type { Catalog } from '..';
 
 export const zhCN: Catalog = {
   'app.name': 'Freecord',
-  'app.tagline': '创建房间，把链接发给朋友。语音、视频、聊天和屏幕共享 —— 无需注册。',
+  'app.tagline': '语音、视频、聊天、屏幕共享。无需注册——一个链接就够。',
 
   'home.roomName': '房间名称',
   'home.roomNamePlaceholder': '房间名称（可选）',
@@ -16,11 +16,10 @@ export const zhCN: Catalog = {
   'home.chip.nosignup': '无需注册',
 
   'home.card.title': '开个房间',
-  'home.card.hint': '免费即开，无需账号——链接就是唯一的邀请。',
+  'home.card.hint': '链接就是邀请。',
 
   'home.dev.title': '写给开发者',
-  'home.dev.lead':
-    '没有媒体服务商、没有 SDK、没有外部凭证——整个协议都在仓库里，Node 20 加两条命令就是全部环境。',
+  'home.dev.lead': '没有服务商、没有 SDK、没有外部凭证。克隆、运行、fork。',
   'home.dev.copy': '复制命令',
   'home.dev.copied': '已复制！',
   'home.dev.p2p.title': '媒体从不经过服务器',

@@ -2,8 +2,7 @@ import type { Catalog } from '..';
 
 export const ptBR: Catalog = {
   'app.name': 'Freecord',
-  'app.tagline':
-    'Crie uma sala, mande o link para os amigos. Voz, vídeo, chat e compartilhamento de tela — sem cadastro.',
+  'app.tagline': 'Voz, vídeo, chat e tela. Sem cadastro — só um link.',
 
   'home.roomName': 'Nome da sala',
   'home.roomNamePlaceholder': 'Nome da sala (opcional)',
@@ -17,11 +16,10 @@ export const ptBR: Catalog = {
   'home.chip.nosignup': 'Sem cadastro',
 
   'home.card.title': 'Comece uma sala',
-  'home.card.hint': 'Grátis e na hora — sem conta. O link é o único convite de que você precisa.',
+  'home.card.hint': 'O link é o convite.',
 
   'home.dev.title': 'Para devs',
-  'home.dev.lead':
-    'Sem vendor de mídia, sem SDK, sem credencial externa — o protocolo inteiro mora no repositório, e Node 20 com dois comandos é todo o setup.',
+  'home.dev.lead': 'Sem vendor, sem SDK, sem credencial externa. Clone, rode, faça fork.',
   'home.dev.copy': 'Copiar comandos',
   'home.dev.copied': 'Copiado!',
   'home.dev.p2p.title': 'A mídia nunca toca o servidor',

@@ -2,8 +2,7 @@ import type { Catalog } from '..';
 
 export const jaJP: Catalog = {
   'app.name': 'Freecord',
-  'app.tagline':
-    'ルームを作ってリンクを友だちに送るだけ。音声・ビデオ・チャット・画面共有を、登録なしで。',
+  'app.tagline': '音声・ビデオ・チャット・画面共有。登録不要——リンクひとつで。',
 
   'home.roomName': 'ルーム名',
   'home.roomNamePlaceholder': 'ルーム名（任意）',
@@ -17,11 +16,10 @@ export const jaJP: Catalog = {
   'home.chip.nosignup': '登録不要',
 
   'home.card.title': 'ルームを始める',
-  'home.card.hint': '無料ですぐ使える、アカウント不要——リンクが唯一の招待状です。',
+  'home.card.hint': 'リンクが招待状。',
 
   'home.dev.title': '開発者向け',
-  'home.dev.lead':
-    'メディアベンダーも SDK も外部認証情報もなし——プロトコルはすべてリポジトリの中にあり、Node 20 とコマンド2つで環境構築は完了です。',
+  'home.dev.lead': 'ベンダーなし、SDK なし、外部認証情報なし。クローンして、動かして、フォークする。',
   'home.dev.copy': 'コマンドをコピー',
   'home.dev.copied': 'コピーしました！',
   'home.dev.p2p.title': 'メディアはサーバーを経由しない',

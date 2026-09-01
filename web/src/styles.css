@@ -182,6 +182,31 @@ button {
   margin: 0 0 0.5rem;
 }
 
+/* Not-found / error states share the glass card and carry the mark. */
+.state-card {
+  max-width: 24rem;
+}
+
+.state-card .button-link {
+  display: block;
+  margin-top: 1.25rem;
+}
+
+/* The mark links back home from the pre-join card. */
+.prejoin-brand {
+  display: inline-flex;
+  margin-bottom: 0.75rem;
+  transition: transform 0.2s var(--ease);
+}
+
+.prejoin-brand:hover {
+  transform: scale(1.08);
+}
+
+.centered .spinner {
+  margin-bottom: 0.5rem;
+}
+
 .tagline,
 .centered p {
   color: var(--muted);
@@ -198,34 +223,45 @@ button {
 .home-card input[type='text'] {
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 12px;
   color: var(--text);
-  padding: 0.75rem 1rem;
-  font-size: 1rem;
-  transition: border-color 0.15s ease;
+  padding: 0.95rem 1.1rem;
+  font-size: 1.05rem;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .home-card input[type='text']:focus {
   outline: none;
   border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(88, 101, 242, 0.25);
 }
 
 .toggle {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.6rem;
   color: var(--muted);
-  font-size: 0.95rem;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.toggle input[type='checkbox'] {
+  width: 1.15rem;
+  height: 1.15rem;
+  accent-color: var(--accent);
+  cursor: pointer;
 }
 
 .home-card button,
 .button-link {
   background: var(--accent);
   border: none;
-  border-radius: 8px;
+  border-radius: 12px;
   color: white;
-  padding: 0.75rem 1rem;
-  font-size: 1rem;
+  padding: 0.9rem 1.1rem;
+  font-size: 1.05rem;
   font-weight: 600;
   cursor: pointer;
   text-decoration: none;

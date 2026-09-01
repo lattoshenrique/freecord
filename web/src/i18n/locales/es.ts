@@ -2,8 +2,7 @@ import type { Catalog } from '..';
 
 export const esES: Catalog = {
   'app.name': 'Freecord',
-  'app.tagline':
-    'Crea una sala y envía el enlace a tus amigos. Voz, vídeo, chat y pantalla compartida — sin registro.',
+  'app.tagline': 'Voz, vídeo, chat y pantalla. Sin registro — solo un enlace.',
 
   'home.roomName': 'Nombre de la sala',
   'home.roomNamePlaceholder': 'Nombre de la sala (opcional)',
@@ -17,11 +16,10 @@ export const esES: Catalog = {
   'home.chip.nosignup': 'Sin registro',
 
   'home.card.title': 'Empieza una sala',
-  'home.card.hint': 'Gratis y al instante — sin cuenta. El enlace es la única invitación que necesitas.',
+  'home.card.hint': 'El enlace es la invitación.',
 
   'home.dev.title': 'Para devs',
-  'home.dev.lead':
-    'Sin proveedor de medios, sin SDK, sin credenciales externas — todo el protocolo vive en el repositorio, y Node 20 con dos comandos es toda la configuración.',
+  'home.dev.lead': 'Sin proveedor, sin SDK, sin credenciales externas. Clónalo, ejecútalo, haz un fork.',
   'home.dev.copy': 'Copiar comandos',
   'home.dev.copied': '¡Copiado!',
   'home.dev.p2p.title': 'Los medios nunca tocan el servidor',

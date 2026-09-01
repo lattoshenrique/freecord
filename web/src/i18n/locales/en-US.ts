@@ -6,8 +6,7 @@
  */
 export const enUS = {
   'app.name': 'Freecord',
-  'app.tagline':
-    'Create a room, send the link to your friends. Voice, video, chat and screen sharing — no signup.',
+  'app.tagline': 'Voice, video, chat and screen sharing. No signup — just a link.',
 
   'home.roomName': 'Room name',
   'home.roomNamePlaceholder': 'Room name (optional)',
@@ -21,11 +20,10 @@ export const enUS = {
   'home.chip.nosignup': 'No signup',
 
   'home.card.title': 'Start a room',
-  'home.card.hint': 'Free and instant — no account. The link is the only invite you need.',
+  'home.card.hint': 'The link is the invite.',
 
   'home.dev.title': 'For devs',
-  'home.dev.lead':
-    'No media vendor, no SDK, no external credential — the entire protocol lives in the repo, and Node 20 with two commands is the whole setup.',
+  'home.dev.lead': 'No vendor, no SDK, no external credentials. Clone it, run it, fork it.',
   'home.dev.copy': 'Copy commands',
   'home.dev.copied': 'Copied!',
   'home.dev.p2p.title': 'Media never touches the server',

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ApiError, getRoom, type RoomSummary } from '../api';
 import { useI18n } from '../i18n';
+import Logo from '../components/Logo';
 import RoomView from '../components/RoomView';
 import type { JoinOptions } from '../lib/use-room';
 
@@ -52,17 +53,25 @@ export default function RoomPage() {
   }
 
   if (phase.kind === 'loading') {
-    return <main className="centered">{t('room.loading')}</main>;
+    return (
+      <main className="centered">
+        <div className="spinner" />
+        <p>{t('room.loading')}</p>
+      </main>
+    );
   }
 
   if (phase.kind === 'not_found') {
     return (
       <main className="centered">
-        <h1>{t('prejoin.notFoundTitle')}</h1>
-        <p>{t('prejoin.notFoundBody')}</p>
-        <Link to="/" className="button-link">
-          {t('prejoin.createNew')}
-        </Link>
+        <section className="home-card state-card">
+          <Logo className="home-logo" size={44} />
+          <h1>{t('prejoin.notFoundTitle')}</h1>
+          <p className="tagline">{t('prejoin.notFoundBody')}</p>
+          <Link to="/" className="button-link">
+            {t('prejoin.createNew')}
+          </Link>
+        </section>
       </main>
     );
   }
@@ -70,8 +79,11 @@ export default function RoomPage() {
   if (phase.kind === 'error') {
     return (
       <main className="centered">
-        <h1>{t('prejoin.errorTitle')}</h1>
-        <p>{t('prejoin.errorBody')}</p>
+        <section className="home-card state-card">
+          <Logo className="home-logo" size={44} />
+          <h1>{t('prejoin.errorTitle')}</h1>
+          <p className="tagline">{t('prejoin.errorBody')}</p>
+        </section>
       </main>
     );
   }
@@ -81,6 +93,9 @@ export default function RoomPage() {
     return (
       <main className="prejoin">
         <section className="home-card">
+          <Link to="/" className="prejoin-brand" aria-label={t('prejoin.backHome')}>
+            <Logo size={40} />
+          </Link>
           <h1>{room.displayName || t('room.unnamed')}</h1>
           <p className="tagline">
             {room.participantCount === 0

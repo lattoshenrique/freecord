@@ -69,6 +69,14 @@
   padding: 1.75rem;
   box-shadow: var(--shadow), var(--glass-highlight);
   animation: rise-in 0.5s var(--ease) both;
+  transition:
+    transform 0.25s var(--ease),
+    border-color 0.25s ease;
+}
+
+.community-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.22);
 }
 
 /* Each card lands a beat after the one above it. */

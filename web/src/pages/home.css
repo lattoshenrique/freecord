@@ -39,6 +39,46 @@
   margin: 0;
 }
 
+/* The mark draws itself on arrival: edges first, then each peer pops in. */
+.home-brand .home-logo path {
+  stroke-dasharray: 110;
+  stroke-dashoffset: 110;
+  animation: logo-draw 0.8s var(--ease) 0.15s forwards;
+}
+
+.home-brand .home-logo circle {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: scale(0.4);
+  animation: logo-pop 0.35s var(--ease) forwards;
+}
+
+.home-brand .home-logo circle:nth-of-type(1) {
+  animation-delay: 0.5s;
+}
+
+.home-brand .home-logo circle:nth-of-type(2) {
+  animation-delay: 0.62s;
+}
+
+.home-brand .home-logo circle:nth-of-type(3) {
+  animation-delay: 0.74s;
+}
+
+@keyframes logo-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes logo-pop {
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 .home-brand h1 {
   margin: 0;
   font-size: clamp(2.4rem, 6vw, 3.1rem);
@@ -70,6 +110,19 @@
   border: 1px solid var(--glass-border);
   border-radius: 999px;
   padding: 0.35rem 0.75rem;
+  animation: rise-in 0.45s var(--ease) both;
+}
+
+.home-chips li:nth-child(1) {
+  animation-delay: 0.2s;
+}
+
+.home-chips li:nth-child(2) {
+  animation-delay: 0.28s;
+}
+
+.home-chips li:nth-child(3) {
+  animation-delay: 0.36s;
 }
 
 /* ---- create-room card (.home-card itself is global: the pre-join screen uses it) ---- */
@@ -204,6 +257,19 @@
   color: var(--muted);
 }
 
+.home-terminal-line:last-child::after {
+  content: '▊';
+  margin-left: 2px;
+  color: var(--accent);
+  animation: caret-blink 1.1s steps(1) infinite;
+}
+
+@keyframes caret-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
 /* ---- pillars ---- */
 
 .home-dev-grid {
@@ -211,6 +277,26 @@
   grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
   gap: 1.25rem;
   margin-top: 1.5rem;
+}
+
+.home-dev-pillar {
+  animation: rise-in 0.5s var(--ease) both;
+}
+
+.home-dev-pillar:nth-child(1) {
+  animation-delay: 0.3s;
+}
+
+.home-dev-pillar:nth-child(2) {
+  animation-delay: 0.38s;
+}
+
+.home-dev-pillar:nth-child(3) {
+  animation-delay: 0.46s;
+}
+
+.home-dev-pillar:nth-child(4) {
+  animation-delay: 0.54s;
 }
 
 .home-dev-pillar h3 {
