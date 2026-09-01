@@ -197,6 +197,8 @@ export const esES: Catalog = {
   'file.status.declined': 'Rechazado',
   'file.status.cancelled': 'Cancelado',
   'file.status.failed': 'La transferencia falló: la otra persona salió o se cayó la conexión.',
+  'file.preview': 'Abrir imagen a tamaño real',
+  'file.closePreview': 'Cerrar imagen',
 
   'latency.signal': 'Latencia con el servidor de señalización',
   'latency.peer': 'Latencia directa con {name}',

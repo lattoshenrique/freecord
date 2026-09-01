@@ -195,6 +195,8 @@ export const zhCN: Catalog = {
   'file.status.declined': '已拒绝',
   'file.status.cancelled': '已取消',
   'file.status.failed': '传输失败：对方已离开或连接中断。',
+  'file.preview': '以原始尺寸查看图片',
+  'file.closePreview': '关闭图片',
 
   'latency.signal': '到信令服务器的延迟',
   'latency.peer': '与 {name} 的直连延迟',

@@ -197,6 +197,8 @@ export const jaJP: Catalog = {
   'file.status.declined': '断られました',
   'file.status.cancelled': 'キャンセルされました',
   'file.status.failed': '転送に失敗しました。相手が退出したか、接続が切れました。',
+  'file.preview': '画像を原寸で開く',
+  'file.closePreview': '画像を閉じる',
 
   'latency.signal': 'シグナリングサーバーまでの遅延',
   'latency.peer': '{name} との直接遅延',

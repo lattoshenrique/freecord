@@ -6,6 +6,7 @@ import {
   decodeChunk,
   encodeChunk,
   formatBytes,
+  isImageTransfer,
   transferKey,
   type TransferChannel,
 } from '../src/lib/file-transfer';
@@ -251,6 +252,36 @@ describe('FileTransfers', () => {
     await settle(2);
     expect(bob.list()[0].status).toBe('failed');
     expect(b.sent).toContainEqual(JSON.stringify({ k: 'cancel', id: 7 }));
+  });
+});
+
+describe('image previews', () => {
+  it('classifies by declared MIME type', () => {
+    expect(isImageTransfer({ mime: 'image/png' })).toBe(true);
+    expect(isImageTransfer({ mime: 'image/svg+xml' })).toBe(true);
+    expect(isImageTransfer({ mime: 'application/pdf' })).toBe(false);
+    expect(isImageTransfer({ mime: '' })).toBe(false);
+  });
+
+  it("the sender keeps an image's bytes from the offer, other files only on the receiver", async () => {
+    const [a, b] = pair();
+    const alice = new FileTransfers();
+    const bob = new FileTransfers();
+    alice.attach('bob', a);
+    bob.attach('alice', b);
+
+    const image = alice.offer('bob', makeFile(10, 'photo.png'))!;
+    const other = alice.offer('bob', new File([new Uint8Array(10)], 'notes.txt', { type: 'text/plain' }))!;
+    expect(alice.get(image)?.blob).not.toBeNull();
+    expect(alice.get(other)?.blob).toBeNull();
+
+    await settle(2);
+    for (const incoming of bob.list()) {
+      expect(incoming.blob).toBeNull();
+      bob.accept(incoming.key);
+    }
+    await settle();
+    expect(bob.list().every((incoming) => incoming.status === 'done' && incoming.blob !== null)).toBe(true);
   });
 });
 

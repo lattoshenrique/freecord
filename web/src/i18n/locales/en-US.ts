@@ -201,6 +201,8 @@ export const enUS = {
   'file.status.declined': 'Declined',
   'file.status.cancelled': 'Cancelled',
   'file.status.failed': 'Transfer failed — the other person left or the connection dropped.',
+  'file.preview': 'Open image at full size',
+  'file.closePreview': 'Close image',
 
   'latency.signal': 'Latency to the signaling server',
   'latency.peer': 'Direct latency with {name}',

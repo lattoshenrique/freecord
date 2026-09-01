@@ -196,6 +196,8 @@ export const ptBR: Catalog = {
   'file.status.declined': 'Recusado',
   'file.status.cancelled': 'Cancelado',
   'file.status.failed': 'A transferência falhou — a outra pessoa saiu ou a conexão caiu.',
+  'file.preview': 'Abrir imagem em tamanho real',
+  'file.closePreview': 'Fechar imagem',
 
   'latency.signal': 'Latência até o servidor de sinalização',
   'latency.peer': 'Latência direta com {name}',

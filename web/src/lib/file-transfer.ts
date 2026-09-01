@@ -54,8 +54,16 @@ export interface FileTransfer {
   bytes: number;
   /** When the offer was made or received. */
   ts: number;
-  /** Receiver only, once complete: the file ready to save. */
+  /**
+   * The file's bytes: on the receiver once every chunk has arrived, on the
+   * sender from the start for images (so both sides can preview them).
+   */
   blob: Blob | null;
+}
+
+/** A transfer the chat can show inline — decided by the declared MIME type. */
+export function isImageTransfer(transfer: Pick<FileTransfer, 'mime'>): boolean {
+  return /^image\/(png|jpeg|gif|webp|avif|bmp|svg\+xml)$/.test(transfer.mime);
 }
 
 type ControlFrame =
@@ -259,7 +267,8 @@ export class FileTransfers {
       status: 'pending',
       bytes: 0,
       ts: Date.now(),
-      blob: null,
+      // The sender already holds the bytes; an image previews right away.
+      blob: isImageTransfer({ mime: file.type }) ? file : null,
     });
     link.outgoing.set(id, file);
     if (!this.sendControl(link, { k: 'offer', id, name, size: file.size, mime: file.type })) {

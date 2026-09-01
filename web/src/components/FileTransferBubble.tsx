@@ -1,7 +1,9 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useI18n } from '../i18n';
-import { formatBytes, type FileTransfer } from '../lib/file-transfer';
+import { formatBytes, isImageTransfer, type FileTransfer } from '../lib/file-transfer';
+import ImageLightbox from './ImageLightbox';
 import { DownloadIcon, FileIcon } from './icons';
+import './file-preview.css';
 
 /**
  * One file in the chat timeline: an offer to accept or decline, a progress
@@ -26,6 +28,7 @@ export default function FileTransferBubble({
 }) {
   const { t, locale } = useI18n();
   const mine = transfer.direction === 'out';
+  const [previewOpen, setPreviewOpen] = useState(false);
   const percent = transfer.size === 0 ? 100 : Math.floor((transfer.bytes / transfer.size) * 100);
 
   // The blob URL lives exactly as long as the bubble that offers it.
@@ -66,6 +69,9 @@ export default function FileTransferBubble({
   }
 
   const settled = transfer.status !== 'pending' && transfer.status !== 'active';
+  // An image previews inline as soon as its bytes are here: from the start
+  // for the sender, on completion for the receiver. Click for the real size.
+  const preview = href && isImageTransfer(transfer) ? href : null;
 
   return (
     <div
@@ -87,6 +93,20 @@ export default function FileTransferBubble({
           </span>
         </div>
       </div>
+      {preview && (
+        <button
+          type="button"
+          className="chat-file-thumb"
+          title={t('file.preview')}
+          aria-label={t('file.preview')}
+          onClick={() => setPreviewOpen(true)}
+        >
+          <img src={preview} alt={transfer.name} loading="lazy" />
+        </button>
+      )}
+      {preview && previewOpen && (
+        <ImageLightbox src={preview} name={transfer.name} onClose={() => setPreviewOpen(false)} />
+      )}
       {transfer.status === 'active' && (
         <div
           className="chat-file-progress"
@@ -115,7 +135,7 @@ export default function FileTransferBubble({
             {t('file.cancel')}
           </button>
         )}
-        {href && (
+        {href && !mine && (
           <a className="chat-file-btn primary" href={href} download={transfer.name}>
             <DownloadIcon />
             {t('file.save')}
