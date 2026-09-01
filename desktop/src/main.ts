@@ -38,6 +38,25 @@ const SOURCE_URL = 'https://github.com/lattoshenrique/freecord';
 
 const STATIC_DIR = path.join(__dirname, '..', 'static');
 
+// Command-line switches must land before `app.whenReady()` — Chromium reads
+// them once, at startup, and only honors the *last* occurrence of each flag
+// (so any future value must merge into these, comma-separated).
+//
+// mDNS masking hides host ICE candidates behind `.local` names, which breaks
+// or degrades direct LAN connections on many networks. Dropping the mask
+// reveals local IPs to peers — acceptable here because media is P2P-direct by
+// design and the product already tells users a peer sees their IP.
+app.commandLine.appendSwitch('disable-features', 'WebRtcHideLocalIpsWithMdns');
+if (process.platform === 'linux') {
+  // VA-API encode/decode is off by default in Chromium on Linux, and software
+  // encode is the latency/CPU bottleneck for 1080p screen share. A harmless
+  // no-op on machines without VA-API.
+  app.commandLine.appendSwitch(
+    'enable-features',
+    'VaapiVideoEncoder,VaapiVideoDecoder,VaapiIgnoreDriverChecks',
+  );
+}
+
 let mainWindow: BrowserWindow | null = null;
 let t: (key: StringKey) => string = createTranslator('en-US');
 
@@ -178,7 +197,17 @@ function configureSession(): void {
         const source = sources.find((candidate) => candidate.id === chosen);
         // An empty object means cancelled: the site already treats that as
         // "the user closed the picker" and leaves the server's lock alone.
-        callback(source ? { video: source } : {});
+        //
+        // Windows is the one platform where Chromium can capture system audio
+        // ('loopback'); granting it here costs nothing — the track only exists
+        // if the page asked for `audio: true` in getDisplayMedia.
+        if (source) {
+          callback(
+            process.platform === 'win32' ? { video: source, audio: 'loopback' } : { video: source },
+          );
+        } else {
+          callback({});
+        }
       } catch {
         callback({});
       }
@@ -267,6 +296,10 @@ function createWindow(): BrowserWindow {
       });
     }
   });
+
+  // Belt and braces with the mDNS switch above: 'default' exposes all
+  // interfaces, so ICE can offer real host candidates for direct connections.
+  win.webContents.setWebRTCIPHandlingPolicy('default');
 
   void win.loadURL(APP_URL);
   return win;
