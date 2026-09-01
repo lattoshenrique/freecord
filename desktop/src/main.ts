@@ -30,6 +30,7 @@ import {
 } from 'electron';
 import path from 'node:path';
 import { createTranslator, pickerStrings, type StringKey } from './i18n';
+import { startUpdater } from './updater';
 
 /** Production by default; `FREECORD_URL=http://localhost:5173` for dev. */
 const APP_URL = process.env.FREECORD_URL ?? 'https://freecord.lattoshenrique.workers.dev';
@@ -369,6 +370,9 @@ if (!app.requestSingleInstanceLock()) {
     configureSession();
     buildMenu();
     mainWindow = createWindow();
+    // The page updates on every deploy; this keeps the shell itself fresh.
+    // First check ~10 s after ready — it never competes with startup.
+    startUpdater(APP_URL, t, () => mainWindow);
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) {

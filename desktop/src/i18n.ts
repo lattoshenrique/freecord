@@ -49,6 +49,19 @@ const STRINGS = {
     offlineBody:
       'The app talks to the room server over the internet. Check your connection and try again.',
     offlineRetry: 'Try again',
+    updateTitle: 'Update available',
+    updateMessage: 'Freecord {version} is out.',
+    updateInstallDetail:
+      'Already downloaded. Installing takes a few seconds and the app reopens by itself.',
+    updateInstall: 'Install and restart',
+    updateRestartDetail: 'Already downloaded. The app reopens on the new version.',
+    updateRestart: 'Restart now',
+    updateMacDetail:
+      'The download opens in your browser — install it over the current app. macOS blocks the first launch: open System Settings → Privacy & Security and choose "Open Anyway".',
+    updateDebDetail:
+      'The download opens in your browser. Install the .deb like the first time and reopen the app.',
+    updateDownload: 'Download',
+    updateLater: 'Not now',
   },
   'pt-BR': {
     menuFile: 'Arquivo',
@@ -84,6 +97,18 @@ const STRINGS = {
     offlineBody:
       'O app conversa com o servidor de salas pela internet. Verifique sua conexão e tente de novo.',
     offlineRetry: 'Tentar de novo',
+    updateTitle: 'Atualização disponível',
+    updateMessage: 'O Freecord {version} já está disponível.',
+    updateInstallDetail: 'Já foi baixada. Instalar leva alguns segundos e o app reabre sozinho.',
+    updateInstall: 'Instalar e reiniciar',
+    updateRestartDetail: 'Já foi baixada. O app reabre na versão nova.',
+    updateRestart: 'Reiniciar agora',
+    updateMacDetail:
+      'O download abre no navegador — instale por cima do app atual. O macOS bloqueia a primeira abertura: abra Ajustes do Sistema → Privacidade e Segurança e escolha "Abrir Assim Mesmo".',
+    updateDebDetail:
+      'O download abre no navegador. Instale o .deb como na primeira vez e reabra o app.',
+    updateDownload: 'Baixar',
+    updateLater: 'Agora não',
   },
   es: {
     menuFile: 'Archivo',
@@ -119,6 +144,19 @@ const STRINGS = {
     offlineBody:
       'La app se comunica con el servidor de salas por internet. Revisa tu conexión e inténtalo de nuevo.',
     offlineRetry: 'Reintentar',
+    updateTitle: 'Actualización disponible',
+    updateMessage: 'Freecord {version} ya está disponible.',
+    updateInstallDetail:
+      'Ya está descargada. Instalarla tarda unos segundos y la app se reabre sola.',
+    updateInstall: 'Instalar y reiniciar',
+    updateRestartDetail: 'Ya está descargada. La app se reabre con la versión nueva.',
+    updateRestart: 'Reiniciar ahora',
+    updateMacDetail:
+      'La descarga se abre en el navegador; instálala sobre la app actual. macOS bloquea la primera apertura: abre Ajustes del Sistema → Privacidad y seguridad y elige "Abrir de todos modos".',
+    updateDebDetail:
+      'La descarga se abre en el navegador. Instala el .deb como la primera vez y vuelve a abrir la app.',
+    updateDownload: 'Descargar',
+    updateLater: 'Ahora no',
   },
   'zh-CN': {
     menuFile: '文件',
@@ -153,6 +191,17 @@ const STRINGS = {
     offlineTitle: '无法加载 Freecord',
     offlineBody: '此应用需要通过网络连接房间服务器。请检查网络连接后重试。',
     offlineRetry: '重试',
+    updateTitle: '有可用更新',
+    updateMessage: 'Freecord {version} 已发布。',
+    updateInstallDetail: '更新已下载完成。安装只需几秒钟，应用会自动重新打开。',
+    updateInstall: '安装并重启',
+    updateRestartDetail: '更新已下载完成。应用将在新版本上重新打开。',
+    updateRestart: '立即重启',
+    updateMacDetail:
+      '下载会在浏览器中打开，请覆盖安装当前应用。macOS 会拦截首次打开：请打开“系统设置 → 隐私与安全性”，选择“仍要打开”。',
+    updateDebDetail: '下载会在浏览器中打开。像第一次一样安装 .deb，然后重新打开应用。',
+    updateDownload: '下载',
+    updateLater: '暂不',
   },
   ja: {
     menuFile: 'ファイル',
@@ -188,6 +237,19 @@ const STRINGS = {
     offlineBody:
       'このアプリはインターネット経由でルームサーバーと通信します。接続を確認してもう一度お試しください。',
     offlineRetry: '再試行',
+    updateTitle: 'アップデートがあります',
+    updateMessage: 'Freecord {version} が公開されました。',
+    updateInstallDetail:
+      'ダウンロードは完了しています。インストールは数秒で終わり、アプリは自動的に開き直します。',
+    updateInstall: 'インストールして再起動',
+    updateRestartDetail: 'ダウンロードは完了しています。新しいバージョンでアプリが開き直します。',
+    updateRestart: '今すぐ再起動',
+    updateMacDetail:
+      'ダウンロードはブラウザで開きます。今のアプリに上書きインストールしてください。macOS は初回起動をブロックします。「システム設定 → プライバシーとセキュリティ」で「このまま開く」を選んでください。',
+    updateDebDetail:
+      'ダウンロードはブラウザで開きます。初回と同じように .deb をインストールして、アプリを開き直してください。',
+    updateDownload: 'ダウンロード',
+    updateLater: '後で',
   },
 } satisfies Record<Locale, Record<string, string>>;
 

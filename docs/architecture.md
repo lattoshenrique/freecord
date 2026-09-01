@@ -269,6 +269,18 @@ The shell announces what it can do through one additive-safe surface
 (`window.freecordDesktop.capabilities`); the site treats a missing flag as
 `false`, so old shells and new pages keep working in both directions.
 
+The shell also updates itself (`desktop/src/updater.ts`, zero dependencies):
+it polls the same `/api/downloads` catalog the website serves, and applies
+per platform as honestly as unsigned binaries allow — Windows installs the
+NSIS package silently and the app reopens itself; an AppImage downloads its
+replacement next to itself and swaps files on restart; macOS and .deb get a
+one-click browser download, the same flow as the first install, because an
+unsigned bundle cannot self-replace past Gatekeeper. One prompt per version,
+declining is remembered, network failures stay silent, and nothing ever
+applies without an explicit click. The page the shell loads is remote, so
+the app's FEATURES update on every deploy regardless — the updater only has
+to move the Electron shell itself, which changes rarely.
+
 ## Product decisions that control cost and complexity
 
 | Decision | Effect |
