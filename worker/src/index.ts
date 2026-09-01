@@ -6,7 +6,13 @@
  * Durable Object por slug. É o passo 3 do caminho de escala descrito em
  * docs/architecture.md (sharding por sala), sem mudança na UI.
  */
-import { ROOM_LIMITS, type PeerInfo, type ServerMessage } from '../../server/src/domain/room.js';
+import {
+  ROOM_LIMITS,
+  type PeerInfo,
+  type ScreenQuality,
+  type ServerMessage,
+} from '../../server/src/domain/room.js';
+import { computeScreenTree } from '../../server/src/domain/screen-tree.js';
 import { parseClientMessage } from '../../server/src/app/signaling.js';
 
 export interface Env {
@@ -30,7 +36,9 @@ interface RoomMeta {
   displayName: string;
 }
 
-type ScreenLock = { id: string; streamId: string } | null;
+type ScreenLock = { id: string; streamId: string; quality: ScreenQuality } | null;
+/** Relays da árvore de tela: peerId → streamId de reencaminhamento. */
+type ScreenRelays = Record<string, string>;
 
 /** Cadência da varredura de zumbis enquanto há gente na sala. */
 const SWEEP_INTERVAL_MS = Math.floor(ROOM_LIMITS.peerTimeoutMs / 2);
@@ -140,9 +148,11 @@ export class RoomDurableObject {
       selfId: peerId,
       room: { slug: meta!.slug, displayName: meta!.displayName },
       peers: peers.map((ws) => this.peerInfo(ws)),
-      screen,
+      screen: screen ? { id: screen.id, streamId: screen.streamId } : null,
     });
     this.broadcast({ t: 'peer-joined', peer: { id: peerId, name } }, peerId);
+    // Tela em andamento: quem chega precisa de rota, e a árvore muda.
+    await this.broadcastScreenRoutes();
 
     return new Response(null, { status: 101, webSocket: client });
   }
@@ -188,14 +198,41 @@ export class RoomDurableObject {
           this.send(ws, { t: 'screen-denied' });
           return;
         }
-        await this.ctx.storage.put('screen', { id: peerId, streamId: message.streamId });
+        // Reenvio do próprio sharer = troca de qualidade ao vivo.
+        if (screen?.streamId !== message.streamId) {
+          await this.ctx.storage.delete('screenRelays');
+        }
+        await this.ctx.storage.put('screen', {
+          id: peerId,
+          streamId: message.streamId,
+          quality: message.quality,
+        } satisfies NonNullable<ScreenLock>);
         this.broadcast({ t: 'screen-started', id: peerId, streamId: message.streamId });
+        await this.broadcastScreenRoutes();
+        return;
+      }
+      case 'screen-relay': {
+        // Só relays da árvore atual podem anunciar stream de reencaminhamento.
+        const screen = (await this.ctx.storage.get<ScreenLock>('screen')) ?? null;
+        if (!screen || screen.id === peerId) {
+          return;
+        }
+        const peerIds = this.ctx.getWebSockets().map((peer) => this.attachment(peer).peerId);
+        const tree = computeScreenTree(screen.id, peerIds);
+        if ((tree.get(peerId)?.children.length ?? 0) === 0) {
+          return;
+        }
+        const relays = (await this.ctx.storage.get<ScreenRelays>('screenRelays')) ?? {};
+        relays[peerId] = message.streamId;
+        await this.ctx.storage.put('screenRelays', relays);
+        await this.broadcastScreenRoutes();
         return;
       }
       case 'screen-stop': {
         const screen = (await this.ctx.storage.get<ScreenLock>('screen')) ?? null;
         if (screen?.id === peerId) {
           await this.ctx.storage.delete('screen');
+          await this.ctx.storage.delete('screenRelays');
           this.broadcast({ t: 'screen-stopped' });
         }
         return;
@@ -247,12 +284,53 @@ export class RoomDurableObject {
     // O lock de tela é liberado até em queda de conexão.
     if (screen && gone.has(screen.id)) {
       await this.ctx.storage.delete('screen');
+      await this.ctx.storage.delete('screenRelays');
       this.broadcast({ t: 'screen-stopped' }, undefined, leaving);
+    } else if (screen) {
+      // Saiu um relay ou uma folha: a árvore de tela muda de forma.
+      const relays = (await this.ctx.storage.get<ScreenRelays>('screenRelays')) ?? {};
+      for (const peerId of gone) {
+        delete relays[peerId];
+      }
+      await this.ctx.storage.put('screenRelays', relays);
     }
     for (const peerId of gone) {
       this.broadcast({ t: 'peer-left', id: peerId }, undefined, leaving);
     }
+    await this.broadcastScreenRoutes(leaving);
     await this.rescheduleSweep(leaving);
+  }
+
+  /**
+   * (Re)distribui os papéis da árvore de retransmissão da tela — espelho da
+   * lógica do server Node (broadcastScreenRoutes em app/signaling.ts).
+   */
+  private async broadcastScreenRoutes(excluded: WebSocket[] = []): Promise<void> {
+    const screen = (await this.ctx.storage.get<ScreenLock>('screen')) ?? null;
+    if (!screen) {
+      return;
+    }
+    const sockets = this.remaining(excluded);
+    const relays = (await this.ctx.storage.get<ScreenRelays>('screenRelays')) ?? {};
+    const tree = computeScreenTree(
+      screen.id,
+      sockets.map((ws) => this.attachment(ws).peerId),
+    );
+    for (const ws of sockets) {
+      const route = tree.get(this.attachment(ws).peerId);
+      if (!route) {
+        continue;
+      }
+      const source =
+        route.parentId === null
+          ? null
+          : route.parentId === screen.id
+            ? { id: screen.id, streamId: screen.streamId }
+            : relays[route.parentId]
+              ? { id: route.parentId, streamId: relays[route.parentId]! }
+              : null;
+      this.send(ws, { t: 'screen-route', children: route.children, source, quality: screen.quality });
+    }
   }
 
   private async rescheduleSweep(excluded: WebSocket[]): Promise<void> {

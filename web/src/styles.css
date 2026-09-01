@@ -378,6 +378,12 @@ button {
   font-size: 0.85rem;
 }
 
+/* Recebendo por um relay da árvore, não direto de quem compartilha. */
+.screen-relay-hint {
+  color: var(--muted);
+  font-weight: 400;
+}
+
 /* Números do que está realmente trafegando — tabulares para não dançar. */
 .screen-stats {
   display: inline-flex;

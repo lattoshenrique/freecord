@@ -1,7 +1,15 @@
 /**
- * Cliente fino da API HTTP. Em dev o Vite faz proxy de /api e /ws para o
- * servidor; em produção o mesmo processo Node serve API, WS e estáticos.
+ * Cliente fino da API HTTP.
+ *
+ * Sem `VITE_SIGNALING_ORIGIN` tudo é relativo: em dev o Vite faz proxy de
+ * /api e /ws, e um processo Node único pode servir API, WS e estáticos.
+ * Com a variável definida, API e WS vão para outra origem — é assim que a
+ * página servida pela borda da Cloudflare fala com o servidor de salas em
+ * São Paulo (ver docs/architecture.md).
  */
+
+/** Origem do servidor de salas; vazio = mesma origem da página. */
+export const SIGNALING_ORIGIN = (import.meta.env.VITE_SIGNALING_ORIGIN ?? '').replace(/\/$/, '');
 
 export interface RoomSummary {
   slug: string;
@@ -20,7 +28,7 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, {
+  const response = await fetch(`${SIGNALING_ORIGIN}${path}`, {
     headers: { 'Content-Type': 'application/json' },
     ...init,
   });

@@ -100,8 +100,8 @@ function QualityMenu({
           </button>
         ))}
         <p className="quality-menu-note">
-          Vale na hora, mesmo compartilhando. Com mais gente na sala o teto cai — a tela sobe uma
-          vez por pessoa.
+          Vale na hora, mesmo compartilhando. A tela é distribuída em árvore: cada pessoa envia
+          no máximo 3 cópias, então o teto não cai com o tamanho da sala.
         </p>
       </div>
     </>
@@ -349,13 +349,17 @@ export default function RoomView({
   // Computado a cada render de propósito: streams remotos chegam por
   // notificação do mesh (re-render sem mudança de estado React) — um
   // useMemo aqui devolveria o valor cacheado e nunca veria o stream.
+  // Na árvore de retransmissão a tela chega do PAI (screenSource), que
+  // pode ser um relay e não quem compartilha.
   const screenStream = !session.screen
     ? null
     : session.screen.id === session.selfId
       ? session.localScreen
-      : (session.mesh
-          ?.getPeerStreams(session.screen.id)
-          .find((stream) => stream.id === session.screen?.streamId) ?? null);
+      : session.screenSource
+        ? (session.mesh
+            ?.getPeerStreams(session.screenSource.id)
+            .find((stream) => stream.id === session.screenSource?.streamId) ?? null)
+        : null;
 
   const participantCount = session.peers.length + 1;
   const grid = useTileGrid(screenStream ? 0 : participantCount);
@@ -392,6 +396,11 @@ export default function RoomView({
   const sharerName = someoneElseSharing
     ? (session.peers.find((p) => p.id === session.screen?.id)?.name ?? 'Alguém')
     : null;
+  // Recebendo por um relay da árvore: o RTT exibido é até ele, não até a origem.
+  const relayName =
+    someoneElseSharing && session.screenSource && session.screenSource.id !== session.screen?.id
+      ? (session.peers.find((p) => p.id === session.screenSource?.id)?.name ?? 'relay')
+      : null;
 
   const tileStyle = !screenStream && grid.size ? { width: grid.size.width, height: grid.size.height } : undefined;
 
@@ -415,6 +424,7 @@ export default function RoomView({
               <div className="screen-overlay">
                 <span className="screen-label">
                   {sharerName ? `Tela de ${sharerName}` : 'Sua tela'}
+                  {relayName && <span className="screen-relay-hint"> · via {relayName}</span>}
                 </span>
                 {session.screenStats && <ScreenStatsBar stats={session.screenStats} />}
               </div>
@@ -436,7 +446,11 @@ export default function RoomView({
             {session.peers.map((peer) => {
               const streams = session.mesh?.getPeerStreams(peer.id) ?? [];
               const cameraStream =
-                streams.find((stream) => stream.id !== session.screen?.streamId) ?? null;
+                streams.find(
+                  (stream) =>
+                    stream.id !== session.screen?.streamId &&
+                    stream.id !== session.screenSource?.streamId,
+                ) ?? null;
               return (
                 <Tile
                   key={peer.id}

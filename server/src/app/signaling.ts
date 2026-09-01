@@ -3,8 +3,10 @@ import {
   type ClientMessage,
   type PeerChannel,
   type Room,
+  type ScreenQuality,
   type ServerMessage,
 } from '../domain/room.js';
+import { computeScreenTree } from '../domain/screen-tree.js';
 import type { RoomRegistry } from './room-registry.js';
 
 function broadcast(room: Room, message: ServerMessage, exceptId?: string): void {
@@ -12,6 +14,42 @@ function broadcast(room: Room, message: ServerMessage, exceptId?: string): void 
     if (id !== exceptId) {
       peer.channel.send(message);
     }
+  }
+}
+
+/**
+ * (Re)distribui os papéis da árvore de retransmissão da tela.
+ *
+ * Chamado a cada mudança que afeta a topologia: tela começou, alguém
+ * entrou/saiu ou um relay reportou seu stream de reencaminhamento. Cada
+ * par recebe sua rota; filhos de um relay que ainda não reportou ficam
+ * com `source: null` até o report chegar.
+ */
+function broadcastScreenRoutes(room: Room): void {
+  const sharer = room.screenSharer;
+  if (!sharer) {
+    return;
+  }
+  const tree = computeScreenTree(sharer.id, room.peers.keys());
+  for (const [peerId, peer] of room.peers) {
+    const route = tree.get(peerId);
+    if (!route) {
+      continue;
+    }
+    const source =
+      route.parentId === null
+        ? null
+        : route.parentId === sharer.id
+          ? { id: sharer.id, streamId: sharer.streamId }
+          : room.screenRelays.has(route.parentId)
+            ? { id: route.parentId, streamId: room.screenRelays.get(route.parentId)! }
+            : null;
+    peer.channel.send({
+      t: 'screen-route',
+      children: route.children,
+      source,
+      quality: sharer.quality,
+    });
   }
 }
 
@@ -42,9 +80,13 @@ export class SignalingSession {
       peers: [...room.peers.entries()]
         .filter(([id]) => id !== peerId)
         .map(([id, peer]) => ({ id, name: peer.name })),
-      screen: room.screenSharer,
+      screen: room.screenSharer
+        ? { id: room.screenSharer.id, streamId: room.screenSharer.streamId }
+        : null,
     });
     broadcast(room, { t: 'peer-joined', peer: { id: peerId, name } }, peerId);
+    // Tela em andamento: quem chega precisa de rota, e a árvore muda.
+    broadcastScreenRoutes(room);
   }
 
   handleMessage(message: ClientMessage): void {
@@ -87,13 +129,37 @@ export class SignalingSession {
           room.peers.get(this.peerId)?.channel.send({ t: 'screen-denied' });
           return;
         }
-        room.screenSharer = { id: this.peerId, streamId: message.streamId };
+        // Reenvio do próprio sharer = troca de qualidade ao vivo.
+        const restarted = room.screenSharer?.streamId !== message.streamId;
+        room.screenSharer = {
+          id: this.peerId,
+          streamId: message.streamId,
+          quality: message.quality,
+        };
+        if (restarted) {
+          room.screenRelays.clear();
+        }
         broadcast(room, { t: 'screen-started', id: this.peerId, streamId: message.streamId });
+        broadcastScreenRoutes(room);
+        return;
+      }
+      case 'screen-relay': {
+        // Só relays da árvore atual podem anunciar stream de reencaminhamento.
+        if (!room.screenSharer || room.screenSharer.id === this.peerId) {
+          return;
+        }
+        const tree = computeScreenTree(room.screenSharer.id, room.peers.keys());
+        if ((tree.get(this.peerId)?.children.length ?? 0) === 0) {
+          return;
+        }
+        room.screenRelays.set(this.peerId, message.streamId);
+        broadcastScreenRoutes(room);
         return;
       }
       case 'screen-stop': {
         if (room.screenSharer?.id === this.peerId) {
           room.screenSharer = null;
+          room.screenRelays.clear();
           broadcast(room, { t: 'screen-stopped' });
         }
         return;
@@ -113,6 +179,8 @@ export class SignalingSession {
         broadcast(room, { t: 'screen-stopped' });
       }
       broadcast(room, { t: 'peer-left', id: this.peerId });
+      // Saiu um relay ou uma folha: a árvore de tela muda de forma.
+      broadcastScreenRoutes(room);
     }
   }
 }
@@ -136,6 +204,7 @@ export function sweepStalePeers(registry: RoomRegistry): number {
         broadcast(room, { t: 'screen-stopped' });
       }
       broadcast(room, { t: 'peer-left', id: peerId });
+      broadcastScreenRoutes(room);
     }
   }
   return stale.length;
@@ -163,9 +232,17 @@ export function parseClientMessage(raw: unknown): ClientMessage | null {
         : null;
     case 'chat':
       return typeof message.text === 'string' ? { t: 'chat', text: message.text } : null;
-    case 'screen-request':
+    case 'screen-request': {
+      if (typeof message.streamId !== 'string' || message.streamId.length > 128) {
+        return null;
+      }
+      const quality: ScreenQuality =
+        message.quality === 'nitida' || message.quality === 'fluida' ? message.quality : 'equilibrada';
+      return { t: 'screen-request', streamId: message.streamId, quality };
+    }
+    case 'screen-relay':
       return typeof message.streamId === 'string' && message.streamId.length <= 128
-        ? { t: 'screen-request', streamId: message.streamId }
+        ? { t: 'screen-relay', streamId: message.streamId }
         : null;
     case 'screen-stop':
       return { t: 'screen-stop' };

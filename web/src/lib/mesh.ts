@@ -43,6 +43,12 @@ export interface TrackEncoding {
 interface LocalTrack {
   stream: MediaStream;
   encoding: TrackEncoding | null;
+  /**
+   * Para quem este track é enviado; null = todos os pares (câmera/voz).
+   * A tela usa alvos explícitos: na árvore de retransmissão cada par envia
+   * só para os próprios filhos, não para a sala inteira.
+   */
+  targets: Set<string> | null;
 }
 
 /** Chrome/Edge: pede o menor buffer de reprodução possível (não está no lib.dom). */
@@ -87,11 +93,41 @@ export class Mesh {
     return this.peers.get(peerId)?.pc ?? null;
   }
 
-  addLocalTrack(track: MediaStreamTrack, stream: MediaStream, encoding?: TrackEncoding): void {
-    this.localTracks.set(track, { stream, encoding: encoding ?? null });
-    for (const state of this.peers.values()) {
-      state.pc.addTrack(track, stream);
-      void this.applyEncoding(state.pc, track);
+  addLocalTrack(
+    track: MediaStreamTrack,
+    stream: MediaStream,
+    encoding?: TrackEncoding,
+    targets?: string[] | null,
+  ): void {
+    const targetSet = targets === undefined || targets === null ? null : new Set(targets);
+    this.localTracks.set(track, { stream, encoding: encoding ?? null, targets: targetSet });
+    for (const [peerId, state] of this.peers) {
+      if (targetSet === null || targetSet.has(peerId)) {
+        state.pc.addTrack(track, stream);
+        void this.applyEncoding(state.pc, track);
+      }
+    }
+  }
+
+  /**
+   * Reconcilia para quem um track é enviado: adiciona sender nos alvos
+   * novos e remove dos que saíram — cada mudança renegocia só aquele par.
+   */
+  setTrackTargets(track: MediaStreamTrack, targets: string[]): void {
+    const local = this.localTracks.get(track);
+    if (!local) {
+      return;
+    }
+    const targetSet = new Set(targets);
+    local.targets = targetSet;
+    for (const [peerId, state] of this.peers) {
+      const sender = state.pc.getSenders().find((s) => s.track === track);
+      if (targetSet.has(peerId) && !sender) {
+        state.pc.addTrack(track, local.stream);
+        void this.applyEncoding(state.pc, track);
+      } else if (!targetSet.has(peerId) && sender) {
+        state.pc.removeTrack(sender);
+      }
     }
   }
 
@@ -161,8 +197,10 @@ export class Mesh {
     this.peers.set(peerId, state);
 
     for (const [track, local] of this.localTracks) {
-      pc.addTrack(track, local.stream);
-      void this.applyEncoding(pc, track);
+      if (local.targets === null || local.targets.has(peerId)) {
+        pc.addTrack(track, local.stream);
+        void this.applyEncoding(pc, track);
+      }
     }
     // Sem mídia local (permissão negada), ainda precisamos negociar para
     // RECEBER os outros: transceivers recvonly disparam a oferta.

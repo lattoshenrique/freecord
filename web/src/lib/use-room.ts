@@ -62,7 +62,9 @@ export function useRoomSession(options: JoinOptions) {
   const [peerLatency, setPeerLatency] = useState<Map<string, PeerLatency>>(new Map());
   const [signalRttMs, setSignalRttMs] = useState<number | null>(null);
   const [screenStats, setScreenStats] = useState<ScreenStats | null>(null);
-  const [, bumpVersion] = useReducer((v: number) => v + 1, 0);
+  /** De quem EU recebo a tela na árvore (pode ser um relay, não o sharer). */
+  const [screenSource, setScreenSource] = useState<{ id: string; streamId: string } | null>(null);
+  const [meshVersion, bumpVersion] = useReducer((v: number) => v + 1, 0);
 
   const signalingRef = useRef<Signaling | null>(null);
   const meshRef = useRef<Mesh | null>(null);
@@ -73,6 +75,16 @@ export function useRoomSession(options: JoinOptions) {
   const qualityRef = useRef<ScreenQualityId>(screenQuality);
   const viewerCountRef = useRef(0);
   const lastPongRef = useRef(0);
+  /** Última rota recebida da árvore de retransmissão da tela. */
+  const routeRef = useRef<{
+    children: string[];
+    source: { id: string; streamId: string } | null;
+    quality: ScreenQualityId;
+  } | null>(null);
+  /** Stream local que reencaminha a tela do pai para os filhos. */
+  const forwardStreamRef = useRef<MediaStream | null>(null);
+  const forwardedTrackRef = useRef<MediaStreamTrack | null>(null);
+  const reportedRelayStreamRef = useRef<string | null>(null);
 
   const dropLocalScreen = useCallback(() => {
     for (const stream of [pendingScreenRef.current, localScreenRef.current]) {
@@ -89,15 +101,103 @@ export function useRoomSession(options: JoinOptions) {
     setScreenStats(null);
   }, []);
 
-  /** Teto de envio da tela agora: preset escolhido rateado pelo nº de pares. */
+  /**
+   * Teto de envio da tela: preset rateado pelo nº de FILHOS na árvore —
+   * no máximo SCREEN_FANOUT, independente do tamanho da sala. Antes da
+   * rota chegar, o rateio conservador usa o nº de pares.
+   */
   const screenEncoding = useCallback((): TrackEncoding => {
     const preset = presetById(qualityRef.current);
+    const receivers = routeRef.current?.children.length ?? viewerCountRef.current;
     return {
-      maxBitrate: bitrateFor(preset, viewerCountRef.current),
+      maxBitrate: bitrateFor(preset, receivers),
       maxFramerate: preset.frameRate,
       degradationPreference: preset.degradationPreference,
     };
   }, []);
+
+  /** Teto de reencaminhamento de um relay: preset do sharer, rateado pelos filhos. */
+  const relayEncoding = useCallback(
+    (route: { children: string[]; quality: ScreenQualityId }): TrackEncoding => {
+      const preset = presetById(route.quality);
+      return {
+        maxBitrate: bitrateFor(preset, route.children.length),
+        maxFramerate: preset.frameRate,
+        degradationPreference: preset.degradationPreference,
+      };
+    },
+    [],
+  );
+
+  /** Desfaz o papel de relay: para de reencaminhar sem tocar no track remoto. */
+  const teardownRelay = useCallback(() => {
+    const forwarded = forwardedTrackRef.current;
+    if (forwarded) {
+      meshRef.current?.removeLocalTrack(forwarded);
+      forwardStreamRef.current?.removeTrack(forwarded);
+    }
+    forwardedTrackRef.current = null;
+    forwardStreamRef.current = null;
+    reportedRelayStreamRef.current = null;
+  }, []);
+
+  /**
+   * Reconcilia o papel deste par na árvore de retransmissão da tela.
+   *
+   * Chamado quando a rota muda e quando o mesh notifica (o track do pai
+   * pode chegar depois da rota). Sharer: aplica alvos e rateio no track
+   * local. Relay: anuncia o stream de reencaminhamento e liga o track
+   * recebido do pai aos filhos. Folha: desfaz qualquer reencaminhamento.
+   */
+  const syncScreenTree = useCallback(() => {
+    const mesh = meshRef.current;
+    if (!mesh) {
+      return;
+    }
+    const route = routeRef.current;
+
+    const localTrack = localScreenRef.current?.getVideoTracks()[0];
+    if (localTrack) {
+      mesh.setTrackTargets(localTrack, route?.children ?? []);
+      mesh.setTrackEncoding(localTrack, screenEncoding());
+      return;
+    }
+
+    if (!route || route.children.length === 0) {
+      teardownRelay();
+      return;
+    }
+
+    const stream = forwardStreamRef.current ?? new MediaStream();
+    forwardStreamRef.current = stream;
+    if (reportedRelayStreamRef.current !== stream.id) {
+      reportedRelayStreamRef.current = stream.id;
+      signalingRef.current?.send({ t: 'screen-relay', streamId: stream.id });
+    }
+
+    const parentTrack = route.source
+      ? (mesh
+          .getPeerStreams(route.source.id)
+          .find((s) => s.id === route.source!.streamId)
+          ?.getVideoTracks()[0] ?? null)
+      : null;
+
+    const forwarded = forwardedTrackRef.current;
+    if (forwarded && forwarded !== parentTrack) {
+      // Troca de pai (relay caiu, árvore mudou): solta o track antigo.
+      mesh.removeLocalTrack(forwarded);
+      stream.removeTrack(forwarded);
+      forwardedTrackRef.current = null;
+    }
+    if (parentTrack && forwardedTrackRef.current !== parentTrack) {
+      stream.addTrack(parentTrack);
+      forwardedTrackRef.current = parentTrack;
+      mesh.addLocalTrack(parentTrack, stream, relayEncoding(route), route.children);
+    } else if (parentTrack) {
+      mesh.setTrackTargets(parentTrack, route.children);
+      mesh.setTrackEncoding(parentTrack, relayEncoding(route));
+    }
+  }, [screenEncoding, relayEncoding, teardownRelay]);
 
   useEffect(() => {
     let cancelled = false;
@@ -184,14 +284,29 @@ export function useRoomSession(options: JoinOptions) {
               localScreenRef.current = stream;
               setLocalScreen(stream);
               for (const track of stream.getTracks()) {
-                meshRef.current?.addLocalTrack(track, stream, screenEncoding());
+                // Alvos começam vazios: o screen-route logo atrás diz para
+                // quem enviar — na árvore, os filhos; nunca a sala inteira.
+                meshRef.current?.addLocalTrack(track, stream, screenEncoding(), []);
               }
+              syncScreenTree();
             }
           }
           return;
         }
+        case 'screen-route':
+          routeRef.current = {
+            children: message.children,
+            source: message.source,
+            quality: message.quality,
+          };
+          setScreenSource(message.source);
+          syncScreenTree();
+          return;
         case 'screen-stopped':
           setScreen(null);
+          setScreenSource(null);
+          routeRef.current = null;
+          teardownRelay();
           dropLocalScreen();
           return;
         case 'screen-denied':
@@ -215,6 +330,8 @@ export function useRoomSession(options: JoinOptions) {
       signalingRef.current = null;
       meshRef.current?.close();
       meshRef.current = null;
+      routeRef.current = null;
+      teardownRelay();
       dropLocalScreen();
       localMediaRef.current?.getTracks().forEach((track) => track.stop());
       localMediaRef.current = null;
@@ -269,17 +386,19 @@ export function useRoomSession(options: JoinOptions) {
       setPeerLatency(latencies);
 
       const sharing = localScreenRef.current?.getVideoTracks()[0] ?? null;
+      // Na árvore, a tela chega do PAI (talvez um relay) — o RTT medido é
+      // até ele, não até quem compartilha.
       const watching =
-        screen && screen.id !== selfIdRef.current
+        screenSource && screen && screen.id !== selfIdRef.current
           ? (mesh
-              .getPeerStreams(screen.id)
-              .find((stream) => stream.id === screen.streamId)
+              .getPeerStreams(screenSource.id)
+              .find((stream) => stream.id === screenSource.streamId)
               ?.getVideoTracks()[0] ?? null)
           : null;
       const stats = sharing
         ? await sampler.sendingScreen(mesh, sharing)
-        : watching && screen
-          ? await sampler.receivingScreen(mesh, screen.id, watching)
+        : watching && screenSource
+          ? await sampler.receivingScreen(mesh, screenSource.id, watching)
           : null;
       if (!stopped) {
         setScreenStats(stats);
@@ -292,9 +411,10 @@ export function useRoomSession(options: JoinOptions) {
       stopped = true;
       clearInterval(timer);
     };
-  }, [status.kind, screen]);
+  }, [status.kind, screen, screenSource]);
 
-  // O rateio do uplink muda quando entra ou sai gente.
+  // O rateio do uplink muda quando entra ou sai gente (fallback até a rota
+  // chegar; com rota, o rateio é pelos filhos e o servidor reemite a rota).
   useEffect(() => {
     viewerCountRef.current = peers.length;
     const track = localScreenRef.current?.getVideoTracks()[0];
@@ -302,6 +422,12 @@ export function useRoomSession(options: JoinOptions) {
       meshRef.current?.setTrackEncoding(track, screenEncoding());
     }
   }, [peers.length, screenEncoding]);
+
+  // O track do pai pode chegar DEPOIS da rota (negociação em andamento):
+  // cada notificação do mesh reavalia o papel deste par na árvore.
+  useEffect(() => {
+    syncScreenTree();
+  }, [meshVersion, syncScreenTree]);
 
   /** Troca de preset: vale na hora, sem reiniciar o compartilhamento. */
   const setScreenQuality = useCallback(
@@ -321,6 +447,12 @@ export function useRoomSession(options: JoinOptions) {
           // a fonte não aceita a resolução pedida: o teto de envio ainda vale
         });
         meshRef.current?.setTrackEncoding(track, screenEncoding());
+        // Reanuncia o lock com a qualidade nova: os relays da árvore
+        // recebem o preset atualizado via screen-route.
+        const streamId = localScreenRef.current?.id;
+        if (streamId) {
+          signalingRef.current?.send({ t: 'screen-request', streamId, quality: id });
+        }
       }
     },
     [screenEncoding],
@@ -394,7 +526,11 @@ export function useRoomSession(options: JoinOptions) {
         };
       }
       // O lock é do servidor: só publica quando vier screen-started.
-      signalingRef.current?.send({ t: 'screen-request', streamId: stream.id });
+      signalingRef.current?.send({
+        t: 'screen-request',
+        streamId: stream.id,
+        quality: qualityRef.current,
+      });
     } catch {
       // usuário cancelou o seletor
     }
@@ -417,6 +553,7 @@ export function useRoomSession(options: JoinOptions) {
     peers,
     chat,
     screen,
+    screenSource,
     localMedia,
     localScreen,
     micOn,

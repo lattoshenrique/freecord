@@ -25,12 +25,20 @@ export interface Peer {
   lastSeen: number;
 }
 
+/** Preset de qualidade escolhido por quem compartilha — os relays o replicam. */
+export type ScreenQuality = 'nitida' | 'equilibrada' | 'fluida';
+
 export interface Room {
   slug: string;
   displayName: string;
   peers: Map<string, Peer>;
   /** Quem detém o lock de compartilhamento de tela, se alguém. */
-  screenSharer: { id: string; streamId: string } | null;
+  screenSharer: { id: string; streamId: string; quality: ScreenQuality } | null;
+  /**
+   * Streams de retransmissão reportados pelos relays da árvore de tela:
+   * peerId do relay → streamId que ele usa para reencaminhar aos filhos.
+   */
+  screenRelays: Map<string, string>;
   /** Marca de quando a sala ficou vazia, para expiração. */
   emptyAt: number | null;
 }
@@ -88,6 +96,20 @@ export type ServerMessage =
   | { t: 'screen-started'; id: string; streamId: string }
   | { t: 'screen-stopped' }
   | { t: 'screen-denied' }
+  /**
+   * Papel deste par na árvore de retransmissão da tela.
+   *
+   * `children`: para quem devo enviar a tela (o sharer envia a original;
+   * um relay reencaminha o track recebido). `source`: de quem eu recebo
+   * (null para o sharer, ou enquanto o relay pai ainda não reportou o
+   * stream de retransmissão). Reemitida a cada mudança na árvore.
+   */
+  | {
+      t: 'screen-route';
+      children: string[];
+      source: { id: string; streamId: string } | null;
+      quality: ScreenQuality;
+    }
   /** Eco do ping: o cliente mede a latência de sinalização com `ts`. */
   | { t: 'pong'; ts: number }
   | { t: 'error'; code: 'room_not_found' | 'room_full' | 'invalid_name' };
@@ -96,6 +118,8 @@ export type ServerMessage =
 export type ClientMessage =
   | { t: 'signal'; to: string; data: unknown }
   | { t: 'chat'; text: string }
-  | { t: 'screen-request'; streamId: string }
+  | { t: 'screen-request'; streamId: string; quality: ScreenQuality }
   | { t: 'screen-stop' }
+  /** Relay da árvore de tela anuncia o stream que usa para reencaminhar. */
+  | { t: 'screen-relay'; streamId: string }
   | { t: 'ping'; ts: number };

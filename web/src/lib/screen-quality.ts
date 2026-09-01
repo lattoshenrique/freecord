@@ -63,9 +63,10 @@ export const DEFAULT_SCREEN_QUALITY: ScreenQualityId = 'equilibrada';
 /**
  * Orçamento de upload assumido para a tela (bps).
  *
- * Na malha P2P a tela sobe N−1 vezes: sem rateio, 6 pessoas assistindo
- * saturam o uplink de quem compartilha e a latência explode — o gargalo
- * descrito em docs/architecture.md.
+ * Com a árvore de retransmissão (server/src/domain/screen-tree.ts), cada
+ * par envia no máximo SCREEN_FANOUT cópias — o rateio divide o orçamento
+ * pelos FILHOS na árvore, não por N−1, então o teto não cai mais com o
+ * tamanho da sala.
  */
 export const SCREEN_UPLINK_BUDGET = 10_000_000;
 

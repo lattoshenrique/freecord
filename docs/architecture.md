@@ -40,7 +40,8 @@ abaixo).
 - `SignalingSession` é independente de transporte: recebe um `PeerSender`
   (função de envio) e é testada com fakes, sem WebSocket real.
 - `parseClientMessage` só aceita o protocolo fechado — mensagem fora do
-  formato é descartada na borda.
+  formato é descartada na borda. `screen-request` carrega a `quality`
+  (`nitida`/`equilibrada`/`fluida`, default `equilibrada`).
 - `ping`/`pong` é a batida do coração: o cliente cronometra o eco (latência de
   sinalização) e o servidor usa o silêncio para expulsar conexões zumbis.
 - O lock de "uma tela por vez" vive no servidor (`screen-request` →
@@ -76,11 +77,43 @@ explícitas em `screen-quality.ts` e `mesh.ts`:
 | `maxBitrate`/`maxFramerate` no sender | Teto explícito, em vez do palpite do navegador |
 | `playoutDelayHint = 0` no receiver | Corta o buffer de reprodução: a diferença entre acompanhar e ver o passado |
 
-O teto por par é rateado: numa malha a tela sobe N−1 vezes, então
-`bitrateFor()` divide o orçamento de uplink pelo número de pares. Sem isso, 6
-pessoas assistindo saturam o upload de quem compartilha — e a latência explode.
 Quem compartilha escolhe o preset (Nítida / Equilibrada / Fluida) e a troca
-vale na hora, sem reiniciar o compartilhamento.
+vale na hora — reenviar `screen-request` com outra `quality` renegocia sem
+reiniciar o compartilhamento.
+
+### Árvore de retransmissão
+
+O teto por par é rateado pelo orçamento de uplink. Enquanto a tela subia N−1
+vezes, esse rateio virava um imposto: com 6 pessoas assistindo, o teto de cada
+uma caía a um sexto e a qualidade desabava justamente na sala cheia.
+
+A tela agora se propaga em **árvore**, não em estrela:
+
+```
+        Sharer
+       /   |   \
+    Ana  Bruno  Enzo        fanout 3
+                /   \
+             Duda   Caio     profundidade ≤ 2 com 8 pessoas
+```
+
+- O servidor calcula a árvore (`computeScreenTree`: BFS, ordem lexicográfica
+  de peerIds, fanout 3) e manda a cada par um `screen-route` com seus filhos,
+  sua origem e a qualidade. A ordem lexicográfica é o que faz as duas bordas
+  chegarem à **mesma** árvore sem combinar nada.
+- Quem tem filhos reencaminha o track recebido e avisa `screen-relay`; o
+  servidor atualiza a origem dos filhos.
+- O rateio passa a dividir por **filhos (≤3)**, não por N−1 — é isso que tira
+  o teto que caía com o tamanho da sala.
+- Queda de relay: a árvore é recalculada e os órfãos recebem `screen-route`
+  novo. Testado em navegador com 6 pessoas — o vídeo volta a fluir em menos de
+  6 s, e a negociação perfeita do `mesh.ts` absorve a rajada de renegociação.
+
+O preço, consciente: o relay **decodifica e recodifica** (não é repasse de
+pacote), então paga CPU pelos outros, e cada salto acrescenta latência — por
+isso o fanout 3 mantém a profundidade em 2. A escolha dos relays é
+lexicográfica por determinismo, não por capacidade: um notebook fraco pode
+virar gargalo. Escolher relay por RTT/estabilidade é a evolução natural.
 
 ## Decisões de produto que controlam custo e complexidade
 
@@ -115,8 +148,9 @@ vale na hora, sem reiniciar o compartilhamento.
    por sala → sharding por slug. Na Cloudflare isso é uma Durable Object por
    slug (`worker/`); num cluster Node seria sticky routing ou Redis pub/sub.
    A UI não muda.
-4. **Salas maiores / milhões de acessos**: mesh não escala além de ~8 com
-   vídeo. O passo seguinte é um **SFU próprio** (ex.: sobre Pion/werift, ou
+4. **Salas maiores / milhões de acessos**: a árvore de retransmissão adia essa
+   fronteira (o sharer não sobe mais N−1 cópias), mas não a remove: o mesh de
+   áudio/câmera continua sendo o limite acima de ~8 com vídeo. O passo seguinte é um **SFU próprio** (ex.: sobre Pion/werift, ou
    do zero sobre libwebrtc) atrás do MESMO protocolo de sinalização — o
    cliente passa a mandar 1 stream para o SFU em vez de N−1 para os pares.
    Essa fronteira já está desenhada: `mesh.ts` é o único arquivo que sabe
@@ -137,6 +171,22 @@ vale na hora, sem reiniciar o compartilhamento.
 O que **não** muda entre as duas: o protocolo fechado, os limites de
 `ROOM_LIMITS`, o lock de uma-tela-por-vez e a liberação dele em queda de
 conexão. Os testes do núcleo (`server/test/`) valem para as duas.
+
+### Por que a sinalização não fica no Brasil
+
+Medido, não suposto: o RTT de sinalização até a Durable Object é **~150 ms**,
+contra **34 ms** de um servidor equivalente no Cloud Run de São Paulo. A causa
+é da plataforma — **Durable Objects não existem na América do Sul**, e a doc da
+Cloudflare diz que objeto com hint `sam` nasce na costa leste dos EUA.
+
+Ficamos com os 150 ms de propósito. Eles atrasam só o chat e a entrada na sala:
+voz, vídeo e tela são P2P e nunca passam por servidor. O caminho brasileiro foi
+construído e derrubado porque o Cloud Run cobra a partir de ~50 h de uso mensal
+e traz dois problemas piores que a latência: WebSocket cortado em 60 min (sem
+reconexão, a chamada acaba) e escala a zero (sala criada e não usada some).
+
+O `Dockerfile` e a variável `VITE_SIGNALING_ORIGIN` (em `web/src/api.ts`) ficam
+prontos para refazer o caminho se a conta mudar.
 
 ### Como uma sala morre
 

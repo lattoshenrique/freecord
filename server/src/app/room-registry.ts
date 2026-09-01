@@ -41,6 +41,7 @@ export class RoomRegistry {
       displayName,
       peers: new Map(),
       screenSharer: null,
+      screenRelays: new Map(),
       emptyAt: this.now(),
     });
     return { slug, displayName, participantCount: 0 };
@@ -93,7 +94,9 @@ export class RoomRegistry {
     }
     if (room.screenSharer?.id === peerId) {
       room.screenSharer = null;
+      room.screenRelays.clear();
     }
+    room.screenRelays.delete(peerId);
     if (room.peers.size === 0) {
       room.emptyAt = this.now();
     }

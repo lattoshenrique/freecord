@@ -1,4 +1,14 @@
+import { SIGNALING_ORIGIN } from '../api';
 import type { ClientMessage, ServerMessage } from './protocol';
+
+/** Base wss:// do servidor de salas — a origem configurada ou a da página. */
+function signalingBase(): string {
+  if (SIGNALING_ORIGIN) {
+    return SIGNALING_ORIGIN.replace(/^http/, 'ws');
+  }
+  const scheme = window.location.protocol === 'https:' ? 'wss' : 'ws';
+  return `${scheme}://${window.location.host}`;
+}
 
 export interface SignalingHandlers {
   onMessage: (message: ServerMessage) => void;
@@ -12,8 +22,7 @@ export class Signaling {
   private closedByUs = false;
 
   constructor(slug: string, name: string, handlers: SignalingHandlers) {
-    const scheme = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const url = `${scheme}://${window.location.host}/ws/rooms/${encodeURIComponent(slug)}?name=${encodeURIComponent(name)}`;
+    const url = `${signalingBase()}/ws/rooms/${encodeURIComponent(slug)}?name=${encodeURIComponent(name)}`;
     this.ws = new WebSocket(url);
     this.ws.onmessage = (event) => {
       try {
