@@ -151,7 +151,7 @@ export const enUS = {
     'Voice, video and screen sharing flow straight between browsers over native WebRTC, encrypted end to end by default. The server only carries signaling and room state — it could not watch you if it wanted to.',
   'community.promise.chat.title': 'Chat that leaves nothing behind',
   'community.promise.chat.body':
-    'Messages are encrypted in your browser with a key that lives in the room link. Browsers never send a fragment to a server, so ours relays text it cannot read — and stores none of it either: the chat disappears with the room. The flip side is honest: anyone holding the link can read along, exactly as they can walk in.',
+    'Messages live in the room and disappear with it. Zero content storage, on purpose: nothing to leak, nothing to sell, nothing to hand over.',
   'community.promise.vendor.title': 'No vendor, no SDK',
   'community.promise.vendor.body':
     'No media provider and no third-party SDK. The entire protocol lives in the repository and the whole thing runs on free infrastructure. The single possible exception is optional TURN, a relay for networks that block direct connections — it forwards encrypted traffic it cannot read, and self-hosting it is a one-line change. This service has none configured today.',
