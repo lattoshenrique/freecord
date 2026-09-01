@@ -1,0 +1,73 @@
+/*
+ * Styles for the desktop download block.
+ *
+ * Kept out of styles.css on purpose: this file was written while another
+ * session was editing the global sheet, and an isolated block cannot be
+ * clobbered.
+ */
+
+.download {
+  width: 100%;
+  max-width: 26rem;
+  margin-top: 1rem;
+  padding: 1.25rem 1.5rem;
+  border-radius: 20px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow), var(--glass-highlight);
+  animation: rise-in 0.5s var(--ease) both;
+  animation-delay: 0.1s;
+  text-align: center;
+}
+
+.download-cta {
+  display: block;
+}
+
+.download-meta {
+  margin: 0.6rem 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.download-note {
+  margin: 0.6rem 0 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.download a:not(.button-link) {
+  color: var(--text);
+}
+
+.link-button {
+  margin-top: 0.6rem;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.link-button:hover {
+  color: var(--text);
+}
+
+.download-list {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+}
+
+.download-size {
+  color: var(--muted);
+}

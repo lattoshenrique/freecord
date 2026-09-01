@@ -1,0 +1,110 @@
+{
+  "name": "@freecord/desktop",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Freecord desktop app (Electron)",
+  "main": "dist/main.js",
+  "author": "Freecord",
+  "license": "MIT",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "npm run build && electron .",
+    "dev": "npm run build && FREECORD_URL=http://localhost:5173 electron .",
+    "dist": "npm run build && electron-builder",
+    "dist:mac": "npm run build && electron-builder --mac --arm64 --x64",
+    "dist:win": "npm run build && electron-builder --win --x64",
+    "dist:linux": "npm run build && electron-builder --linux --x64"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "electron": "^44.1.0",
+    "electron-builder": "^26.15.3",
+    "typescript": "^5.8.3"
+  },
+  "allowScripts": {
+    "electron@44.1.0": true
+  },
+  "build": {
+    "appId": "com.lattoshenrique.freecord",
+    "productName": "Freecord",
+    "copyright": "Copyright (c) 2026 Henrique Brito",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "static/**/*",
+      "package.json"
+    ],
+    "npmRebuild": false,
+    "afterPack": "build/after-pack.cjs",
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "category": "public.app-category.social-networking",
+      "artifactName": "freecord-mac-${arch}.dmg",
+      "darkModeSupport": true,
+      "identity": null,
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "Freecord uses the microphone so you can talk in rooms.",
+        "NSCameraUsageDescription": "Freecord uses the camera when you turn video on in a room.",
+        "NSScreenCaptureUsageDescription": "Freecord captures the screen when you share it in a room."
+      }
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "freecord-win-x64.exe"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "Freecord"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "category": "Network",
+      "synopsis": "Voice, video and screen sharing rooms with no signup",
+      "desktop": {
+        "entry": {
+          "Name": "Freecord"
+        }
+      }
+    },
+    "appImage": {
+      "artifactName": "freecord-linux-x86_64.AppImage"
+    },
+    "deb": {
+      "artifactName": "freecord-linux-amd64.deb"
+    }
+  }
+}

@@ -1,6 +1,6 @@
 {
   "$schema": "../node_modules/wrangler/config-schema.json",
-  "name": "guest-rooms",
+  "name": "freecord",
   "main": "src/index.ts",
   "compatibility_date": "2025-11-01",
   "workers_dev": true,

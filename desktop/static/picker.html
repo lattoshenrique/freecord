@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'"
+    />
+    <title>Freecord</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0b0d12;
+        --text: #e9ebf0;
+        --muted: #9aa0ad;
+        --accent: #5865f2;
+        --accent-hover: #6a76f5;
+        --border: rgba(255, 255, 255, 0.14);
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(40rem 26rem at 10% -10%, rgba(88, 101, 242, 0.18), transparent 60%),
+          radial-gradient(36rem 24rem at 95% 10%, rgba(168, 85, 247, 0.13), transparent 60%),
+          var(--bg);
+      }
+      header { padding: 1.25rem 1.5rem 0.75rem; }
+      h1 { margin: 0; font-size: 1.05rem; }
+      p { margin: 0.35rem 0 0; color: var(--muted); font-size: 0.85rem; }
+      .tabs { display: flex; gap: 0.5rem; padding: 0.75rem 1.5rem 0; }
+      .tab {
+        background: none; border: 1px solid transparent; border-radius: 999px;
+        color: var(--muted); cursor: pointer; font: inherit; font-size: 0.85rem;
+        padding: 0.35rem 0.9rem;
+      }
+      .tab[aria-selected='true'] {
+        background: rgba(255, 255, 255, 0.08);
+        border-color: var(--border);
+        color: var(--text);
+      }
+      main { flex: 1; overflow-y: auto; padding: 1rem 1.5rem; }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+        gap: 0.85rem;
+      }
+      .card {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        cursor: pointer;
+        overflow: hidden;
+        padding: 0;
+        text-align: left;
+        transition: border-color 0.15s ease, transform 0.15s ease;
+        font: inherit;
+        color: inherit;
+      }
+      .card:hover { transform: translateY(-2px); }
+      .card[aria-pressed='true'] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+      .card img.shot {
+        width: 100%; aspect-ratio: 16 / 9; object-fit: contain;
+        background: #05070b; display: block;
+      }
+      .meta { display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 0.75rem; }
+      .meta img { width: 16px; height: 16px; }
+      .meta span {
+        font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      }
+      .empty { color: var(--muted); font-size: 0.9rem; padding: 2rem 0; text-align: center; }
+      footer {
+        display: flex; justify-content: flex-end; gap: 0.6rem;
+        padding: 0.9rem 1.5rem; border-top: 1px solid var(--border);
+      }
+      button.action {
+        border-radius: 8px; cursor: pointer; font: inherit; font-weight: 600;
+        padding: 0.55rem 1.1rem; border: 1px solid var(--border);
+        background: transparent; color: var(--text);
+      }
+      button.primary { background: var(--accent); border-color: transparent; color: #fff; }
+      button.primary:hover:not(:disabled) { background: var(--accent-hover); }
+      button.primary:disabled { opacity: 0.5; cursor: default; }
+    </style>
+  </head>
+  <body>
+    <!-- Every label is filled from the main process (desktop/src/i18n.ts):
+         the shell is localized in the same five languages as the web app. -->
+    <header>
+      <h1 id="title"></h1>
+      <p id="subtitle"></p>
+    </header>
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" data-kind="screen" aria-selected="true"></button>
+      <button class="tab" role="tab" data-kind="window" aria-selected="false"></button>
+    </div>
+    <main><div class="grid" id="grid"></div></main>
+    <footer>
+      <button class="action" id="cancel"></button>
+      <button class="action primary" id="share" disabled></button>
+    </footer>
+
+    <script>
+      const grid = document.getElementById('grid');
+      const shareButton = document.getElementById('share');
+      let sources = [];
+      let strings = {};
+      let kind = 'screen';
+      let selected = null;
+
+      function render() {
+        const visible = sources.filter((source) => source.kind === kind);
+        grid.replaceChildren();
+        if (visible.length === 0) {
+          const empty = document.createElement('p');
+          empty.className = 'empty';
+          empty.textContent = kind === 'screen' ? strings.noScreens : strings.noWindows;
+          grid.append(empty);
+          return;
+        }
+        for (const source of visible) {
+          const card = document.createElement('button');
+          card.className = 'card';
+          card.setAttribute('aria-pressed', String(selected === source.id));
+          const shot = document.createElement('img');
+          shot.className = 'shot';
+          shot.src = source.thumbnail;
+          shot.alt = '';
+          const meta = document.createElement('div');
+          meta.className = 'meta';
+          if (source.appIcon) {
+            const icon = document.createElement('img');
+            icon.src = source.appIcon;
+            icon.alt = '';
+            meta.append(icon);
+          }
+          const name = document.createElement('span');
+          name.textContent = source.name;
+          meta.append(name);
+          card.append(shot, meta);
+          card.addEventListener('click', () => {
+            selected = source.id;
+            shareButton.disabled = false;
+            render();
+          });
+          // Double click shares straight away — the path for people who know.
+          card.addEventListener('dblclick', () => window.picker.choose(source.id));
+          grid.append(card);
+        }
+      }
+
+      for (const tab of document.querySelectorAll('.tab')) {
+        tab.addEventListener('click', () => {
+          kind = tab.dataset.kind;
+          for (const other of document.querySelectorAll('.tab')) {
+            other.setAttribute('aria-selected', String(other === tab));
+          }
+          render();
+        });
+      }
+
+      document.getElementById('cancel').addEventListener('click', () => window.picker.choose(null));
+      shareButton.addEventListener('click', () => {
+        if (selected) {
+          window.picker.choose(selected);
+        }
+      });
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+          window.picker.choose(null);
+        }
+      });
+
+      window.picker.onSources((payload) => {
+        sources = payload.sources;
+        strings = payload.strings;
+        document.getElementById('title').textContent = strings.title;
+        document.getElementById('subtitle').textContent = strings.subtitle;
+        document.querySelector('.tab[data-kind="screen"]').textContent = strings.screens;
+        document.querySelector('.tab[data-kind="window"]').textContent = strings.windows;
+        document.getElementById('cancel').textContent = strings.cancel;
+        document.getElementById('share').textContent = strings.share;
+        // Open on the tab that has content: someone with a single screen
+        // should not land on an empty "Screens" tab.
+        if (!sources.some((source) => source.kind === 'screen')) {
+          kind = 'window';
+          document.querySelector('.tab[data-kind="window"]').setAttribute('aria-selected', 'true');
+          document.querySelector('.tab[data-kind="screen"]').setAttribute('aria-selected', 'false');
+        }
+        render();
+      });
+    </script>
+  </body>
+</html>

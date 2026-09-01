@@ -1,0 +1,105 @@
+# Builds the desktop app on all three platforms and publishes the installers
+# to a GitHub Release.
+#
+# Why here and not on Cloudflare: a Workers asset is capped at 25 MiB per file
+# and an Electron build is over 90 MB. The Release is the hosting (free
+# bandwidth on a public repo) and the Worker only redirects — see
+# server/src/domain/downloads.ts.
+#
+# Filenames are fixed across versions, which is what makes
+# /releases/latest/download/<file> always valid.
+name: Desktop app
+
+on:
+  push:
+    tags: ['desktop-v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to publish (e.g. desktop-v0.1.0)'
+        required: true
+
+permissions:
+  contents: write
+
+defaults:
+  run:
+    working-directory: desktop
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Intel and Apple Silicon Macs are different binaries: both come
+          # off the same runner, in one step.
+          - { name: macOS, os: macos-14, args: --mac --arm64 --x64 }
+          - { name: Windows, os: windows-latest, args: --win --x64 }
+          - { name: Linux, os: ubuntu-latest, args: --linux --x64 }
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - name: Package
+        run: npx electron-builder ${{ matrix.args }} --publish never
+        env:
+          # No Apple certificate: stops electron-builder from hunting for an
+          # identity in the runner keychain. The ad-hoc signature Apple Silicon
+          # requires comes from build/after-pack.cjs.
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installers-${{ matrix.name }}
+          if-no-files-found: error
+          path: |
+            desktop/release/*.dmg
+            desktop/release/*.exe
+            desktop/release/*.AppImage
+            desktop/release/*.deb
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: desktop/installers
+          merge-multiple: true
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          set -eu
+          ls -la installers
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --title "Freecord $TAG" --notes "$(cat <<'NOTES'
+          Freecord desktop app for macOS, Windows and Linux.
+
+          https://freecord.lattoshenrique.workers.dev detects your system and
+          offers the right file — including Intel vs Apple Silicon.
+
+          **The binaries are not code-signed** (an Apple certificate costs US$ 99/year):
+          - macOS: System Settings → Privacy & Security → "Open Anyway".
+          - Windows: More info → Run anyway.
+          - Linux (AppImage): `chmod +x freecord-linux-x86_64.AppImage`.
+          NOTES
+          )"
+          fi
+          gh release upload "$TAG" installers/* --clobber

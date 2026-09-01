@@ -7,6 +7,7 @@
  * página servida pela borda da Cloudflare fala com o servidor de salas em
  * São Paulo (ver docs/architecture.md).
  */
+import type { DesktopTarget } from './lib/platform';
 
 /** Origem do servidor de salas; vazio = mesma origem da página. */
 export const SIGNALING_ORIGIN = (import.meta.env.VITE_SIGNALING_ORIGIN ?? '').replace(/\/$/, '');
@@ -15,6 +16,24 @@ export interface RoomSummary {
   slug: string;
   displayName: string;
   participantCount: number;
+}
+
+/** Mirror of the server's `DesktopAsset` (server/src/domain/downloads.ts). */
+export interface DesktopAsset {
+  target: DesktopTarget;
+  os: 'mac' | 'windows' | 'linux';
+  file: string;
+  label: string;
+  hint: string;
+  url: string;
+  size: number | null;
+}
+
+export interface DesktopCatalog {
+  version: string | null;
+  publishedAt: string | null;
+  builds: DesktopAsset[];
+  releasesUrl: string;
 }
 
 export class ApiError extends Error {
@@ -54,4 +73,9 @@ export function createRoom(displayName?: string): Promise<{ slug: string; displa
 
 export function getRoom(slug: string): Promise<RoomSummary> {
   return request(`/api/rooms/${encodeURIComponent(slug)}`);
+}
+
+/** Desktop app catalog — the edge resolves which Release is the latest. */
+export function getDownloads(): Promise<DesktopCatalog> {
+  return request('/api/downloads');
 }

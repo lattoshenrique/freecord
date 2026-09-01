@@ -1,8 +1,8 @@
 {
-  "name": "guest-rooms",
+  "name": "freecord",
   "private": true,
   "version": "0.1.0",
-  "description": "Plataforma guest-first de salas com voz, vídeo, chat de texto e compartilhamento de tela",
+  "description": "Guest-first rooms with voice, video, chat and screen sharing",
   "workspaces": [
     "server",
     "web",
@@ -14,7 +14,10 @@
     "build": "npm run build --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces",
     "test": "npm run test --workspaces --if-present",
-    "deploy": "npm run build && npm run deploy --workspace worker"
+    "deploy": "npm run build && npm run deploy --workspace worker",
+    "dev:desktop": "npm --prefix desktop run dev",
+    "dist:desktop": "npm --prefix desktop run dist",
+    "typecheck:desktop": "npm --prefix desktop run typecheck"
   },
   "engines": {
     "node": ">=20"

@@ -13,7 +13,14 @@ import {
   type ServerMessage,
 } from '../../server/src/domain/room.js';
 import { computeScreenTree } from '../../server/src/domain/screen-tree.js';
+import {
+  EMPTY_DESKTOP_CATALOG,
+  desktopDownloadUrl,
+  findDesktopBuild,
+  type DesktopCatalog,
+} from '../../server/src/domain/downloads.js';
 import { parseClientMessage } from '../../server/src/app/signaling.js';
+import { fetchDesktopCatalog } from '../../server/src/app/desktop-catalog.js';
 
 export interface Env {
   ROOMS: DurableObjectNamespace;
@@ -383,6 +390,44 @@ export class RoomDurableObject {
   }
 }
 
+const DOWNLOAD_ROUTE = /^\/download\/([a-z0-9-]+)$/;
+
+/**
+ * Desktop app catalog, with two cache tiers in the colo.
+ *
+ * The warm one (30 min) keeps us under the GitHub API's 60 req/h quota; the
+ * cold one (24 h) is only read when the fetch fails — serving yesterday's
+ * catalog, whose `latest/download` links are still valid, beats dropping the
+ * download button because GitHub blinked.
+ */
+const CATALOG_FRESH = 'https://desktop-catalog.freecord/fresh';
+const CATALOG_STALE = 'https://desktop-catalog.freecord/stale';
+
+async function desktopCatalog(env: Env): Promise<DesktopCatalog> {
+  const cache = caches.default;
+  const hit = await cache.match(CATALOG_FRESH);
+  if (hit) {
+    return (await hit.json()) as DesktopCatalog;
+  }
+
+  const catalog = await fetchDesktopCatalog();
+  if (!catalog) {
+    const stale = await cache.match(CATALOG_STALE);
+    return stale ? ((await stale.json()) as DesktopCatalog) : EMPTY_DESKTOP_CATALOG;
+  }
+
+  const body = JSON.stringify(catalog);
+  await cache.put(
+    CATALOG_FRESH,
+    new Response(body, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'max-age=1800' } }),
+  );
+  await cache.put(
+    CATALOG_STALE,
+    new Response(body, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'max-age=86400' } }),
+  );
+  return catalog;
+}
+
 const API_ROOM = /^\/api\/rooms\/([^/]+)$/;
 const WS_ROOM = /^\/ws\/rooms\/([^/]+)$/;
 
@@ -421,6 +466,19 @@ async function handleApi(request: Request, env: Env, url: URL): Promise<Response
     return json(await created.json(), 201, env);
   }
 
+  if (url.pathname === '/api/downloads' && request.method === 'GET') {
+    const catalog = await desktopCatalog(env);
+    return new Response(JSON.stringify(catalog), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        // Short browser cache; the heavy lifting is the colo cache above.
+        'Cache-Control': 'public, max-age=300',
+        ...corsHeaders(env),
+      },
+    });
+  }
+
   const summary = url.pathname.match(API_ROOM);
   if (summary && request.method === 'GET') {
     const slug = decodeURIComponent(summary[1]);
@@ -455,6 +513,15 @@ export default {
       }
       const room = env.ROOMS.get(env.ROOMS.idFromName(slug));
       return room.fetch(`https://room/join?name=${encodeURIComponent(name)}`, request);
+    }
+
+    // Short shareable link: /download/mac-arm64 → the Release asset.
+    const download = url.pathname.match(DOWNLOAD_ROUTE);
+    if (download && request.method === 'GET') {
+      const build = findDesktopBuild(download[1]);
+      if (build) {
+        return Response.redirect(desktopDownloadUrl(build.file), 302);
+      }
     }
 
     const api = await handleApi(request, env, url);

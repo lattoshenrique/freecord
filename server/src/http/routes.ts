@@ -2,7 +2,9 @@ import type { FastifyInstance } from 'fastify';
 import type { WebSocket } from 'ws';
 import { z } from 'zod';
 import type { RoomRegistry } from '../app/room-registry.js';
+import { DESKTOP_CATALOG_TTL_MS, fetchDesktopCatalog } from '../app/desktop-catalog.js';
 import { SignalingSession, parseClientMessage } from '../app/signaling.js';
+import { EMPTY_DESKTOP_CATALOG, type DesktopCatalog } from '../domain/downloads.js';
 import {
   ROOM_LIMITS,
   RoomFullError,
@@ -26,6 +28,25 @@ const joinQuery = z.object({
     .refine((value) => value.trim().length > 0, 'blank name'),
 });
 
+/**
+ * Desktop app catalog in memory: the same route as the Cloudflare edge, with
+ * the cache a single process has at hand. A failed read serves the stale
+ * catalog — `latest/download` links do not expire (see domain/downloads.ts).
+ */
+let desktopCache: { catalog: DesktopCatalog; at: number } | null = null;
+
+async function desktopCatalog(): Promise<DesktopCatalog> {
+  if (desktopCache && Date.now() - desktopCache.at < DESKTOP_CATALOG_TTL_MS) {
+    return desktopCache.catalog;
+  }
+  const catalog = await fetchDesktopCatalog();
+  if (!catalog) {
+    return desktopCache?.catalog ?? EMPTY_DESKTOP_CATALOG;
+  }
+  desktopCache = { catalog, at: Date.now() };
+  return catalog;
+}
+
 export function registerRoutes(app: FastifyInstance, registry: RoomRegistry): void {
   app.get('/healthz', async () => ({ status: 'ok' }));
 
@@ -35,6 +56,10 @@ export function registerRoutes(app: FastifyInstance, registry: RoomRegistry): vo
       return reply.code(400).send({ error: 'invalid_body' });
     }
     return reply.code(201).send(registry.createRoom(body.data.displayName));
+  });
+
+  app.get('/api/downloads', async (_request, reply) => {
+    return reply.header('Cache-Control', 'public, max-age=300').send(await desktopCatalog());
   });
 
   app.get('/api/rooms/:slug', async (request, reply) => {

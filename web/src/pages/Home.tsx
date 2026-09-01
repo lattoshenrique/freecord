@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createRoom } from '../api';
+import DownloadCard from '../components/DownloadCard';
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -24,7 +25,7 @@ export default function HomePage() {
   return (
     <main className="home">
       <section className="home-card">
-        <h1>Guest Rooms</h1>
+        <h1>Freecord</h1>
         <p className="tagline">
           Crie uma sala, mande o link para os amigos. Voz, vídeo, chat e
           compartilhamento de tela — sem cadastro.
@@ -44,6 +45,7 @@ export default function HomePage() {
         </form>
         {error && <p className="error">{error}</p>}
       </section>
+      <DownloadCard />
     </main>
   );
 }
