@@ -6,10 +6,14 @@ export const jaJP: Catalog = {
     '音声・ビデオ・チャット・画面共有を P2P メッシュで。あいだにメディアサーバーはありません。',
 
   'home.roomName': 'ルーム名',
-  'home.roomNamePlaceholder': 'ルーム名（任意）',
+  'home.roomNamePlaceholder': 'ルーム名 — または招待リンクを貼り付け',
   'home.create': 'ルームを作成',
   'home.creating': '作成中…',
   'home.createFailed': 'ルームを作成できませんでした。もう一度お試しください。',
+  'home.join': 'ルームに参加',
+  'home.joinHint': '招待リンクです — ボタンでそのルームに入れます。',
+  'home.invalidInvite':
+    '招待リンクのようですが、不完全です。リンク全体を貼り付けてください。',
   'home.community': 'コミュニティ',
 
   'home.hero.titleA': 'ルームは',

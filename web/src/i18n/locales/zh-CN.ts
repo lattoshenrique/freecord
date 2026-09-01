@@ -6,10 +6,13 @@ export const zhCN: Catalog = {
     '语音、视频、聊天和屏幕共享，跑在 P2P 网状网络上。中间没有媒体服务器。',
 
   'home.roomName': '房间名称',
-  'home.roomNamePlaceholder': '房间名称（可选）',
+  'home.roomNamePlaceholder': '房间名称 — 或粘贴邀请链接',
   'home.create': '创建房间',
   'home.creating': '正在创建…',
   'home.createFailed': '无法创建房间，请重试。',
+  'home.join': '加入房间',
+  'home.joinHint': '这是邀请链接 — 点击按钮即可进入该房间。',
+  'home.invalidInvite': '这看起来像邀请链接，但不完整。请粘贴完整的链接。',
   'home.community': '社区',
 
   'home.hero.titleA': '一个房间，',

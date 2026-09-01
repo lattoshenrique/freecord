@@ -6,10 +6,13 @@ export const ptBR: Catalog = {
     'Voz, vídeo, chat e tela numa malha P2P. Sem servidor de mídia no meio.',
 
   'home.roomName': 'Nome da sala',
-  'home.roomNamePlaceholder': 'Nome da sala (opcional)',
+  'home.roomNamePlaceholder': 'Nome da sala — ou cole um link de convite',
   'home.create': 'Criar sala',
   'home.creating': 'Criando…',
   'home.createFailed': 'Não foi possível criar a sala. Tente novamente.',
+  'home.join': 'Entrar na sala',
+  'home.joinHint': 'Link de convite — o botão leva você para essa sala.',
+  'home.invalidInvite': 'Isso parece um link de convite, mas está incompleto. Cole o link inteiro.',
   'home.community': 'Comunidade',
 
   'home.hero.titleA': 'Uma sala é',

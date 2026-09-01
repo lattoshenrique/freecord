@@ -6,10 +6,14 @@ export const esES: Catalog = {
     'Voz, vídeo, chat y pantalla en una malla P2P. Sin servidor de medios en medio.',
 
   'home.roomName': 'Nombre de la sala',
-  'home.roomNamePlaceholder': 'Nombre de la sala (opcional)',
+  'home.roomNamePlaceholder': 'Nombre de la sala — o pega un enlace de invitación',
   'home.create': 'Crear sala',
   'home.creating': 'Creando…',
   'home.createFailed': 'No se pudo crear la sala. Inténtalo de nuevo.',
+  'home.join': 'Entrar a la sala',
+  'home.joinHint': 'Enlace de invitación — el botón te lleva a esa sala.',
+  'home.invalidInvite':
+    'Eso parece un enlace de invitación, pero está incompleto. Pega el enlace entero.',
   'home.community': 'Comunidad',
 
   'home.hero.titleA': 'Una sala es',
