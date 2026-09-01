@@ -6,8 +6,14 @@
   "workers_dev": true,
   "observability": { "enabled": true },
 
-  // Estáticos do build do web; o Worker só é chamado no que não casa com um
-  // arquivo (API, WS e o fallback de SPA para /r/:slug).
+  // Static files from the web build. The assets layer answers FIRST: the Worker
+  // only runs for what does not match a file (API, WS and the SPA fallback for
+  // /r/:slug).
+  //
+  // Do not set `run_worker_first` here without checking what it breaks:
+  // robots.txt, sitemap.xml, llms.txt and og.png are real files served by this
+  // layer, and flipping the order sends all of them through the SPA fallback,
+  // which answers index.html with a 200 — a silent break, not an error.
   "assets": {
     "directory": "../web/dist",
     "binding": "ASSETS"
