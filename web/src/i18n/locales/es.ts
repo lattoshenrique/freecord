@@ -95,7 +95,6 @@ export const esES: Catalog = {
   'room.endedNotFound': 'La sala ya no existe.',
   'room.endedClosed': 'Se perdió la conexión con la sala.',
   'room.seatsAria': 'Asientos: {count} de {max} ocupados',
-  'room.seatOpen': 'Asiento libre',
   'room.camSlotsFull': 'Las cámaras están completas por ahora — el audio sigue libre',
   'room.camDenied':
     'No hay hueco de cámara libre ahora mismo. La tuya podrá encenderse cuando alguien apague la suya.',

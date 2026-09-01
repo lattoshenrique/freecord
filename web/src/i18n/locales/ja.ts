@@ -95,7 +95,6 @@ export const jaJP: Catalog = {
   'room.endedNotFound': 'このルームはもう存在しません。',
   'room.endedClosed': 'ルームとの接続が切れました。',
   'room.seatsAria': '座席: {max} 席中 {count} 席が埋まっています',
-  'room.seatOpen': '空席',
   'room.camSlotsFull': 'カメラの枠は今いっぱいです — 音声はいつでも使えます',
   'room.camDenied':
     '今はカメラの空き枠がありません。誰かがカメラをオフにすると、あなたのカメラをオンにできます。',

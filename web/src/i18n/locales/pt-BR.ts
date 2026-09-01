@@ -95,7 +95,6 @@ export const ptBR: Catalog = {
   'room.endedNotFound': 'A sala não existe mais.',
   'room.endedClosed': 'A conexão com a sala caiu.',
   'room.seatsAria': 'Assentos: {count} de {max} ocupados',
-  'room.seatOpen': 'Assento livre',
   'room.camSlotsFull': 'Sala cheia para câmeras — o áudio continua livre',
   'room.camDenied':
     'Nenhuma vaga de câmera livre agora. A sua pode ligar quando alguém desligar a dela.',

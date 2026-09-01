@@ -95,7 +95,6 @@ export const zhCN: Catalog = {
   'room.endedNotFound': '该房间已不存在。',
   'room.endedClosed': '与房间的连接已断开。',
   'room.seatsAria': '座位：{max} 个中已占 {count} 个',
-  'room.seatOpen': '空位',
   'room.camSlotsFull': '摄像头名额已满 — 语音始终畅通',
   'room.camDenied': '当前没有空余的摄像头名额。等有人关闭摄像头后，你的就能开启。',
 

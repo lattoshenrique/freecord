@@ -99,7 +99,6 @@ export const enUS = {
   'room.endedNotFound': 'This room no longer exists.',
   'room.endedClosed': 'The connection to the room dropped.',
   'room.seatsAria': 'Seats: {count} of {max} taken',
-  'room.seatOpen': 'Open seat',
   'room.camSlotsFull': 'Camera seats are full for now — audio is always open',
   'room.camDenied':
     'No camera slot is free right now. Yours can come on when someone turns theirs off.',
