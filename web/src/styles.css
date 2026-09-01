@@ -1123,48 +1123,34 @@ button {
 
 /* Irmão do dock, não filho: a lib de vidro corta overflow e impõe fonte
    própria aos filhos. `left` vem medido do botão de chat, em JS. */
-.chat-unread-chip {
+/*
+ * Unread badge on the chat button. It is positioned from JS (see RoomView)
+ * because the glass dock clips its own children; the corner it is centred on
+ * is measured from the button.
+ */
+.chat-unread-badge {
   position: absolute;
-  bottom: calc(100% + 0.6rem);
-  transform: translateX(-50%);
   z-index: 16;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  white-space: nowrap;
-  background: var(--glass-bg-strong);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
-  border-radius: 999px;
-  box-shadow: var(--shadow), var(--glass-highlight);
-  color: var(--text);
-  padding: 0.35rem 0.8rem 0.35rem 0.4rem;
-  font-size: 0.78rem;
-  font-weight: 500;
-  line-height: 1.2;
-  cursor: pointer;
-  animation: rise-in 0.25s var(--ease) both;
-  transition: border-color 0.15s ease;
-}
-
-.chat-unread-chip:hover {
-  border-color: var(--accent);
-}
-
-.chat-unread-count {
+  transform: translate(-50%, -50%);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 1.35rem;
-  height: 1.35rem;
-  padding: 0 0.3rem;
-  background: var(--accent);
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 0.28rem;
+  box-sizing: border-box;
+  /* The ring cuts the badge out of the button underneath it, which is the
+     same blue — without it the two shapes melt into one. */
+  border: 2px solid var(--bg);
+  background: var(--danger);
   border-radius: 999px;
   color: white;
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+  line-height: 1;
+  pointer-events: none;
+  animation: rise-in 0.25s var(--ease) both;
 }
 
 /* ---- markdown dentro da bolha de chat ---- */

@@ -87,32 +87,18 @@ function ScreenStatsBar({ stats }: { stats: ScreenStats }) {
 }
 
 /**
- * Unread counter, anchored above the chat button.
+ * Unread counter, pinned to the chat button's top-right corner.
  *
  * It lives OUTSIDE the glass dock: the library clips overflow and forces its
- * own font on children. The horizontal position is measured from the button so
- * the chip points at it rather than at the middle of the footer.
+ * own font on children, so a badge nested inside the button would be cut off.
+ * The corner is measured from the button, which slides as the dock changes
+ * width. Decoration only — the count is announced on the button itself.
  */
-function ChatUnreadChip({
-  count,
-  left,
-  onOpen,
-}: {
-  count: number;
-  left: number | null;
-  onOpen: () => void;
-}) {
-  const { t } = useI18n();
+function ChatUnreadBadge({ count, at }: { count: number; at: { left: number; top: number } }) {
   return (
-    <button
-      type="button"
-      className="chat-unread-chip"
-      style={left === null ? undefined : { left }}
-      onClick={onOpen}
-    >
-      <span className="chat-unread-count">{count > 99 ? '99+' : count}</span>
-      {t('chat.unread', { count })}
-    </button>
+    <span className="chat-unread-badge" style={at} aria-hidden="true">
+      {count > 99 ? '99+' : count}
+    </span>
   );
 }
 
@@ -395,10 +381,13 @@ export default function RoomView({
   const [draft, setDraft] = useState('');
   const [unread, setUnread] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [chipLeft, setChipLeft] = useState<number | null>(null);
+  const [badgeAt, setBadgeAt] = useState<{ left: number; top: number } | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const footerRef = useRef<HTMLElement>(null);
-  const chatButtonRef = useRef<HTMLButtonElement>(null);
+  // A callback ref, not a plain one: the dock only exists once the room is
+  // connected (this component returns early before that), so the badge has to
+  // be measured when the button actually lands, not on the first mount.
+  const [chatButton, setChatButton] = useState<HTMLButtonElement | null>(null);
 
   const { status } = session;
   useEffect(() => {
@@ -417,10 +406,15 @@ export default function RoomView({
   const chatCount = session.chat.length;
   const seenCountRef = useRef(0);
   useEffect(() => {
-    if (!chatOpen && chatCount > seenCountRef.current) {
-      setUnread((n) => n + (chatCount - seenCountRef.current));
-    }
+    // The delta is taken BEFORE the ref moves: a state updater runs at render
+    // time, so `n + (chatCount - seenCountRef.current)` read the ref after the
+    // line below had already advanced it — every increment came out as zero
+    // and the counter never left 0.
+    const arrived = chatCount - seenCountRef.current;
     seenCountRef.current = chatCount;
+    if (!chatOpen && arrived > 0) {
+      setUnread((n) => n + arrived);
+    }
   }, [chatCount, chatOpen]);
 
   // Sound alert: only for someone else's message, chat open or not.
@@ -434,23 +428,35 @@ export default function RoomView({
     }
   }, [chat, selfId]);
 
-  // The chip points at the chat button, which moves as the dock changes width
-  // (screen button disabled, narrow screens) — hence the measurement.
+  // The badge rides the chat button's corner, and the button moves as the dock
+  // changes width (screen button disabled, narrow screens) — hence the
+  // measurement. The dock is watched too: it grows and shrinks on its own,
+  // without the window ever being resized.
   useLayoutEffect(() => {
-    if (chatOpen || unread === 0) {
+    const dock = chatButton?.parentElement;
+    if (!chatButton || !dock) {
       return;
     }
     const measure = () => {
-      const button = chatButtonRef.current?.getBoundingClientRect();
+      const button = chatButton.getBoundingClientRect();
       const footer = footerRef.current?.getBoundingClientRect();
-      if (button && footer) {
-        setChipLeft(button.left - footer.left + button.width / 2);
+      if (!footer) {
+        return;
       }
+      const next = { left: button.right - footer.left, top: button.top - footer.top };
+      setBadgeAt((current) =>
+        current && current.left === next.left && current.top === next.top ? current : next,
+      );
     };
     measure();
     window.addEventListener('resize', measure);
-    return () => window.removeEventListener('resize', measure);
-  }, [chatOpen, unread]);
+    const observer = new ResizeObserver(measure);
+    observer.observe(dock);
+    return () => {
+      window.removeEventListener('resize', measure);
+      observer.disconnect();
+    };
+  }, [chatButton]);
 
   const stageRef = useRef<HTMLDivElement>(null);
   const screenVideoRef = useRef<HTMLVideoElement>(null);
@@ -783,9 +789,7 @@ export default function RoomView({
             {t('room.camDenied')}
           </p>
         )}
-        {!chatOpen && unread > 0 && !settingsOpen && (
-          <ChatUnreadChip count={unread} left={chipLeft} onOpen={() => setChatOpen(true)} />
-        )}
+        {!chatOpen && unread > 0 && badgeAt && <ChatUnreadBadge count={unread} at={badgeAt} />}
         {settingsOpen && (
           <SettingsMenu
             screenQuality={session.screenQuality}
@@ -883,12 +887,18 @@ export default function RoomView({
             <SlidersIcon />
           </button>
           <button
-            ref={chatButtonRef}
+            ref={setChatButton}
             type="button"
             className={`control ${chatOpen ? 'control-active' : ''}`}
             aria-pressed={chatOpen}
             data-key="C"
             title={chatOpen ? t('controls.closeChat') : t('controls.openChat')}
+            // The badge is decorative, so the count is spoken here instead.
+            aria-label={
+              !chatOpen && unread > 0
+                ? `${t('controls.openChat')} — ${unread} ${t('chat.unread', { count: unread })}`
+                : undefined
+            }
             onClick={() => setChatOpen((open) => !open)}
           >
             <ChatIcon />
