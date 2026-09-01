@@ -1,84 +1,100 @@
-# Guest Rooms
+<div align="center">
 
-Plataforma **guest-first** de salas de conversa: qualquer pessoa cria uma sala,
-compartilha o link e os amigos entram sem cadastro — com **voz, vídeo, chat de
-texto e compartilhamento de tela (1 por vez)**.
+<img src="web/public/favicon.svg" width="88" alt="Freecord logo" />
 
-**100% própria**: WebRTC nativo do navegador em malha P2P + servidor próprio de
-salas/sinalização. Nenhum fornecedor de mídia, nenhum SDK de terceiro, nenhuma
-credencial externa. Ver [docs/architecture.md](docs/architecture.md).
+# Freecord
+
+**Guest-first** conversation rooms: anyone creates a room, shares the link, and
+friends join with no signup — **voice, video, text chat and screen sharing
+(one person at a time)**.
+
+[![License: MIT](https://img.shields.io/badge/license-MIT-5865f2)](LICENSE)
+[![Node ≥ 20](https://img.shields.io/badge/node-%E2%89%A5%2020-a855f7)](#running-locally)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-38bdf8)](CONTRIBUTING.md)
+
+**[freecord.lattoshenrique.workers.dev](https://freecord.lattoshenrique.workers.dev)**
+
+</div>
+
+**Fully self-owned**: native browser WebRTC in a P2P mesh plus our own
+room/signaling server. No media vendor, no third-party SDK, no external
+credentials. See [docs/architecture.md](docs/architecture.md).
+
+Open source under the [MIT license](LICENSE). Contributions welcome — start
+with [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Stack
 
-| Peça | Tecnologia | Por quê |
+| Piece | Technology | Why |
 | --- | --- | --- |
-| Mídia | WebRTC nativo (mesh P2P) | Voz/vídeo/tela fluem direto entre navegadores; custo de servidor ~zero |
-| Sinalização | WebSocket próprio (protocolo fechado) | Salas, relay de SDP/ICE, chat e lock de tela num só lugar |
-| API/servidor | Node 20+ / Fastify / TypeScript | Um único processo serve API, WS e o frontend buildado |
-| Web | React + Vite | UI própria; bundle da sala com ~14 kB |
+| Media | Native WebRTC (P2P mesh) | Voice/video/screen flow straight between browsers; server cost ~zero |
+| Signaling | Our own WebSocket (closed protocol) | Rooms, SDP/ICE relay, chat and screen lock in one place |
+| API/server | Node 20+ / Fastify / TypeScript | A single process serves the API, the WS and the built frontend |
+| Web | React + Vite | Our own UI; the room bundle is ~14 kB |
+| Desktop | Electron shell around the production page | Native screen picker and system media permissions |
 
-## Rodando localmente
+## Running locally
 
-Pré-requisito: Node 20+. **Nenhuma conta ou credencial externa.**
+Prerequisite: Node 20+. **No account, no external credential.**
 
 ```bash
 npm install
 
-# terminal 1 — servidor (porta 3001)
+# terminal 1 — server (port 3001)
 npm run dev:server
 
-# terminal 2 — web (porta 5173, com proxy de /api e /ws)
+# terminal 2 — web (port 5173, proxying /api and /ws)
 npm run dev:web
 ```
 
-Abra http://localhost:5173, crie uma sala e compartilhe o link (`/r/<slug>`)
-— abra numa aba anônima para simular um convidado.
+Open http://localhost:5173, create a room and share the link (`/r/<slug>`) —
+open it in a private window to simulate a guest.
 
-## Qualidade
+## Quality
 
 ```bash
-npm run typecheck   # tsc em todos os workspaces
-npm test            # vitest: registry de salas, sinalização, rotas HTTP
-npm run build       # build de produção (server + web)
+npm run typecheck   # tsc across every workspace
+npm test            # vitest: room registry, signaling, HTTP routes
+npm run build       # production build (server + web)
 ```
 
 ## Deploy
 
-Está no ar em **https://guest-rooms.lattoshenrique.workers.dev** (Cloudflare
-Workers + Durable Objects, tudo em plano free — inclusive o DNS `workers.dev`).
+Live at **https://freecord.lattoshenrique.workers.dev** (Cloudflare Workers +
+Durable Objects, entirely on free plans — including the `workers.dev` DNS).
 
 ```bash
-npm run deploy   # build do web + wrangler deploy
+npm run deploy   # web build + wrangler deploy
 ```
 
-O `worker/` é a borda Cloudflare: mesma API HTTP e mesmo protocolo WS do
-servidor Node, com o estado de cada sala numa Durable Object por slug (ver
+`worker/` is the Cloudflare edge: same HTTP API and same WS protocol as the
+Node server, with each room's state living in a Durable Object per slug (see
 [docs/architecture.md](docs/architecture.md)).
 
-### Alternativa: 1 processo Node
+### Alternative: a single Node process
 
-O servidor Fastify continua sendo o alvo de dev/teste e roda em qualquer lugar
-que execute Node — ele serve o build do web quando `WEB_DIST` aponta para ele:
+The Fastify server remains the dev/test target and runs anywhere Node runs — it
+serves the web build when `WEB_DIST` points at it:
 
 ```bash
 npm run build
 PORT=3001 WEB_DIST=$(pwd)/web/dist node server/dist/index.js
 ```
 
-Atrás de um proxy com TLS (Caddy/nginx) — WebRTC exige HTTPS fora do
-localhost. `CORS_ORIGIN` restringe a origem em produção.
+Put it behind a TLS proxy (Caddy/nginx) — WebRTC requires HTTPS outside
+localhost. `CORS_ORIGIN` restricts the origin in production.
 
-## Regras de produto no código
+## Product rules that live in the code
 
-- Sala expira sozinha após 15 min vazia; máximo de **8 participantes**
-  (limite técnico e de produto do mesh P2P — ver arquitetura).
-- Compartilhamento de tela: **uma pessoa por vez**, garantido no servidor
-  (lock na sala, liberado até em queda de conexão). Quem compartilha escolhe o
-  preset — **Nítida** (texto/código), **Equilibrada**, **Fluida** (vídeo/jogo)
-  — e a troca vale na hora.
-- Par sem sinal de vida por 35 s é **derrubado pelo servidor**: sem isso a sala
-  ficaria ocupada por fantasmas e nunca expiraria.
-- Latência à vista: RTT direto com cada pessoa e resolução/fps/bitrate reais da
-  tela compartilhada.
-- O link da sala é a credencial de acesso: slug aleatório não adivinhável.
-- Chat efêmero (não persiste) — zero armazenamento de conteúdo.
+- A room expires on its own after 15 min empty; **8 participants** max (both a
+  technical and a product limit of the P2P mesh — see the architecture).
+- Screen sharing: **one person at a time**, enforced on the server (a room
+  lock, released even on a dropped connection). The sharer picks the preset —
+  **Sharp** (text/code), **Balanced**, **Smooth** (video/games) — and the
+  switch takes effect immediately.
+- A peer with no sign of life for 35 s is **dropped by the server**: without
+  that, rooms would be held by ghosts and never expire.
+- Latency in plain sight: direct RTT with each person, plus the real
+  resolution/fps/bitrate of the shared screen.
+- The room link is the access credential: an unguessable random slug.
+- Ephemeral chat (never persisted) — zero content storage.
