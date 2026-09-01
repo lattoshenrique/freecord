@@ -8,7 +8,7 @@
       "isBackground": true,
       "presentation": { "panel": "dedicated", "group": "dev" },
       "problemMatcher": {
-        "owner": "guest-rooms-server",
+        "owner": "freecord-server",
         "pattern": { "regexp": "^$" },
         "background": {
           "activeOnStart": true,
@@ -24,7 +24,7 @@
       "isBackground": true,
       "presentation": { "panel": "dedicated", "group": "dev" },
       "problemMatcher": {
-        "owner": "guest-rooms-web",
+        "owner": "freecord-web",
         "pattern": { "regexp": "^$" },
         "background": {
           "activeOnStart": true,
