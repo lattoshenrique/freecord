@@ -16,23 +16,56 @@
 
 .brand-name {
   color: inherit;
-  /*
-   * The name arrives with the mark, not after it: logo.css draws the edges
-   * from 1.15s over 0.9s, and the word fades up over the same window, so the
-   * pair finishes as one. The last keyframe is the name at rest, so the
-   * global reduced-motion rule (animations collapse to their end state)
-   * leaves it simply there.
-   */
-  animation: brand-arrive 0.9s var(--ease) 1.15s both;
 }
 
-@keyframes brand-arrive {
+/*
+ * The word is set plainly: normal tracking, letters side by side, nothing
+ * about it out of the ordinary once it has arrived. The spans are there for
+ * the entrance below and for nothing else.
+ */
+.brand-word {
+  display: inline-flex;
+  /* The letters' stacking is private to the word, not the page's. */
+  isolation: isolate;
+}
+
+.brand-letter {
+  position: relative;
+  z-index: var(--z);
+  /*
+   * Each letter walks out from under the one before it and settles into
+   * place. The mark closes its edges from 1.15s over 0.9s (logo.css), and
+   * the letters run inside that same window — 0.09s apart, 0.5s each — so
+   * the word finishes with the mesh. The last keyframe is the letter at
+   * rest, so the global reduced-motion rule (animations collapse to their
+   * end state) leaves the name simply there, plainly set.
+   */
+  animation: brand-letter 0.5s var(--ease) both;
+  animation-delay: calc(1.15s + var(--i) * 0.09s);
+}
+
+@keyframes brand-letter {
   from {
     opacity: 0;
+    /* Under its neighbour, a touch small and dim. */
+    transform: translateX(-0.42em) scale(0.86);
   }
   to {
     opacity: 1;
+    transform: translateX(0) scale(1);
   }
+}
+
+/* The word once, for anything that reads rather than looks. */
+.brand-said {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 /* Name off: the mark stands alone, and the word stays for screen readers —
