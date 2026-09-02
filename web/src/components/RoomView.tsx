@@ -8,7 +8,7 @@ import { desktopSystemAudio, isDesktopApp } from '../lib/platform';
 import { MAX_PARTICIPANTS, MAX_SCREENS } from '../lib/protocol';
 import { SCREEN_QUALITY_PRESETS } from '../lib/screen-quality';
 import type { ScreenStats } from '../lib/stats';
-import { useRoomSession, type JoinOptions } from '../lib/use-room';
+import { useRoomSession, type JoinOptions, type ScreenShare } from '../lib/use-room';
 import { useSpeaking } from '../lib/use-speaking';
 import Avatar from './Avatar';
 import ChatComposer from './ChatComposer';
@@ -30,12 +30,97 @@ import {
   PictureInPictureIcon,
   LeaveIcon,
   MicIcon,
+  LayoutGridIcon,
+  LayoutSpotlightIcon,
   MicOffIcon,
+  PinIcon,
   ReplyIcon,
   ScreenIcon,
   SlidersIcon,
 } from './icons';
 import { SpeakerIcon, SpeakerOffIcon } from './icons';
+
+/**
+ * How this person sees the room. `spotlight`: one thing big on stage, the
+ * rest in a strip; `grid`: everything equal. Stored per device.
+ */
+type Layout = 'spotlight' | 'grid';
+/** What the person pinned on stage: a screen (by sharer) or a person. */
+type Pinned = { kind: 'screen' | 'person'; id: string };
+const LAYOUT_STORAGE_KEY = 'freecord:layout';
+
+function loadLayout(): Layout {
+  try {
+    return localStorage.getItem(LAYOUT_STORAGE_KEY) === 'grid' ? 'grid' : 'spotlight';
+  } catch {
+    return 'spotlight';
+  }
+}
+
+function saveLayout(layout: Layout): void {
+  try {
+    localStorage.setItem(LAYOUT_STORAGE_KEY, layout);
+  } catch {
+    // storage unavailable: the choice lasts the session
+  }
+}
+
+/** One shared screen with what the view knows about it. */
+interface ScreenItem {
+  share: ScreenShare;
+  stream: MediaStream | null;
+  mine: boolean;
+  /** The sharer's name; null for our own screen. */
+  name: string | null;
+}
+
+/** A screen in the strip or the grid: click to put it on stage. */
+function ScreenTile({
+  item,
+  label,
+  pinned,
+  style,
+  onSelect,
+}: {
+  item: ScreenItem;
+  label: string;
+  pinned: boolean;
+  style?: React.CSSProperties;
+  onSelect: () => void;
+}) {
+  const { t } = useI18n();
+  return (
+    <div
+      className="tile tile-screen"
+      role="button"
+      tabIndex={0}
+      title={pinned ? t('room.pinned') : t('room.pinHint')}
+      data-pinned={pinned ? 'true' : undefined}
+      style={style}
+      onClick={onSelect}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onSelect();
+        }
+      }}
+    >
+      {item.stream && <MediaView stream={item.stream} muted className="tile-video" />}
+      <span className="tile-name">
+        {pinned ? (
+          <span className="tile-pin" title={t('room.pinned')}>
+            <PinIcon />
+          </span>
+        ) : (
+          <span className="tile-screen-badge" aria-hidden>
+            <ScreenIcon />
+          </span>
+        )}
+        {label}
+      </span>
+    </div>
+  );
+}
 
 function formatBitrate(kbps: number): string {
   return kbps >= 1000 ? `${(kbps / 1000).toFixed(1)} Mb/s` : `${kbps} kb/s`;
@@ -346,6 +431,8 @@ function Tile({
   stream,
   style,
   sinkId,
+  onSelect,
+  pinned,
 }: {
   name: string;
   isSelf: boolean;
@@ -365,11 +452,34 @@ function Tile({
   style?: React.CSSProperties;
   /** Playback device for a remote peer's audio; self tiles pass none. */
   sinkId?: string | null;
+  /** Click puts this person on stage (spotlight); absent on the stage tile itself. */
+  onSelect?: () => void;
+  /** Kept on stage by the viewer's choice. */
+  pinned?: boolean;
 }) {
   const { t } = useI18n();
   const showVideo = cameraOn && stream !== null && hasLiveVideo(stream);
   return (
-    <div className="tile" data-speaking={speaking ? 'true' : undefined} style={style}>
+    <div
+      className="tile"
+      data-speaking={speaking ? 'true' : undefined}
+      data-pinned={pinned ? 'true' : undefined}
+      role={onSelect ? 'button' : undefined}
+      tabIndex={onSelect ? 0 : undefined}
+      title={onSelect ? (pinned ? t('room.pinned') : t('room.pinHint')) : undefined}
+      style={style}
+      onClick={onSelect}
+      onKeyDown={
+        onSelect
+          ? (event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                onSelect();
+              }
+            }
+          : undefined
+      }
+    >
       {showVideo ? (
         <MediaView
           stream={stream}
@@ -384,6 +494,11 @@ function Tile({
         </>
       )}
       <span className="tile-name">
+        {pinned && (
+          <span className="tile-pin" title={t('room.pinned')}>
+            <PinIcon />
+          </span>
+        )}
         {micOff && (
           <span className="tile-mic-off" title={t('room.micMuted')}>
             <MicOffIcon />
@@ -414,6 +529,24 @@ export default function RoomView({
   const session = useRoomSession(options);
   const speaking = useSpeaking(session);
   const [chatOpen, setChatOpen] = useState(false);
+  // Layout and focus are this person's own view of the room: what they
+  // pinned stays on stage; otherwise the stage follows the newest screen,
+  // someone else's before our own. Grid gives everything equal area.
+  const [layout, setLayout] = useState<Layout>(loadLayout);
+  const [pinned, setPinned] = useState<Pinned | null>(null);
+  const switchLayout = useCallback(() => {
+    setLayout((current) => {
+      const next: Layout = current === 'grid' ? 'spotlight' : 'grid';
+      saveLayout(next);
+      return next;
+    });
+  }, []);
+  /** Pin, or unpin when it is already the pinned one (the stage goes back to following). */
+  const togglePin = useCallback((next: Pinned) => {
+    setPinned((current) =>
+      current && current.kind === next.kind && current.id === next.id ? null : next,
+    );
+  }, []);
   /** The message the next one replies to; cleared on send or cancel. */
   const [replyTo, setReplyTo] = useState<ChatQuote | null>(null);
   const [draft, setDraft] = useState('');
@@ -620,14 +753,17 @@ export default function RoomView({
           }
           return;
         case 's': {
-          const sharing = current.screen !== null && current.screen.id === current.selfId;
+          const sharing = current.screens.some((share) => share.id === current.selfId);
           if (sharing) {
             current.stopScreenShare();
-          } else if (current.screen === null) {
+          } else if (current.screens.length < MAX_SCREENS) {
             void current.startScreenShare();
           }
           return;
         }
+        case 'l':
+          switchLayout();
+          return;
         case 'c':
           // The composer takes focus as the panel opens; without this the
           // same keystroke would land in it as a typed "c".
@@ -636,7 +772,7 @@ export default function RoomView({
           return;
         case 'q': {
           // Only while sharing: cycling a preset nobody is sending is invisible.
-          if (current.screen === null || current.screen.id !== current.selfId) {
+          if (!current.screens.some((share) => share.id === current.selfId)) {
             return;
           }
           const index = SCREEN_QUALITY_PRESETS.findIndex((p) => p.id === current.screenQuality);
@@ -652,29 +788,71 @@ export default function RoomView({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
-  // Computado a cada render de propósito: streams remotos chegam por
-  // a mesh notification (a re-render with no React state change) — a
-  // useMemo aqui devolveria o valor cacheado e nunca veria o stream.
-  // In the relay tree the screen arrives from the PARENT (screenSource), which
-  // may be a relay rather than the person sharing.
-  const screenStream = !session.screen
-    ? null
-    : session.screen.id === session.selfId
-      ? session.localScreen
-      : session.screenSource
-        ? (session.mesh
-            ?.getPeerStreams(session.screenSource.id)
-            .find((stream) => stream.id === session.screenSource?.streamId) ?? null)
-        : null;
+  // Computed on every render on purpose: remote streams arrive through a
+  // mesh notification (a re-render with no React state change) — a useMemo
+  // here would hand back the cached value and never see the stream. In the
+  // relay tree a screen arrives from its PARENT (the source), which may be
+  // a relay rather than the person sharing.
+  const streamOfScreen = (share: ScreenShare): MediaStream | null => {
+    if (share.id === session.selfId) {
+      return session.localScreen;
+    }
+    const source = session.screenSources.get(share.id) ?? null;
+    return source
+      ? (session.mesh?.getPeerStreams(source.id).find((s) => s.id === source.streamId) ?? null)
+      : null;
+  };
+  const screenItems: ScreenItem[] = session.screens.map((share) => ({
+    share,
+    stream: streamOfScreen(share),
+    mine: share.id === session.selfId,
+    name:
+      share.id === session.selfId
+        ? null
+        : (session.peers.find((p) => p.id === share.id)?.name ?? t('room.someone')),
+  }));
+  // A pin outlives what it points at only until that leaves the room.
+  const pinnedLive =
+    pinned &&
+    (pinned.kind === 'screen'
+      ? screenItems.some((item) => item.share.id === pinned.id)
+      : pinned.id === session.selfId || session.peers.some((p) => p.id === pinned.id))
+      ? pinned
+      : null;
+  // Follow the newest screen, someone else's before our own.
+  const followed = [...screenItems].reverse().find((item) => !item.mine) ?? screenItems.at(-1) ?? null;
+  const stageCandidate =
+    layout === 'grid'
+      ? null
+      : pinnedLive?.kind === 'screen'
+        ? (screenItems.find((item) => item.share.id === pinnedLive.id) ?? null)
+        : pinnedLive?.kind === 'person'
+          ? null
+          : followed;
+  // A screen whose stream has not arrived yet stays in the strip until it has.
+  const stageScreen = stageCandidate?.stream ? stageCandidate : null;
+  const stagePersonId = layout === 'spotlight' && pinnedLive?.kind === 'person' ? pinnedLive.id : null;
+  const stageStream = stageScreen?.stream ?? null;
+  const onStage = stageScreen !== null || stagePersonId !== null;
 
-  const pip = usePictureInPicture(screenVideoRef, screenStream);
+  // The hook's stats and stall watch follow whatever screen is on stage.
+  const watchedId = stageScreen?.share.id ?? null;
+  const watchScreen = session.watchScreen;
+  useEffect(() => {
+    watchScreen(watchedId);
+  }, [watchScreen, watchedId]);
+
+  const pip = usePictureInPicture(screenVideoRef, stageStream);
 
   const participantCount = session.peers.length + 1;
   // Only real faces get grid area. Ghost seat tiles were tried and retired:
   // sizing the grid by all 12 seats shrank one person to a twelfth of the
   // screen in an empty room. Capacity lives in the header's seat counter.
-  // With a screen on stage the tiles collapse to the strip.
-  const grid = useTileGrid(screenStream ? 0 : participantCount);
+  // With something on stage the tiles collapse to the strip; in the grid
+  // layout the screens take tiles of their own.
+  const grid = useTileGrid(
+    onStage ? 0 : participantCount + (layout === 'grid' ? screenItems.length : 0),
+  );
 
   if (status.kind === 'ended' && status.reason !== 'left') {
     const message =
@@ -706,14 +884,13 @@ export default function RoomView({
   const iAmSharing = session.screens.some((share) => share.id === session.selfId);
   /** Every screen slot taken by others: the button waits for one to free up. */
   const screensFull = !iAmSharing && session.screens.length >= MAX_SCREENS;
-  const someoneElseSharing = session.screen !== null && session.screen.id !== session.selfId;
-  const sharerName = someoneElseSharing
-    ? (session.peers.find((p) => p.id === session.screen?.id)?.name ?? t('room.someone'))
-    : null;
+  const sharerName = stageScreen && !stageScreen.mine ? stageScreen.name : null;
   // Received through a tree relay: the RTT shown is to it, not to the source.
+  const stageSource =
+    stageScreen && !stageScreen.mine ? (session.screenSources.get(stageScreen.share.id) ?? null) : null;
   const relayName =
-    someoneElseSharing && session.screenSource && session.screenSource.id !== session.screen?.id
-      ? (session.peers.find((p) => p.id === session.screenSource?.id)?.name ?? 'relay')
+    stageSource && stageScreen && stageSource.id !== stageScreen.share.id
+      ? (session.peers.find((p) => p.id === stageSource.id)?.name ?? 'relay')
       : null;
 
   // System audio arrives straight from the SHARER (mesh, like the mic), in
@@ -744,30 +921,73 @@ export default function RoomView({
     hudMetrics.push({ label: 'res', value: `${hudStats.width}×${hudStats.height}` });
   }
   // Relaying ourselves: the forwarding mode; fed through a relay: its name.
-  const hudRelay = session.screen ? (hudStats?.relayMode ?? relayName) : null;
+  const hudRelay = stageScreen ? (hudStats?.relayMode ?? relayName) : null;
   if (hudRelay) {
     hudMetrics.push({ label: 'relay', value: hudRelay });
   }
 
-  const screenAudioStream = someoneElseSharing
-    ? (session.mesh
-        ?.getPeerStreams(session.screen!.id)
-        .find(
-          (stream) => stream.id === session.screen?.streamId && stream.getAudioTracks().length > 0,
-        ) ?? null)
-    : null;
+  // System audio arrives straight from each SHARER (mesh, like the mic), in
+  // the display stream announced by screen-started — even when the video
+  // comes through a relay, and whichever screen is on stage. The stage
+  // <video> is muted, so the audio needs its own audible sink, one per screen.
+  const screenAudioStreams = screenItems.flatMap((item) => {
+    if (item.mine) {
+      return [];
+    }
+    const stream = session.mesh
+      ?.getPeerStreams(item.share.id)
+      .find((s) => s.id === item.share.streamId && s.getAudioTracks().length > 0);
+    return stream ? [{ id: item.share.id, stream }] : [];
+  });
 
-  const tileStyle = !screenStream && grid.size ? { width: grid.size.width, height: grid.size.height } : undefined;
+  const tileStyle = !onStage && grid.size ? { width: grid.size.width, height: grid.size.height } : undefined;
+  const selfPinned = pinnedLive?.kind === 'person' && pinnedLive.id === session.selfId;
+  const selfTile = (onSelect: (() => void) | undefined, pinnedTile: boolean) => (
+    <Tile
+      name={options.name}
+      isSelf
+      micOff={!session.micOn}
+      deafened={!session.speakerOn}
+      speaking={session.selfId !== null && speaking.has(session.selfId)}
+      cameraOn={session.camOn}
+      stream={session.localMedia && session.camOn ? session.localMedia : null}
+      style={onSelect ? tileStyle : undefined}
+      onSelect={onSelect}
+      pinned={pinnedTile}
+    />
+  );
+  const peerTile = (peer: { id: string; name: string }, onSelect: (() => void) | undefined, pinnedTile: boolean) => {
+    const streams = session.mesh?.getPeerStreams(peer.id) ?? [];
+    const cameraStream = streams.find((stream) => !session.screenStreamIds.has(stream.id)) ?? null;
+    return (
+      <Tile
+        key={peer.id}
+        name={peer.name}
+        isSelf={false}
+        micOff={session.muted.has(peer.id)}
+        deafened={session.deafened.has(peer.id)}
+        silenced={!session.speakerOn}
+        speaking={speaking.has(peer.id)}
+        cameraOn={session.cameras.has(peer.id)}
+        stream={cameraStream}
+        style={onSelect ? tileStyle : undefined}
+        sinkId={session.audioDevices.speakerId}
+        onSelect={onSelect}
+        pinned={pinnedTile}
+      />
+    );
+  };
 
   return (
     <div className="room-layout">
-      {screenAudioStream && (
+      {screenAudioStreams.map(({ id, stream }) => (
         <AudioSink
-          stream={screenAudioStream}
+          key={id}
+          stream={stream}
           sinkId={session.audioDevices.speakerId}
           muted={!session.speakerOn}
         />
-      )}
+      ))}
       <header className="room-header">
         <div className="room-title">
           <Logo size={22} className="room-logo" />
@@ -796,14 +1016,14 @@ export default function RoomView({
 
       <div className="room-body">
         <div className="stage-area">
-          {screenStream && (
+          {stageStream && (
             <div
               className={`screen-stage fade-in ${fullscreen.active ? 'is-fullscreen' : ''}`}
               ref={stageRef}
               onDoubleClick={fullscreen.toggle}
             >
               <MediaView
-                stream={screenStream}
+                stream={stageStream}
                 muted
                 className="screen-video"
                 videoRef={screenVideoRef}
@@ -847,43 +1067,43 @@ export default function RoomView({
               </div>
             </div>
           )}
-          <div
-            className={screenStream ? 'tiles tiles-strip' : 'tiles tiles-grid'}
-            ref={grid.ref}
-          >
-            <Tile
-              name={options.name}
-              isSelf
-              micOff={!session.micOn}
-              deafened={!session.speakerOn}
-              speaking={session.selfId !== null && speaking.has(session.selfId)}
-              cameraOn={session.camOn}
-              stream={session.localMedia && session.camOn ? session.localMedia : null}
-              style={tileStyle}
-            />
-            {session.peers.map((peer) => {
-              const streams = session.mesh?.getPeerStreams(peer.id) ?? [];
-              const cameraStream =
-                streams.find(
-                  (stream) =>
-                    !session.screenStreamIds.has(stream.id),
-                ) ?? null;
-              return (
-                <Tile
-                  key={peer.id}
-                  name={peer.name}
-                  isSelf={false}
-                  micOff={session.muted.has(peer.id)}
-                  deafened={session.deafened.has(peer.id)}
-                  silenced={!session.speakerOn}
-                  speaking={speaking.has(peer.id)}
-                  cameraOn={session.cameras.has(peer.id)}
-                  stream={cameraStream}
+          {stagePersonId !== null && (
+            <div className="screen-stage stage-person fade-in">
+              {stagePersonId === session.selfId
+                ? selfTile(undefined, true)
+                : (() => {
+                    const peer = session.peers.find((p) => p.id === stagePersonId);
+                    return peer ? peerTile(peer, undefined, true) : null;
+                  })()}
+            </div>
+          )}
+          <div className={onStage ? 'tiles tiles-strip' : 'tiles tiles-grid'} ref={grid.ref}>
+            {screenItems
+              .filter((item) => item !== stageScreen)
+              .map((item) => (
+                <ScreenTile
+                  key={`screen-${item.share.id}`}
+                  item={item}
+                  label={item.name ? t('screen.of', { name: item.name }) : t('screen.yours')}
+                  pinned={pinnedLive?.kind === 'screen' && pinnedLive.id === item.share.id}
                   style={tileStyle}
-                  sinkId={session.audioDevices.speakerId}
+                  onSelect={() => togglePin({ kind: 'screen', id: item.share.id })}
                 />
-              );
-            })}
+              ))}
+            {stagePersonId !== session.selfId &&
+              selfTile(
+                () => session.selfId && togglePin({ kind: 'person', id: session.selfId }),
+                selfPinned,
+              )}
+            {session.peers
+              .filter((peer) => peer.id !== stagePersonId)
+              .map((peer) =>
+                peerTile(
+                  peer,
+                  () => togglePin({ kind: 'person', id: peer.id }),
+                  pinnedLive?.kind === 'person' && pinnedLive.id === peer.id,
+                ),
+              )}
           </div>
         </div>
 
@@ -1107,6 +1327,20 @@ export default function RoomView({
             onClick={() => setSettingsOpen((open) => !open)}
           >
             <SlidersIcon />
+          </button>
+          <button
+            type="button"
+            className="control"
+            data-key="L"
+            title={t('controls.layout', {
+              name: t(layout === 'grid' ? 'layout.grid' : 'layout.spotlight'),
+            })}
+            aria-label={t('controls.layout', {
+              name: t(layout === 'grid' ? 'layout.grid' : 'layout.spotlight'),
+            })}
+            onClick={switchLayout}
+          >
+            {layout === 'grid' ? <LayoutSpotlightIcon /> : <LayoutGridIcon />}
           </button>
           <button
             ref={setChatButton}

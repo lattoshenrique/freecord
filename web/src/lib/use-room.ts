@@ -186,14 +186,20 @@ export function useRoomSession(options: JoinOptions) {
   const [screenSources, setScreenSources] = useState<
     Map<string, { id: string; streamId: string } | null>
   >(new Map());
+  /** The screen the view has on stage — its stats and stall watch follow it. */
+  const [watchedScreenId, setWatchedScreenId] = useState<string | null>(null);
+  const watchScreen = useCallback((id: string | null) => setWatchedScreenId(id), []);
   /**
-   * The screen on stage: someone else's before our own, the earliest
-   * started first. (The stage learns focus and layouts next; this keeps
-   * the single-stage view meaningful meanwhile.)
+   * The screen whose quality is measured: what the view watches, else
+   * someone else's before our own, the earliest started first.
    */
   const screen = useMemo(
-    () => screens.find((share) => share.id !== selfId) ?? screens[0] ?? null,
-    [screens, selfId],
+    () =>
+      screens.find((share) => share.id === watchedScreenId) ??
+      screens.find((share) => share.id !== selfId) ??
+      screens[0] ??
+      null,
+    [screens, selfId, watchedScreenId],
   );
   const screenSource = useMemo(
     () => (screen ? (screenSources.get(screen.id) ?? null) : null),
@@ -1511,6 +1517,7 @@ export function useRoomSession(options: JoinOptions) {
     screens,
     screenSources,
     screenStreamIds,
+    watchScreen,
     localMedia,
     localScreen,
     micOn,

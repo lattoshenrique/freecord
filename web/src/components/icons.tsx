@@ -296,3 +296,37 @@ export function FormatIcon() {
     </svg>
   );
 }
+
+/** Layout: everything equal. */
+export function LayoutGridIcon() {
+  return (
+    <svg {...base}>
+      <rect x="3" y="3" width="8" height="8" rx="1.5" />
+      <rect x="13" y="3" width="8" height="8" rx="1.5" />
+      <rect x="3" y="13" width="8" height="8" rx="1.5" />
+      <rect x="13" y="13" width="8" height="8" rx="1.5" />
+    </svg>
+  );
+}
+
+/** Layout: one thing big, the rest in a strip. */
+export function LayoutSpotlightIcon() {
+  return (
+    <svg {...base}>
+      <rect x="3" y="3" width="18" height="11" rx="1.5" />
+      <rect x="3" y="17" width="5" height="4" rx="1" />
+      <rect x="9.5" y="17" width="5" height="4" rx="1" />
+      <rect x="16" y="17" width="5" height="4" rx="1" />
+    </svg>
+  );
+}
+
+/** Kept on stage by the viewer's own choice. */
+export function PinIcon() {
+  return (
+    <svg {...base}>
+      <path d="M9 3h6l-1 6 3 3v2H7v-2l3-3z" />
+      <path d="M12 14v7" />
+    </svg>
+  );
+}

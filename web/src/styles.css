@@ -1789,3 +1789,53 @@ button {
   color: var(--muted);
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
+
+/* ---- Many screens, focus and layouts ------------------------------------
+   A shared screen is a tile like a person's; click a tile to keep it on
+   stage (spotlight) or switch to the grid, where everything gets equal area. */
+.tile[role='button'] {
+  cursor: pointer;
+}
+
+.tile[role='button']:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.tile[data-pinned='true'] {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.tile-screen {
+  background: #000;
+}
+
+.tile-screen .tile-video {
+  object-fit: contain;
+}
+
+.tile-pin,
+.tile-screen-badge {
+  display: inline-flex;
+}
+
+.tile-pin {
+  color: var(--accent);
+}
+
+.tile-screen-badge {
+  opacity: 0.85;
+}
+
+/* A person on stage: their tile fills the stage, keeping the 16:9 frame. */
+.screen-stage.stage-person {
+  display: grid;
+  place-items: center;
+}
+
+.screen-stage.stage-person .tile {
+  width: 100%;
+  max-width: calc(100% - 1rem);
+  aspect-ratio: 16 / 9;
+  max-height: 100%;
+}
