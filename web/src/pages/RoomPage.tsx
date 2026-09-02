@@ -353,6 +353,7 @@ export default function RoomPage() {
               ref={avatarRef}
               name={name}
               micOff={!micEnabled}
+              idle
               className={`join-avatar${swap === 'in' ? ' swap-in' : ''}`}
             />
             <div className="join-name">

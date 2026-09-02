@@ -58,8 +58,9 @@ export function hashString(value: string): number {
 export const AVATAR_SIZE = 100;
 
 export type AvatarFill = 'skin' | 'ink' | 'solid' | 'light' | 'blush' | 'spot';
-/** The features the room animates: eyes blink, the mouth talks, the z's drift. */
-export type AvatarPart = 'eye' | 'mouth' | 'zzz';
+/** The features the room animates: eyes blink and glance, the mouth talks,
+ * limbs and antennae sway, the z's drift. */
+export type AvatarPart = 'eye' | 'mouth' | 'zzz' | 'arm' | 'leg' | 'antenna';
 
 /** One stroke of the drawing. The parts are the features the room animates. */
 export type AvatarShape =
@@ -306,8 +307,8 @@ export function avatarFrom(name: string, mood: AvatarMood = {}): AvatarSeed {
     const [footLeft, footRight] = edgesAt(outline, bottom - 3);
     const legs = chance(0.12) ? [cx] : [Math.max(footLeft + 2, cx - spread - legWidth), Math.min(footRight - 2 - legWidth, cx + spread)];
     for (const x of legs) {
-      rect(x, bottom - 4, legWidth, legHeight, legWidth / 2, 'skin');
-      if (chance(0.5)) oval(x + legWidth / 2, bottom + legHeight - 4, legWidth * 0.9, 3, 'skin');
+      rect(x, bottom - 4, legWidth, legHeight, legWidth / 2, 'skin', 'leg');
+      if (chance(0.5)) oval(x + legWidth / 2, bottom + legHeight - 4, legWidth * 0.9, 3, 'skin', 'leg');
     }
   }
   if (chance(0.55)) {
@@ -316,11 +317,11 @@ export function avatarFrom(name: string, mood: AvatarMood = {}): AvatarSeed {
     const length = between(9, 14);
     if (chance(0.25)) {
       // One arm up: a wave.
-      rect(armRight - 4, armY - length + 4, 7, length, 3.5, 'skin');
-      rect(armLeft - length + 4, armY, length, 7, 3.5, 'skin');
+      rect(armRight - 4, armY - length + 4, 7, length, 3.5, 'skin', 'arm');
+      rect(armLeft - length + 4, armY, length, 7, 3.5, 'skin', 'arm');
     } else {
-      rect(armLeft - length + 4, armY, length, 7, 3.5, 'skin');
-      rect(armRight - 4, armY, length, 7, 3.5, 'skin');
+      rect(armLeft - length + 4, armY, length, 7, 3.5, 'skin', 'arm');
+      rect(armRight - 4, armY, length, 7, 3.5, 'skin', 'arm');
     }
   }
   // Ears, or horns, on the temples.
@@ -406,8 +407,8 @@ export function avatarFrom(name: string, mood: AvatarMood = {}): AvatarSeed {
       const length = between(9, 16);
       for (const x of stems) {
         const base = surface(x);
-        rect(x - 1.25, base - length + 3, 2.5, length, 1.25, 'skin');
-        dot(x, base - length + 2, between(2.5, 4.5), chance(0.7) ? 'skin' : 'ink');
+        rect(x - 1.25, base - length + 3, 2.5, length, 1.25, 'skin', 'antenna');
+        dot(x, base - length + 2, between(2.5, 4.5), chance(0.7) ? 'skin' : 'ink', 'antenna');
       }
       break;
     }
@@ -443,6 +444,11 @@ export function avatarFrom(name: string, mood: AvatarMood = {}): AvatarSeed {
       break;
   }
 
+  // Neither talking nor listening: asleep. The mask says both at once, so
+  // the zip and the fingers stay off a face that is already out — and the
+  // eyes are not drawn at all, so no glance or blink can peek past it.
+  const asleep = mood.micOff === true && mood.deafened === true;
+
   // Eyes: usually two, now and then one or three, in one of several styles.
   const eyeCount = pick([2, 2, 2, 2, 2, 2, 1, 3]);
   const eyeSize = between(0.8, 1.25);
@@ -453,7 +459,9 @@ export function avatarFrom(name: string, mood: AvatarMood = {}): AvatarSeed {
   const brows = chance(0.3) ? pick(['flat', 'raised', 'worried']) : 'none';
   for (const ex of eyeXs) {
     const ey = eyeCount === 3 && ex === cx ? eyeY - 6 : eyeY;
-    if (eyeStyle === 'dot') {
+    if (asleep) {
+      // Drawn nowhere: see above.
+    } else if (eyeStyle === 'dot') {
       dot(ex, ey, 3.5 * eyeSize, 'ink', 'eye');
     } else if (eyeStyle === 'big') {
       dot(ex, ey, 5.2 * eyeSize, 'ink', 'eye');
@@ -488,14 +496,11 @@ export function avatarFrom(name: string, mood: AvatarMood = {}): AvatarSeed {
     }
   }
 
-  // Neither talking nor listening: asleep. The mask says both at once, so
-  // the zip and the fingers stay off a face that is already out.
-  const asleep = mood.micOff === true && mood.deafened === true;
-
   // The mouth, under the eyes.
   const mouthWidth = Math.min(between(0.7, 1.3), faceWidth / 32);
   if (asleep) {
-    dot(cx, mouthY + 1, 2.2, 'ink', 'mouth');
+    // A small slack mouth, which the room swells and shuts in a snore.
+    oval(cx, mouthY + 1.5, 2.6, 2.2, 'ink', 'mouth');
   } else if (mood.micOff) {
     // Zipped: a line with the teeth of a zip across it.
     rect(cx - 9, mouthY - 1.2, 18, 2.4, 1.2, 'ink', 'mouth');
