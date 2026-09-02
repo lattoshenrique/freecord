@@ -437,5 +437,28 @@ export const ptBR: Catalog = {
   'download.hideOthers':
     'Ocultar outras plataformas',
 
+  /*
+   * Instalar pelo navegador — no celular, é toda a história do "baixar o
+   * app", porque lá não há nada para baixar: a página é o app.
+   *
+   * Os passos são o canto deste catálogo sem nenhuma brincadeira. Tem alguém
+   * com o celular na mão seguindo eles.
+   */
+  'install.cta': 'Instalar o app',
+  'install.title': 'Instalar o Freecord',
+  'install.lead':
+    'Ele abre pela tela de início, em uma janela só dele — as mesmas salas, sem o navegador em volta.',
+  'install.also':
+    'No celular não há nada para baixar. Esta página é o app: coloque na tela de início e ela abre como um.',
+  'install.ios.step1': 'Toque no botão Compartilhar, na barra do navegador.',
+  'install.ios.step2': 'Escolha “Adicionar à Tela de Início”.',
+  'install.menu.step1': 'Abra o menu do seu navegador.',
+  'install.menu.step2': 'Escolha “Instalar app” ou “Adicionar à tela inicial”.',
+  'install.gotIt': 'Entendi',
+  // A mesma oferta dentro da chamada, onde o computador vê o download.
+  'install.settings.title': 'Na tela de início',
+  'install.settings.hint':
+    'Instale o Freecord como app: as mesmas salas em uma janela só delas, sem o navegador em volta.',
+
   'language.picker': 'Idioma',
 };

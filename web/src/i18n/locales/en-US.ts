@@ -438,6 +438,29 @@ export const enUS = {
   'download.hideOthers':
     'Hide other platforms',
 
+  /*
+   * Installing from the browser — a phone's whole "get the app" story, since
+   * there is nothing to download there: the page is the app.
+   *
+   * The steps are the one corner of this catalog with no play in them.
+   * Somebody is holding a phone, following them.
+   */
+  'install.cta': 'Install the app',
+  'install.title': 'Install Freecord',
+  'install.lead':
+    'It opens from your home screen in a window of its own — the same rooms, without the browser around them.',
+  'install.also':
+    'On a phone there is nothing to download. This page is the app: put it on your home screen and it opens like one.',
+  'install.ios.step1': 'Tap the Share button in the browser bar.',
+  'install.ios.step2': 'Choose “Add to Home Screen”.',
+  'install.menu.step1': 'Open your browser’s menu.',
+  'install.menu.step2': 'Choose “Install app”, or “Add to Home screen”.',
+  'install.gotIt': 'Got it',
+  // The same offer inside a call, where the desktop download sits on a computer.
+  'install.settings.title': 'On your home screen',
+  'install.settings.hint':
+    'Install Freecord as an app: the same rooms in a window of their own, without the browser around them.',
+
   'language.picker': 'Language',
 } as const;
 

@@ -437,5 +437,29 @@ export const esES: Catalog = {
   'download.hideOthers':
     'Ocultar otras plataformas',
 
+  /*
+   * Instalar desde el navegador: en el móvil es toda la historia de
+   * "descargar la app", porque allí no hay nada que descargar — la página es
+   * la app.
+   *
+   * Los pasos son el rincón de este catálogo sin ninguna broma. Hay alguien
+   * con el móvil en la mano siguiéndolos.
+   */
+  'install.cta': 'Instalar la app',
+  'install.title': 'Instalar Freecord',
+  'install.lead':
+    'Se abre desde la pantalla de inicio, en una ventana propia: las mismas salas, sin el navegador alrededor.',
+  'install.also':
+    'En el móvil no hay nada que descargar. Esta página es la app: ponla en tu pantalla de inicio y se abre como tal.',
+  'install.ios.step1': 'Toca el botón Compartir de la barra del navegador.',
+  'install.ios.step2': 'Elige “Añadir a pantalla de inicio”.',
+  'install.menu.step1': 'Abre el menú de tu navegador.',
+  'install.menu.step2': 'Elige “Instalar app” o “Añadir a pantalla de inicio”.',
+  'install.gotIt': 'Entendido',
+  // La misma oferta dentro de una llamada, donde un ordenador ve la descarga.
+  'install.settings.title': 'En tu pantalla de inicio',
+  'install.settings.hint':
+    'Instala Freecord como app: las mismas salas en una ventana propia, sin el navegador alrededor.',
+
   'language.picker': 'Idioma',
 };

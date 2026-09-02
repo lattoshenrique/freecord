@@ -419,5 +419,25 @@ export const zhCN: Catalog = {
   'download.hideOthers':
     '收起其他平台',
 
+  /*
+   * 从浏览器安装 —— 在手机上，这就是「获取应用」的全部：那里没有什么可下载的，
+   * 页面本身就是应用。
+   *
+   * 这些步骤是本目录里唯一不开玩笑的角落：有人正拿着手机照着做。
+   */
+  'install.cta': '安装应用',
+  'install.title': '安装 Freecord',
+  'install.lead': '从主屏幕打开，拥有独立窗口——同样的房间，四周没有浏览器。',
+  'install.also':
+    '手机上没有什么可下载的。这个页面就是应用：把它添加到主屏幕，它就像应用一样打开。',
+  'install.ios.step1': '点按浏览器栏中的“分享”按钮。',
+  'install.ios.step2': '选择“添加到主屏幕”。',
+  'install.menu.step1': '打开浏览器的菜单。',
+  'install.menu.step2': '选择“安装应用”或“添加到主屏幕”。',
+  'install.gotIt': '知道了',
+  // 通话中同样的入口，电脑上那里放的是桌面版下载。
+  'install.settings.title': '添加到主屏幕',
+  'install.settings.hint': '把 Freecord 装成应用：同样的房间，独立窗口，四周没有浏览器。',
+
   'language.picker': '语言',
 };

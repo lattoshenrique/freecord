@@ -22,6 +22,25 @@
     />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
+    <!--
+      Installable. The manifest is English for the same reason the copy below
+      is: it is read before React runs, by an installer that has no idea which
+      locale this person picked. The interface still localizes at runtime — a
+      home screen icon labelled "Freecord" is a product name either way.
+
+      The Apple tags are not the manifest saying the same thing twice: iOS
+      only started reading a manifest in 16.4, and these are what an iPhone
+      before that goes by. `black` keeps the status bar dark like the app
+      instead of white, and leaves the web view below it — the room's own
+      safe-area insets then have nothing to fight over up there.
+    -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+    <meta name="apple-mobile-web-app-title" content="Freecord" />
+
     <title>Freecord — free group voice, video and screen sharing, no signup</title>
     <meta
       name="description"

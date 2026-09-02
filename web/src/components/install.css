@@ -1,0 +1,204 @@
+/*
+ * The install offer: the line on the home, the block on /community, and the
+ * sheet that explains where a browser hides its own install item.
+ *
+ * Kept out of styles.css for the same reason download.css is — an isolated
+ * block cannot be clobbered by whoever is editing the global sheet. What it
+ * does borrow is the room's motion vocabulary (`rise-in`/`fall-out`, the
+ * `--dur-*` tokens, `[data-leaving]`), so the sheet arrives and leaves the
+ * way every other panel in this app does.
+ */
+
+/* ---- the home's line: a button wearing the download link's clothes ---- */
+
+/*
+ * The class it shares carries the type; this only undoes the chrome a
+ * <button> comes with. Nothing here sets font-size or colour, so
+ * `.download-button` in pages/home.css stays the one that decides those and
+ * the two files cannot end up arguing about it.
+ */
+button.install-button {
+  background: none;
+  border: 0;
+  padding: 0;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/*
+ * Same trick in the call's settings: `.settings-action` already dresses this
+ * as the link it stands in for, and a <button> only wants the hand back.
+ */
+button.settings-action {
+  cursor: pointer;
+}
+
+/* ---- the block, where a page has room for one ---- */
+
+.install-panel {
+  text-align: left;
+}
+
+.install-panel-title {
+  margin: 0 0 0.4rem;
+  font-size: clamp(1.4rem, 2.4vw, 1.8rem);
+  letter-spacing: var(--track-display);
+}
+
+.install-panel-lead {
+  margin: 0 0 1.4rem;
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.install-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  background: linear-gradient(135deg, var(--accent), #a855f7);
+  border: 0;
+  border-radius: 12px;
+  color: white;
+  padding: 0.9rem 1.4rem;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    filter 0.15s ease,
+    transform 0.15s var(--ease);
+}
+
+.install-cta:hover {
+  filter: brightness(1.12);
+}
+
+.install-cta:active {
+  transform: scale(0.98);
+}
+
+/* ---- the sheet ---- */
+
+.install-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: rgba(4, 6, 10, 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: fade-in 0.2s var(--ease, ease) both;
+}
+
+/* On its way out it stops being a thing anyone can hit. */
+.install-backdrop[data-leaving='true'] {
+  animation: fade-out var(--dur-panel, 0.26s) var(--ease-in, ease) both;
+  pointer-events: none;
+}
+
+.install-sheet {
+  width: 100%;
+  max-width: 24rem;
+  padding: 1.5rem;
+  background: var(--hud-bg, rgba(11, 14, 20, 0.72));
+  backdrop-filter: var(--glass-blur, blur(14px));
+  -webkit-backdrop-filter: var(--glass-blur, blur(14px));
+  border: 1px solid var(--hud-border, rgba(255, 255, 255, 0.1));
+  border-radius: calc(var(--hud-radius, 8px) + 4px);
+  box-shadow:
+    var(--shadow, 0 8px 24px rgba(0, 0, 0, 0.35)),
+    var(--glass-highlight, none);
+  animation: rise-in 0.25s var(--ease, ease) both;
+  text-align: left;
+}
+
+.install-sheet[data-leaving='true'] {
+  animation: fall-out var(--dur-quick, 0.15s) var(--ease-in, ease) both;
+}
+
+.install-sheet:focus {
+  outline: none;
+}
+
+.install-sheet-title {
+  margin: 0 0 0.35rem;
+  font-size: 1.1rem;
+  letter-spacing: var(--track-display);
+}
+
+.install-sheet-lead {
+  margin: 0 0 1.1rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.install-steps {
+  list-style: none;
+  margin: 0 0 1.25rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  counter-reset: install-step;
+}
+
+.install-steps li {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+/* The glyph the person is looking for, drawn at the size they will see it. */
+.install-step-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 10px;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border);
+}
+
+.install-sheet-close {
+  width: 100%;
+  padding: 0.7rem 1rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.92rem;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.install-sheet-close:hover {
+  border-color: rgba(88, 101, 242, 0.7);
+}
+
+/* A phone gets it as a bottom sheet: the thumb is down there. */
+@media (max-width: 640px) {
+  .install-backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .install-sheet {
+    max-width: none;
+    border-radius: calc(var(--hud-radius, 8px) + 6px) calc(var(--hud-radius, 8px) + 6px) 0 0;
+    border-bottom: none;
+    /* Clear of the home bar, on the phones that have one. */
+    padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
+  }
+}

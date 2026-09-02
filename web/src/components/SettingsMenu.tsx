@@ -37,7 +37,8 @@ import {
   type AudioDevicePrefs,
 } from '../lib/audio-devices';
 import { CamIcon, CloseIcon, DownloadIcon, MicIcon, ScreenIcon, SlidersIcon } from './icons';
-import { useDesktopDownload } from './DownloadCard';
+import { useDesktopDownload, usePlatformGuess } from './DownloadCard';
+import { InstallAction } from './InstallPrompt';
 import './settings-menu.css';
 
 type SectionId = 'screen' | 'audio' | 'video' | 'general';
@@ -225,6 +226,8 @@ export default function SettingsMenu({
   const [sounds, setSounds] = useState(soundEffectsEnabled);
   // Null inside the desktop app or with nothing published: the group hides.
   const desktop = useDesktopDownload();
+  // A phone is offered the install, not an installer it cannot run.
+  const onPhone = usePlatformGuess()?.os === 'mobile';
   const deviceControls = audioDevices !== undefined && onAudioDevices !== undefined;
   const [deviceLists, setDeviceLists] = useState<AudioDeviceLists>({ mics: [], speakers: [] });
 
@@ -443,29 +446,41 @@ export default function SettingsMenu({
                 }}
               />
             </Group>
-            {desktop && (
-              <Group title={t('settings.desktop.title')}>
-                <Field hint={t('settings.desktop.hint')}>
-                  {desktop.pick ? (
-                    <a className="settings-action" href={desktop.pick.url}>
-                      <DownloadIcon />
-                      <span>{t('download.cta', { os: OS_LABEL[desktop.pick.os] })}</span>
-                    </a>
-                  ) : (
-                    // A phone or a guess: the list, in a tab of its own so
-                    // the call stays where it is.
-                    <a
-                      className="settings-action"
-                      href="/community"
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      <DownloadIcon />
-                      <span>{t('home.footer.downloads')}</span>
-                    </a>
-                  )}
+            {onPhone ? (
+              // The app for THIS device, and it is already here: the page
+              // installs. The catalog is not consulted — a phone has no use
+              // for it, and a slow or missing one is no reason to withhold
+              // the one offer that applies.
+              <Group title={t('install.settings.title')}>
+                <Field hint={t('install.settings.hint')}>
+                  <InstallAction />
                 </Field>
               </Group>
+            ) : (
+              desktop && (
+                <Group title={t('settings.desktop.title')}>
+                  <Field hint={t('settings.desktop.hint')}>
+                    {desktop.pick ? (
+                      <a className="settings-action" href={desktop.pick.url}>
+                        <DownloadIcon />
+                        <span>{t('download.cta', { os: OS_LABEL[desktop.pick.os] })}</span>
+                      </a>
+                    ) : (
+                      // An OS we could not name: the list, in a tab of its
+                      // own so the call stays where it is.
+                      <a
+                        className="settings-action"
+                        href="/community"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        <DownloadIcon />
+                        <span>{t('home.footer.downloads')}</span>
+                      </a>
+                    )}
+                  </Field>
+                </Group>
+              )
             )}
             <Group title={t('settings.about.title')}>
               <p className="settings-build">

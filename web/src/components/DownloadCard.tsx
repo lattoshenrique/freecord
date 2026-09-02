@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { getDownloads, type DesktopAsset, type DesktopCatalog } from '../api';
 import { useI18n, type MessageKey, type Translate } from '../i18n';
 import { detectPlatform, isDesktopApp, type PlatformGuess } from '../lib/platform';
+import { InstallButton } from './InstallPrompt';
 import './download.css';
 
 /**
@@ -10,6 +11,9 @@ import './download.css';
  *
  * It hides itself in three honest cases — inside the app already, no release
  * published, and when the catalog has no build for that system.
+ *
+ * On a phone it does not hide, it changes its answer: there is no desktop
+ * build to run there, but the page itself installs (see InstallPrompt.tsx).
  */
 
 /** Product names, not translatable text. */
@@ -82,13 +86,45 @@ export function useDesktopDownload(): {
 }
 
 /**
- * One button for the home: the visitor's own build, or the list on
- * /community when the OS is a phone or a guess. Hidden in the same three
- * honest cases as the card.
+ * The visitor's OS on its own, without waiting for the download catalog.
+ *
+ * The install offer must not depend on `/api/downloads`: a phone is being
+ * offered the page it is already looking at, and a catalog that is slow, or
+ * empty, or failed would be a strange reason to withhold that.
+ */
+export function usePlatformGuess(): PlatformGuess | null {
+  const [guess, setGuess] = useState<PlatformGuess | null>(null);
+  useEffect(() => {
+    let alive = true;
+    void detectPlatform()
+      .then((platform) => {
+        if (alive) {
+          setGuess(platform);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, []);
+  return guess;
+}
+
+/**
+ * One button for the home: the visitor's own build, or — on a phone — the
+ * offer to install this page as an app. Hidden in the same three honest
+ * cases as the card.
  */
 export function DownloadButton() {
   const { t } = useI18n();
+  const guess = usePlatformGuess();
   const download = useDesktopDownload();
+
+  // A phone cannot run the Electron build, and pointing it at a list of
+  // installers it has no use for was always the weakest line on this page.
+  if (guess?.os === 'mobile') {
+    return <InstallButton />;
+  }
   if (!download) {
     return null;
   }

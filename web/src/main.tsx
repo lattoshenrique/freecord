@@ -15,6 +15,12 @@ import RouteMeta from './seo/RouteMeta';
  * browser it renders nothing — see components/TitleBar.tsx.
  */
 import TitleBar from './components/TitleBar';
+/*
+ * Imported before the app renders on purpose: the browser fires its install
+ * event early and only once, and the listener that catches it is installed
+ * when this module is (see lib/pwa.ts).
+ */
+import { registerServiceWorker } from './lib/pwa';
 import './styles.css';
 // After styles.css: the hero names have to win any tie with the sheets they
 // name, and they are the last word on how a screen change moves.
@@ -31,6 +37,10 @@ function RouteFallback() {
 // Content pages: they should not weigh on the bundle of someone creating a room.
 const CommunityPage = lazy(() => import('./pages/Community'));
 const HowItWorksPage = lazy(() => import('./pages/HowItWorks'));
+
+// What makes the browser offer to install at all. It declines itself in dev
+// and inside the desktop shell, so this is safe to call unconditionally.
+registerServiceWorker();
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

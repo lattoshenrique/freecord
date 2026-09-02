@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import DownloadCard from '../components/DownloadCard';
+import { InstallPanel } from '../components/InstallPrompt';
 import Brand from '../components/Brand';
 import { useI18n, type MessageKey } from '../i18n';
 import './community.css';
@@ -106,6 +107,13 @@ export default function CommunityPage() {
             </p>
           </section>
         ))}
+
+        {/* On a phone, the build that applies is this page: it installs.
+            Its own section, beside the desktop one rather than inside it —
+            reading the page by its headings, "install this" is not a
+            footnote to "there is a desktop app". Renders nothing on a
+            computer, or once installed. */}
+        <InstallPanel />
 
         {/* The desktop builds live here, with the rest of the reading matter:
             the home is the app's first screen and pitches nothing. */}
