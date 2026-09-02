@@ -29,10 +29,11 @@ import FileTransferBubble from './FileTransferBubble';
 import Highlight from './Highlight';
 import { MAX_FILE_BYTES, formatBytes } from '../lib/file-transfer';
 import { bodyBudget, excerptOf, type ChatQuote } from '../lib/chat-body';
+import { localeCodes, readLine, usageOf } from '../lib/chat-commands';
 import { matches, queryTerms } from '../lib/chat-search';
 import { dayKey, dayLabel } from '../lib/chat-time';
 import { buildTranscript, transcriptFilename, type TranscriptLine } from '../lib/chat-transcript';
-import { downloadText } from '../lib/clipboard';
+import { copyText, downloadText } from '../lib/clipboard';
 import InviteButton from './InviteButton';
 import Logo from './Logo';
 import Brand from './Brand';
@@ -670,7 +671,7 @@ export default function RoomView({
   options: JoinOptions;
   onLeft: () => void;
 }) {
-  const { t, locale } = useI18n();
+  const { t, locale, setLocale } = useI18n();
   const session = useRoomSession(options);
   const { speaking, levelOf } = useSpeaking(session);
   // Whoever spoke last, others before ourselves: the spotlight follows
@@ -714,6 +715,12 @@ export default function RoomView({
   const fileInputRef = useRef<HTMLInputElement>(null);
   /** Why the last attach went nowhere; cleared on the next attempt. */
   const [fileNote, setFileNote] = useState<string | null>(null);
+  /**
+   * What the last slash command had to say: why it would not run, or what
+   * it did where nothing on screen would have shown it. Cleared by the
+   * next keystroke, so it reads as an answer to what was just typed.
+   */
+  const [commandNote, setCommandNote] = useState<string | null>(null);
   const [unread, setUnread] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
   /** The tool shelf over the dock; what it opens is the room's, not ours. */
@@ -1408,6 +1415,120 @@ export default function RoomView({
       ? t('controls.stopSharing')
       : t('controls.shareScreen');
   const chatLabel = chatOpen ? t('controls.closeChat') : t('controls.openChat');
+
+  /**
+   * A line typed in the chat, done.
+   *
+   * Everything below is a second door onto a key that is already in the
+   * dock, the shelf or the chat's own header, which is the deal slash
+   * commands were built on: the reader (lib/chat-commands.ts) decides what
+   * a line MEANS with no room around it, and this decides nothing at all —
+   * it just does what the plan says with the room it happens to have.
+   *
+   * A line that could not run keeps the field: a refused command is
+   * usually a half-typed one, and clearing it would cost the retype.
+   */
+  function runLine(text: string): void {
+    setCommandNote(null);
+    const line = readLine(text);
+    if (line.kind === 'unknown') {
+      setCommandNote(t('cmd.unknown', { name: line.name }));
+      return;
+    }
+    if (line.kind === 'message') {
+      send(line.text);
+      return;
+    }
+    const { plan } = line;
+    switch (plan.kind) {
+      case 'message':
+        send(plan.text);
+        return;
+      case 'toggle':
+        if (plan.what === 'mic') {
+          session.toggleMic();
+        } else if (plan.what === 'sound') {
+          session.toggleSpeaker();
+        } else if (plan.what === 'cam') {
+          // The dock's key is disabled when the seats are full; here the
+          // line has to say so, since there is no greyed-out key to see.
+          if (session.cameraSlotsFull) {
+            setCommandNote(t('room.camSlotsFull'));
+            return;
+          }
+          session.toggleCam();
+        } else if (iAmSharing) {
+          session.stopScreenShare();
+        } else if (!canShareScreen) {
+          setCommandNote(t('cmd.noScreen'));
+          return;
+        } else if (screensFull) {
+          setCommandNote(t('controls.screensFull'));
+          return;
+        } else {
+          void session.startScreenShare();
+        }
+        break;
+      case 'stop': {
+        // Whatever the room has on the stage, off — the same thing the
+        // tool's own panel does, from a keyboard that is already typing.
+        const staged = stagedToolOf(session.tools);
+        if (!staged) {
+          setCommandNote(t('cmd.nothingOn'));
+          return;
+        }
+        session.setToolState(staged.tool.id, null);
+        break;
+      }
+      case 'invite':
+        // Nothing on screen changes, so this one says what it did.
+        void copyText(window.location.href).then((copied) =>
+          setCommandNote(
+            copied ? t('invite.copied') : `${t('invite.manualCopy')} ${window.location.href}`,
+          ),
+        );
+        break;
+      case 'attach':
+        fileInputRef.current?.click();
+        break;
+      case 'save':
+        if (timeline.length === 0) {
+          setCommandNote(t('cmd.nothingYet'));
+          return;
+        }
+        saveTranscript();
+        break;
+      case 'search':
+        setSearch(plan.text);
+        break;
+      case 'lang':
+        setLocale(plan.locale);
+        break;
+      case 'leave':
+        session.leave();
+        break;
+      case 'refused':
+        setCommandNote(
+          plan.why === 'usage'
+            ? t('cmd.usage', { usage: usageOf(line.command, t) })
+            : t('cmd.noLang', { codes: localeCodes() }),
+        );
+        return;
+    }
+    // It ran: the field is clear for the next thing, and a reply that was
+    // pending is still pending — a command is not an answer to anybody.
+    setDraft('');
+  }
+
+  /** A message, and the reply it was an answer to, both let go of. */
+  function send(text: string): void {
+    if (!text) {
+      return;
+    }
+    session.sendChat(text, replyTo);
+    setDraft('');
+    setReplyTo(null);
+  }
   const sharerName = stageScreen && !stageScreen.mine ? stageScreen.name : null;
   // Received through a tree relay: the RTT shown is to it, not to the source.
   const stageSource =
@@ -1853,6 +1974,11 @@ export default function RoomView({
                 {fileNote}
               </p>
             )}
+            {commandNote && (
+              <p className="chat-file-note" role="status">
+                {commandNote}
+              </p>
+            )}
             <input
               ref={fileInputRef}
               type="file"
@@ -1869,15 +1995,13 @@ export default function RoomView({
               maxLength={bodyBudget(replyTo)}
               locked={session.chatLocked}
               quote={replyTo}
-              onChange={setDraft}
-              onSend={() => {
-                const text = draft.trim();
-                if (text) {
-                  session.sendChat(text, replyTo);
-                  setDraft('');
-                  setReplyTo(null);
-                }
+              onChange={(text) => {
+                setCommandNote(null);
+                setDraft(text);
               }}
+              // A command picked out of the menu arrives as its own text:
+              // the field never held it (ChatComposer.tsx).
+              onSend={(picked) => runLine(picked ?? draft)}
               onAttach={() => fileInputRef.current?.click()}
               onPasteFiles={sendFiles}
               onCancelQuote={() => setReplyTo(null)}

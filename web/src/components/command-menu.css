@@ -1,0 +1,93 @@
+/*
+ * The slash-command list, above the composer.
+ *
+ * It sits where the emoji sheet sits and opens the same way — up, out of
+ * the field it belongs to — but it is a column of rows rather than a
+ * grid of keys, and it is wide instead of tall: what it shows is a
+ * sentence per command, and a sentence that wraps three times reads like
+ * an error message.
+ */
+
+.cmd-menu {
+  position: absolute;
+  left: 0.6rem;
+  right: 0.6rem;
+  bottom: calc(100% + 0.5rem);
+  z-index: 20;
+  max-height: 15rem;
+  margin: 0;
+  padding: 0.35rem;
+  overflow-y: auto;
+  list-style: none;
+  background: var(--panel-2);
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45);
+  transform-origin: bottom left;
+  animation: pop-up var(--dur-pop) var(--ease) both;
+}
+
+.cmd-menu[data-leaving='true'] {
+  animation: pop-down var(--dur-quick) var(--ease-in) both;
+}
+
+/*
+ * The word over the sentence, never beside it. The chat is a column a few
+ * hundred pixels wide whatever the window does, so a row that put the
+ * explanation to the right of the word ellipsed every explanation it had
+ * — which is the one thing this list exists to show.
+ */
+.cmd-option {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  padding: 0.35rem 0.55rem;
+  border-radius: 9px;
+  cursor: pointer;
+  scroll-margin: 0.35rem;
+}
+
+/*
+ * One highlight, moved by the arrow keys and by the pointer alike. There
+ * is no focus ring to go with it: the focus never leaves the textarea,
+ * which is the whole trick of a listbox hanging off a field.
+ */
+.cmd-option.is-active {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.cmd-word {
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* What goes after the word, in the reader's language: `<link>`, `<text>`. */
+.cmd-arg {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+/*
+ * The line that explains it, at two lines and no more: past that a list of
+ * sixteen commands is a page of prose, and the word — the part that has to
+ * be found at a glance — stops being what the eye lands on.
+ */
+.cmd-hint {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
+/* The list is a hint, not an animation to sit through. */
+@media (prefers-reduced-motion: reduce) {
+  .cmd-menu,
+  .cmd-menu[data-leaving='true'] {
+    animation: none;
+  }
+}

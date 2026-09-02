@@ -299,7 +299,7 @@ export const enUS = {
     'Your link came without this room’s key, so nothing can go out. Ask whoever invited you for the original link — the key rides after the # and never reaches a server.',
   'chat.locked': 'Encrypted — and your link came without the key',
   'chat.messageLabel': 'Chat message',
-  'chat.placeholder': 'Message… markdown works',
+  'chat.placeholder': 'Message… markdown works, / for commands',
   'chat.send': 'Send message',
   'chat.toolbar': 'Message formatting',
   'chat.unread': { one: 'new message', other: 'new messages' },
@@ -335,6 +335,38 @@ export const enUS = {
   'chat.transcript.savedAt': 'Saved on {when}',
   'chat.transcript.file': 'Sent a file: {files}',
   'chat.transcript.replyTo': 'to {name}',
+
+  /*
+   * Slash commands (lib/chat-commands.ts). Two things are settled here.
+   * The command WORDS are never translated — `/mic` is `/mic` in every
+   * locale, the way a keyboard shortcut is the same key everywhere; only
+   * the line explaining one is. And none of these draws a variant at
+   * random: a menu that renamed what it teaches on every page load would
+   * be a menu nobody could learn.
+   */
+  'cmd.menu': 'Commands',
+  'cmd.arg.link': 'link',
+  'cmd.arg.text': 'text',
+  'cmd.arg.code': 'code',
+  'cmd.mic': 'Microphone on or off',
+  'cmd.cam': 'Camera on or off',
+  'cmd.sound': 'Speakers on or off — the microphone goes with them',
+  'cmd.share': 'Start or stop sharing your screen',
+  'cmd.stop': 'Take what the room is watching off the stage',
+  'cmd.invite': 'Copy the room link, key and all',
+  'cmd.file': 'Pick a file to send straight to the others',
+  'cmd.save': 'Save the conversation as a markdown file',
+  'cmd.search': 'Find something that was said here',
+  'cmd.lang': 'Switch the language of the app',
+  'cmd.me': 'Say what you are doing, in italics',
+  'cmd.shrug': 'Add a ¯\\_(ツ)_/¯ to what you are sending',
+  'cmd.leave': 'Leave the room',
+  'cmd.usage': 'That one needs something after it: {usage}',
+  'cmd.unknown': 'There is no /{name} here. Type / to see what there is.',
+  'cmd.nothingOn': 'The room has nothing on right now.',
+  'cmd.noLang': 'No language by that name. This build speaks {codes}.',
+  'cmd.nothingYet': 'Nothing has been said here yet.',
+  'cmd.noScreen': 'This browser will not hand over a screen.',
 
   'file.attach': 'Send a file',
   'file.direct': 'Straight to them over a data channel — no server, no upload, no bucket',

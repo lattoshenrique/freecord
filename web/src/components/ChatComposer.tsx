@@ -1,6 +1,7 @@
 import {
   Fragment,
   useEffect,
+  useId,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -11,8 +12,10 @@ import {
 } from 'react';
 import { useI18n, type MessageKey } from '../i18n';
 import type { ChatQuote } from '../lib/chat-body';
+import { commandMatches, type ChatCommand } from '../lib/chat-commands';
 import { MOTION, usePresence } from '../lib/motion';
 import { applyMarkdown, type MarkdownAction, type Placeholders } from '../lib/markdown-edit';
+import CommandMenu from './CommandMenu';
 import EmojiPicker from './EmojiPicker';
 import {
   AttachIcon,
@@ -105,11 +108,17 @@ const COARSE_POINTER =
   window.matchMedia('(pointer: coarse)').matches;
 
 /**
- * Chat composer: a textarea with markdown formatting.
+ * Chat composer: a textarea with markdown formatting, and the door to the
+ * room's slash commands.
  *
  * It has to be a textarea, not an input — an input has no line breaks, and
  * without them lists, quotes and code blocks are impossible to write, however
  * well the renderer knows how to show them.
+ *
+ * The commands themselves are none of its business: it draws the list, moves
+ * the highlight, completes the word, and hands whatever was typed to the
+ * room the same way it hands over a message (lib/chat-commands.ts decides
+ * what a line means, RoomView.tsx does what it says).
  */
 export default function ChatComposer({
   value,
@@ -129,7 +138,12 @@ export default function ChatComposer({
   /** The message being replied to; shown above the field until sent or cancelled. */
   quote?: ChatQuote | null;
   onChange: (text: string) => void;
-  onSend: () => void;
+  /**
+   * Sends what is in the field — or, when a command was picked out of the
+   * menu, that command instead: a line the field never got to hold, since
+   * `/mic` picked from a half-typed `/mi` runs on the same key press.
+   */
+  onSend: (text?: string) => void;
   /** Opens the file picker for a peer-to-peer transfer; absent = no button. */
   onAttach?: () => void;
   /** Files pasted into the field (a screenshot on the clipboard) go out as transfers. */
@@ -154,6 +168,51 @@ export default function ChatComposer({
   const lastQuote = useRef<ChatQuote | null>(quote);
   if (quote) {
     lastQuote.current = quote;
+  }
+
+  // The command list: open while the field holds a slash and a word being
+  // named, and shut by Escape until the next keystroke — one press to get
+  // the list out of the way without losing what was typed.
+  const [menuOff, setMenuOff] = useState(false);
+  const [active, setActive] = useState(0);
+  const listId = useId();
+  const matches = commandMatches(value);
+  const menuOpen = !locked && !menuOff && matches !== null && matches.length > 0;
+  const menuPresence = usePresence(menuOpen, MOTION.quick);
+  // Drawn from the last list there was, for the same reason the reply strip
+  // is: by the time it is leaving, the field has already moved on and a
+  // list that empties as it goes is a flicker.
+  const lastMatches = useRef<readonly ChatCommand[]>([]);
+  if (menuOpen && matches) {
+    lastMatches.current = matches;
+  }
+  const shown = lastMatches.current;
+  const activeIndex = Math.min(active, Math.max(shown.length - 1, 0));
+  const optionId = (index: number): string => `${listId}-${index}`;
+
+  /**
+   * A command chosen from the list. One that takes nothing runs on the
+   * spot — a person who typed `/mi` and pressed Enter meant to mute the
+   * microphone, not to fill the field in. One that takes something is
+   * completed instead, with the caret waiting where the argument goes.
+   */
+  function pick(command: ChatCommand): void {
+    setMenuOff(true);
+    if (!command.arg) {
+      onSend(`/${command.name}`);
+      return;
+    }
+    const text = `/${command.name} `;
+    pendingSelection.current = { start: text.length, end: text.length };
+    onChange(text);
+  }
+
+  function edit(text: string): void {
+    // Any keystroke brings the list back: Escape shut it for that moment,
+    // not for the rest of the line.
+    setMenuOff(false);
+    setActive(0);
+    onChange(text);
   }
 
   // Opening the chat is opening the keyboard: the field takes focus at once,
@@ -290,6 +349,42 @@ export default function ChatComposer({
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>): void {
+    // While the command list is up it has first call on the keys that move
+    // through it — and only on those. Everything else still types.
+    if (menuOpen) {
+      const chosen = shown[activeIndex];
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        const step = event.key === 'ArrowDown' ? 1 : -1;
+        setActive((current) => {
+          const from = Math.min(current, shown.length - 1);
+          return (from + step + shown.length) % shown.length;
+        });
+        return;
+      }
+      // Tab completes and stays — the way a shell does it, and the way out
+      // for anyone who wants to read the arguments before running anything.
+      if (event.key === 'Tab' && !event.shiftKey && chosen) {
+        event.preventDefault();
+        pick(chosen);
+        return;
+      }
+      // Enter takes the highlighted one. On a phone the send key does it
+      // instead, since there Enter is a line break (COARSE_POINTER).
+      if (event.key === 'Enter' && !event.shiftKey && !COARSE_POINTER && chosen) {
+        event.preventDefault();
+        pick(chosen);
+        return;
+      }
+      // Escape puts the list away and nothing else: not the reply, not the
+      // panel. What was typed stays where it is.
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        setMenuOff(true);
+        return;
+      }
+    }
     // Enter sends; Shift+Enter breaks the line — every chat's convention.
     // On a touch keyboard Enter is a line break and the send key sends.
     if (event.key === 'Enter' && !event.shiftKey && !COARSE_POINTER) {
@@ -325,6 +420,17 @@ export default function ChatComposer({
 
   return (
     <div className="chat-composer">
+      {menuPresence.mounted && shown.length > 0 && (
+        <CommandMenu
+          matches={shown}
+          active={activeIndex}
+          listId={listId}
+          optionId={optionId}
+          onPick={pick}
+          onHover={setActive}
+          leaving={menuPresence.leaving}
+        />
+      )}
       {replyPresence.mounted && lastQuote.current && (
         <div
           className="chat-reply-strip"
@@ -427,6 +533,13 @@ export default function ChatComposer({
         className="chat-form"
         onSubmit={(event) => {
           event.preventDefault();
+          // On a phone this key is how the list is used at all: there is no
+          // Enter to pick with, so the send key takes the highlighted row.
+          const chosen = shown[activeIndex];
+          if (menuOpen && chosen) {
+            pick(chosen);
+            return;
+          }
           onSend();
         }}
       >
@@ -438,9 +551,15 @@ export default function ChatComposer({
           maxLength={maxLength}
           placeholder={t('chat.placeholder')}
           aria-label={t('chat.messageLabel')}
+          // The field keeps its own role — this is a textbox with a list
+          // hanging off it, and the list says which row the keys are on.
+          aria-autocomplete="list"
+          aria-expanded={menuOpen}
+          aria-controls={menuOpen ? listId : undefined}
+          aria-activedescendant={menuOpen ? optionId(activeIndex) : undefined}
           // The return key on a phone's keyboard says what it will do.
           enterKeyHint={COARSE_POINTER ? 'enter' : 'send'}
-          onChange={(event) => onChange(event.target.value)}
+          onChange={(event) => edit(event.target.value)}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
         />

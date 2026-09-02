@@ -43,7 +43,13 @@ const INLINE: Array<[RegExp, Build]> = [
   [/__(\S[^\n]*?)__/, (m, key) => <strong key={key}>{parseInline(m[1]!, `${key}b`)}</strong>],
   [/~~(\S[^\n]*?)~~/, (m, key) => <del key={key}>{parseInline(m[1]!, `${key}s`)}</del>],
   [/\*(\S[^\n*]*?)\*/, (m, key) => <em key={key}>{parseInline(m[1]!, `${key}i`)}</em>],
-  [/(?<![\w_])_(\S[^\n_]*?)_(?![\w_])/, (m, key) => <em key={key}>{parseInline(m[1]!, `${key}i`)}</em>],
+  // A backslashed underscore never opens emphasis. One shrug is the whole
+  // reason: `¯\_(ツ)_/¯` is otherwise a perfectly good italic, and the room
+  // gets `¯\(ツ)/¯` in slanted type instead of the face it typed.
+  [
+    /(?<![\w_\\])_(\S[^\n_]*?)_(?![\w_])/,
+    (m, key) => <em key={key}>{parseInline(m[1]!, `${key}i`)}</em>,
+  ],
   [/(https?:\/\/[^\s<>()]+)/, (m, key) => link(m[1]!, m[1]!, key)],
 ];
 
