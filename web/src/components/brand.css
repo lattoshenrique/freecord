@@ -56,6 +56,51 @@
   }
 }
 
+/*
+ * The full entrance, for the screen that is nothing but the brand.
+ *
+ * The mark builds itself in the middle of the pair — the peers join, the
+ * edges negotiate and close, all of that is logo.css and all of it happens
+ * on the spot — and then it walks left into its place, writing the name in
+ * the space it leaves behind. The name holds its width the whole time, so
+ * nothing reflows: the letters are simply not there yet, and the mark starts
+ * half a name to the right of where it ends up (`--brand-shift`, measured in
+ * Brand.tsx, because CSS cannot know how wide a word is).
+ *
+ * The walk starts once the mesh has closed (logo.css: 1.15s + 0.9s) and the
+ * letters light up left to right behind it, each just after the mark has
+ * cleared its place.
+ */
+.brand[data-march='true'] .logo {
+  animation: brand-walk 0.75s var(--ease) 2.05s both;
+}
+
+@keyframes brand-walk {
+  from {
+    transform: translateX(var(--brand-shift, 0px));
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.brand[data-march='true'] .brand-letter {
+  animation-name: brand-write;
+  animation-duration: 0.4s;
+  animation-delay: calc(2.2s + var(--i) * 0.075s);
+}
+
+@keyframes brand-write {
+  from {
+    opacity: 0;
+    transform: translateX(-0.3em);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 /* The word once, for anything that reads rather than looks. */
 .brand-said {
   position: absolute;
