@@ -16,6 +16,12 @@ import {
   type ScreenQuality,
   type ServerMessage,
 } from '../../server/src/domain/room.js';
+import {
+  NO_COMPANY,
+  countable,
+  withPeerCount,
+  type RoomCompany,
+} from '../../server/src/domain/room-stats.js';
 import { computeScreenTree } from '../../server/src/domain/screen-tree.js';
 import {
   EMPTY_DESKTOP_CATALOG,
@@ -30,6 +36,8 @@ import { fetchDesktopCatalog } from '../../server/src/app/desktop-catalog.js';
 
 export interface Env {
   ROOMS: DurableObjectNamespace;
+  /** The one global counter (see StatsDurableObject) — a single instance. */
+  STATS: DurableObjectNamespace;
   ASSETS: Fetcher;
   /** Origin allowed by CORS (e.g. https://app.example.com). */
   CORS_ORIGIN?: string;
@@ -109,6 +117,13 @@ type Deafened = string[];
 /** Peers with their microphone off (`mute`) — same storage discipline. */
 type Muted = string[];
 
+/**
+ * Name of the one instance of StatsDurableObject. A single object holds the
+ * whole counter: a room writes to it once in its life, so there is nothing
+ * here to shard.
+ */
+const STATS_SINGLETON = 'global';
+
 /** Zombie-sweep cadence while the room has people in it. */
 const SWEEP_INTERVAL_MS = Math.floor(ROOM_LIMITS.peerTimeoutMs / 2);
 
@@ -145,9 +160,12 @@ function json(body: unknown, status: number, env: Env): Response {
  */
 export class RoomDurableObject {
   private readonly ctx: DurableObjectState;
+  /** Kept for the room's one report to the global counter (settleCompany). */
+  private readonly env: Env;
 
-  constructor(ctx: DurableObjectState, _env: Env) {
+  constructor(ctx: DurableObjectState, env: Env) {
     this.ctx = ctx;
+    this.env = env;
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -251,6 +269,8 @@ export class RoomDurableObject {
     // straight back found the room unable to share for 17 s or more).
     await this.ctx.storage.delete('emptyAt');
     await this.ensureAlarmWithin(SWEEP_INTERVAL_MS);
+    // Someone arrived: this may be the second person, and the room's clock.
+    await this.settleCompany();
 
     const screens = await this.screens();
     this.send(server, {
@@ -641,6 +661,9 @@ export class RoomDurableObject {
       return;
     }
 
+    // The twenty minutes are far longer than this cadence, so the crossing
+    // is noticed here — no alarm of its own, nothing else postponed.
+    await this.settleCompany();
     await this.rescheduleSweep([]);
   }
 
@@ -683,6 +706,7 @@ export class RoomDurableObject {
       this.broadcast({ t: 'peer-left', id: peerId }, undefined, leaving);
     }
     await this.broadcastScreenRoutes(leaving);
+    await this.settleCompany(leaving);
     await this.rescheduleSweep(leaving);
   }
 
@@ -729,6 +753,46 @@ export class RoomDurableObject {
           quality: screen.quality,
         });
       }
+    }
+  }
+
+  /**
+   * Folds the room's head count into its company clock, and reports the
+   * room to the global counter the first time it is due.
+   *
+   * Called where the head count changes and on every sweep. It never
+   * schedules anything: the mark is twenty minutes away and the sweep runs
+   * every seventeen seconds while anyone is here, so the crossing is found
+   * by an alarm that was already coming — moving that alarm to serve a
+   * counter would delay a screen lock's release for a number on a page.
+   */
+  private async settleCompany(excluded: WebSocket[] = []): Promise<void> {
+    const before = (await this.ctx.storage.get<RoomCompany>('company')) ?? NO_COMPANY;
+    if (before.counted) {
+      return;
+    }
+    const now = Date.now();
+    // Detached seats count as people: their media may still be flowing.
+    const detached = Object.keys(await this.detachedPeers()).length;
+    const state = withPeerCount(before, this.remaining(excluded).length + detached, now);
+    if (!countable(state, now)) {
+      if (state !== before) {
+        await this.ctx.storage.put('company', state);
+      }
+      return;
+    }
+    // Marked before the report and rolled back if it fails: a room missing
+    // from the total is a smaller lie than a room counted twice, and the
+    // next sweep tries again.
+    await this.ctx.storage.put('company', { ...state, counted: true });
+    try {
+      const stats = this.env.STATS.get(this.env.STATS.idFromName(STATS_SINGLETON));
+      const response = await stats.fetch('https://stats/count', { method: 'POST' });
+      if (!response.ok) {
+        throw new Error(`stats replied ${response.status}`);
+      }
+    } catch {
+      await this.ctx.storage.put('company', state);
     }
   }
 
@@ -881,6 +945,32 @@ export class RoomDurableObject {
   }
 }
 
+/**
+ * The whole durable memory this product keeps about rooms: one integer.
+ *
+ * A room reports itself here once, after twenty minutes with company in it
+ * (server/src/domain/room-stats.ts), so this object takes one write per real
+ * conversation — small enough that a single instance is the whole story. It
+ * stores no slug, no name and no timestamp: a room that ends still leaves
+ * nothing behind, and this number cannot be read back into one.
+ */
+export class StatsDurableObject {
+  private readonly ctx: DurableObjectState;
+
+  constructor(ctx: DurableObjectState, _env: Env) {
+    this.ctx = ctx;
+  }
+
+  async fetch(request: Request): Promise<Response> {
+    const rooms = (await this.ctx.storage.get<number>('rooms')) ?? 0;
+    if (new URL(request.url).pathname === '/count') {
+      await this.ctx.storage.put('rooms', rooms + 1);
+      return Response.json({ rooms: rooms + 1 });
+    }
+    return Response.json({ rooms });
+  }
+}
+
 const DOWNLOAD_ROUTE = /^\/download\/([a-z0-9-]+)$/;
 
 /**
@@ -931,6 +1021,34 @@ async function desktopCatalog(env: Env): Promise<DesktopCatalog> {
 const API_ROOM = /^\/api\/rooms\/([^/]+)$/;
 const WS_ROOM = /^\/ws\/rooms\/([^/]+)$/;
 
+/**
+ * The counter, remembered per isolate for a minute.
+ *
+ * Every home page asks for this number and it lives in a single Durable
+ * Object: without a cache in front, a page that goes around would point the
+ * whole internet at one object. A minute late is fine for a total that moves
+ * a few times an hour.
+ */
+let statsCache: { rooms: number; until: number } | null = null;
+const STATS_TTL_MS = 60_000;
+
+async function countedRooms(env: Env): Promise<number> {
+  if (statsCache && Date.now() < statsCache.until) {
+    return statsCache.rooms;
+  }
+  try {
+    const stats = env.STATS.get(env.STATS.idFromName(STATS_SINGLETON));
+    const response = await stats.fetch('https://stats/value');
+    const body = (await response.json()) as { rooms?: unknown };
+    const rooms = typeof body.rooms === 'number' ? body.rooms : 0;
+    statsCache = { rooms, until: Date.now() + STATS_TTL_MS };
+    return rooms;
+  } catch {
+    // The home page is not worth a 500: last known number, or none yet.
+    return statsCache?.rooms ?? 0;
+  }
+}
+
 /** One credential set per isolate: every room shares the 6h cache. */
 let turnProvider: TurnCredentialProvider | null = null;
 
@@ -977,6 +1095,18 @@ async function handleApi(request: Request, env: Env, url: URL): Promise<Response
       body: JSON.stringify({ slug, displayName: displayName?.trim() ?? '' }),
     });
     return json(await created.json(), 201, env);
+  }
+
+  if (url.pathname === '/api/stats' && request.method === 'GET') {
+    // An aggregate and nothing else — no slug, no name, no timestamp.
+    return new Response(JSON.stringify({ rooms: await countedRooms(env) }), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'public, max-age=60',
+        ...corsHeaders(env),
+      },
+    });
   }
 
   if (url.pathname === '/api/downloads' && request.method === 'GET') {

@@ -19,12 +19,22 @@
     "binding": "ASSETS"
   },
 
-  // Uma Durable Object por sala: o estado vive junto do slug.
+  // One Durable Object per room: the state lives next to the slug. Plus a
+  // single STATS object — the counter of rooms that happened, one integer
+  // for the whole product (see StatsDurableObject).
   "durable_objects": {
-    "bindings": [{ "name": "ROOMS", "class_name": "RoomDurableObject" }]
+    "bindings": [
+      { "name": "ROOMS", "class_name": "RoomDurableObject" },
+      { "name": "STATS", "class_name": "StatsDurableObject" }
+    ]
   },
+  // A migration is applied on deploy and does not undo cleanly: rolling back
+  // to a tag that predates v2 is not a plain revert (the class it binds no
+  // longer exists in the code being deployed). Worth knowing before the
+  // release that carries it.
   "migrations": [
-    { "tag": "v1", "new_sqlite_classes": ["RoomDurableObject"] }
+    { "tag": "v1", "new_sqlite_classes": ["RoomDurableObject"] },
+    { "tag": "v2", "new_sqlite_classes": ["StatsDurableObject"] }
   ],
 
   // Mesmo limite do Fastify: 60 criações de sala por minuto por IP.
