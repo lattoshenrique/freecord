@@ -108,16 +108,37 @@ test.describe('screen share lock and route tree', () => {
     }
   });
 
-  test('the lock is exclusive: a second sharer is denied, privately', async () => {
-    const { slug } = await createRoom('screen-lock');
-    const clients = await joinMany(slug, 3);
+  test('up to three screens at once; the fourth is denied, privately, and a stop frees the slot', async () => {
+    const { slug } = await createRoom('screen-cap');
+    const clients = await joinMany(slug, 5);
     try {
-      clients[0].send({ t: 'screen-request', streamId: 's-a', quality: 'sharp' });
-      await clients[1].expect('screen-started');
+      const watcher = clients[4];
+      for (let i = 0; i < 3; i += 1) {
+        clients[i].send({ t: 'screen-request', streamId: `s-${i}`, quality: 'sharp' });
+        const started = await watcher.expectWhere(
+          (m) => m.t === 'screen-started' && m.streamId === `s-${i}`,
+          `screen-started for s-${i}`,
+        );
+        expect(started.id).toBe(clients[i].selfId);
+      }
+      clients[3].send({ t: 'screen-request', streamId: 's-3', quality: 'sharp' });
+      await clients[3].expect('screen-denied');
+      await watcher.expectSilence((m) => m.t === 'screen-started' && m.streamId === 's-3');
 
-      clients[1].send({ t: 'screen-request', streamId: 's-b', quality: 'sharp' });
-      await clients[1].expect('screen-denied');
-      await clients[2].expectSilence((m) => m.t === 'screen-started' && m.streamId === 's-b');
+      // Each screen has a tree of its own: the watcher holds a route per screen.
+      const trees = new Set(watcher.log.filter((m) => m.t === 'screen-route').map((m) => m.of));
+      expect(trees).toEqual(new Set(clients.slice(0, 3).map((c) => c.selfId)));
+
+      clients[0].send({ t: 'screen-stop' });
+      const stopped = await watcher.expect('screen-stopped');
+      expect(stopped.id).toBe(clients[0].selfId);
+
+      clients[3].send({ t: 'screen-request', streamId: 's-3', quality: 'sharp' });
+      const granted = await watcher.expectWhere(
+        (m) => m.t === 'screen-started' && m.streamId === 's-3',
+        'screen-started for s-3',
+      );
+      expect(granted.id).toBe(clients[3].selfId);
     } finally {
       await cleanup(clients);
     }
@@ -143,7 +164,7 @@ test.describe('screen share lock and route tree', () => {
         await client.expect('screen-route');
       }
 
-      relay.send({ t: 'screen-relay', streamId: 's-forwarded' });
+      relay.send({ t: 'screen-relay', of: sharer.selfId, streamId: 's-forwarded' });
       // The report re-broadcasts routes to EVERYONE; the relay's children
       // now see it as their source. Drain the round on every client so the
       // silence assertion below only watches what comes next.
@@ -157,7 +178,7 @@ test.describe('screen share lock and route tree', () => {
 
       // A leaf (no children) announcing a relay stream changes nothing.
       const leafId = clients.map((c) => c.selfId).find((id) => expected.get(id)!.children.length === 0)!;
-      byId.get(leafId)!.send({ t: 'screen-relay', streamId: 's-bogus' });
+      byId.get(leafId)!.send({ t: 'screen-relay', of: sharer.selfId, streamId: 's-bogus' });
       await sharer.expectSilence((m) => m.t === 'screen-route');
     } finally {
       await cleanup(clients);
@@ -173,8 +194,9 @@ test.describe('screen share lock and route tree', () => {
 
       const late = await ProtoClient.join(slug, 'latecomer');
       clients.push(late);
-      expect(late.welcome!.screen).toEqual({ id: clients[0].selfId, streamId: 's-live' });
+      expect(late.welcome!.screens).toEqual([{ id: clients[0].selfId, streamId: 's-live' }]);
       const route = await late.expect('screen-route');
+      expect(route.of).toBe(clients[0].selfId);
       expect(Array.isArray(route.children)).toBe(true);
     } finally {
       await cleanup(clients);

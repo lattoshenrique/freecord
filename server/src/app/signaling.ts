@@ -2,6 +2,7 @@ import {
   cameraSlotsFor,
   enqueueSignal,
   normalizeChatText,
+  ROOM_LIMITS,
   type ClientMessage,
   type IceServerConfig,
   type PeerChannel,
@@ -29,30 +30,31 @@ function broadcast(room: Room, message: ServerMessage, exceptId?: string): void 
  * `source: null` until the report arrives.
  */
 function broadcastScreenRoutes(room: Room): void {
-  const sharer = room.screenSharer;
-  if (!sharer) {
-    return;
-  }
-  const tree = computeScreenTree(sharer.id, room.peers.keys());
-  for (const [peerId, peer] of room.peers) {
-    const route = tree.get(peerId);
-    if (!route) {
-      continue;
+  // One tree per screen: a peer may be a child in one and a relay in another.
+  for (const sharer of room.screens.values()) {
+    const relays = room.screenRelays.get(sharer.id);
+    const tree = computeScreenTree(sharer.id, room.peers.keys());
+    for (const [peerId, peer] of room.peers) {
+      const route = tree.get(peerId);
+      if (!route) {
+        continue;
+      }
+      const source =
+        route.parentId === null
+          ? null
+          : route.parentId === sharer.id
+            ? { id: sharer.id, streamId: sharer.streamId }
+            : relays?.has(route.parentId)
+              ? { id: route.parentId, streamId: relays.get(route.parentId)! }
+              : null;
+      peer.channel.send({
+        t: 'screen-route',
+        of: sharer.id,
+        children: route.children,
+        source,
+        quality: sharer.quality,
+      });
     }
-    const source =
-      route.parentId === null
-        ? null
-        : route.parentId === sharer.id
-          ? { id: sharer.id, streamId: sharer.streamId }
-          : room.screenRelays.has(route.parentId)
-            ? { id: route.parentId, streamId: room.screenRelays.get(route.parentId)! }
-            : null;
-    peer.channel.send({
-      t: 'screen-route',
-      children: route.children,
-      source,
-      quality: sharer.quality,
-    });
   }
 }
 
@@ -140,9 +142,7 @@ export class SignalingSession {
       peers: [...room.peers.entries()]
         .filter(([id]) => id !== this.peerId)
         .map(([id, peer]) => ({ id, name: peer.name })),
-      screen: room.screenSharer
-        ? { id: room.screenSharer.id, streamId: room.screenSharer.streamId }
-        : null,
+      screens: [...room.screens.values()].map(({ id, streamId }) => ({ id, streamId })),
       cameras: [...room.cameras],
       deafened: [...room.deafened],
       muted: [...room.muted],
@@ -194,43 +194,51 @@ export class SignalingSession {
         return;
       }
       case 'screen-request': {
-        // Product rule enforced on the server: one screen at a time.
-        if (room.screenSharer && room.screenSharer.id !== this.peerId) {
+        // Product rule enforced on the server: at most maxScreens at once.
+        // A holder re-requesting (quality change, resume) never counts.
+        const mine = room.screens.get(this.peerId);
+        if (!mine && room.screens.size >= ROOM_LIMITS.maxScreens) {
           room.peers.get(this.peerId)?.channel.send({ t: 'screen-denied' });
           return;
         }
-        // A re-send by the sharer itself = live quality change.
-        const restarted = room.screenSharer?.streamId !== message.streamId;
-        room.screenSharer = {
+        // A re-send by the sharer itself = live quality change; a new
+        // stream id restarts its tree's relays.
+        if (mine?.streamId !== message.streamId) {
+          room.screenRelays.delete(this.peerId);
+        }
+        room.screens.set(this.peerId, {
           id: this.peerId,
           streamId: message.streamId,
           quality: message.quality,
-        };
-        if (restarted) {
-          room.screenRelays.clear();
-        }
+        });
         broadcast(room, { t: 'screen-started', id: this.peerId, streamId: message.streamId });
         broadcastScreenRoutes(room);
         return;
       }
       case 'screen-relay': {
-        // Only relays in the current tree may announce a forwarding stream.
-        if (!room.screenSharer || room.screenSharer.id === this.peerId) {
+        // Only relays in that screen's current tree may announce a
+        // forwarding stream — and never the sharer itself.
+        const sharer = room.screens.get(message.of);
+        if (!sharer || sharer.id === this.peerId) {
           return;
         }
-        const tree = computeScreenTree(room.screenSharer.id, room.peers.keys());
+        const tree = computeScreenTree(sharer.id, room.peers.keys());
         if ((tree.get(this.peerId)?.children.length ?? 0) === 0) {
           return;
         }
-        room.screenRelays.set(this.peerId, message.streamId);
+        let relays = room.screenRelays.get(sharer.id);
+        if (!relays) {
+          relays = new Map();
+          room.screenRelays.set(sharer.id, relays);
+        }
+        relays.set(this.peerId, message.streamId);
         broadcastScreenRoutes(room);
         return;
       }
       case 'screen-stop': {
-        if (room.screenSharer?.id === this.peerId) {
-          room.screenSharer = null;
-          room.screenRelays.clear();
-          broadcast(room, { t: 'screen-stopped' });
+        if (room.screens.delete(this.peerId)) {
+          room.screenRelays.delete(this.peerId);
+          broadcast(room, { t: 'screen-stopped', id: this.peerId });
         }
         return;
       }
@@ -324,12 +332,12 @@ export class SignalingSession {
       return;
     }
     this.closed = true;
-    const hadScreen = this.registry.getRoomSafe(this.slug)?.screenSharer?.id === this.peerId;
+    const hadScreen = this.registry.getRoomSafe(this.slug)?.screens.has(this.peerId) ?? false;
     const room = this.registry.removePeer(this.slug, this.peerId);
     this.channel.close();
     if (room) {
       if (hadScreen) {
-        broadcast(room, { t: 'screen-stopped' });
+        broadcast(room, { t: 'screen-stopped', id: this.peerId });
       }
       broadcast(room, { t: 'peer-left', id: this.peerId });
       // A relay or a leaf left: the screen tree changes shape.
@@ -348,19 +356,19 @@ export class SignalingSession {
 export function sweepStalePeers(registry: RoomRegistry): number {
   // The screen lock's grace is shorter than the seat's: a sharer that
   // dropped and did not resume in time frees the room's screen first.
-  for (const room of registry.releaseAbandonedScreenLocks()) {
-    broadcast(room, { t: 'screen-stopped' });
+  for (const { room, id } of registry.releaseAbandonedScreenLocks()) {
+    broadcast(room, { t: 'screen-stopped', id });
   }
   const stale = registry.stalePeers();
   for (const { slug, peerId } of stale) {
     const before = registry.getRoomSafe(slug);
     const channel = before?.peers.get(peerId)?.channel;
-    const hadScreen = before?.screenSharer?.id === peerId;
+    const hadScreen = before?.screens.has(peerId) ?? false;
     const room = registry.removePeer(slug, peerId);
     channel?.close();
     if (room) {
       if (hadScreen) {
-        broadcast(room, { t: 'screen-stopped' });
+        broadcast(room, { t: 'screen-stopped', id: peerId });
       }
       broadcast(room, { t: 'peer-left', id: peerId });
       broadcastScreenRoutes(room);
@@ -400,8 +408,10 @@ export function parseClientMessage(raw: unknown): ClientMessage | null {
       return { t: 'screen-request', streamId: message.streamId, quality };
     }
     case 'screen-relay':
-      return typeof message.streamId === 'string' && message.streamId.length <= 128
-        ? { t: 'screen-relay', streamId: message.streamId }
+      return typeof message.of === 'string' &&
+        typeof message.streamId === 'string' &&
+        message.streamId.length <= 128
+        ? { t: 'screen-relay', of: message.of, streamId: message.streamId }
         : null;
     case 'screen-stop':
       return { t: 'screen-stop' };

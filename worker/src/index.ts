@@ -96,9 +96,11 @@ interface RoomMeta {
   displayName: string;
 }
 
-type ScreenLock = { id: string; streamId: string; quality: ScreenQuality } | null;
-/** Screen-tree relays: relay peerId → forwarding streamId. */
-type ScreenRelays = Record<string, string>;
+/** One live screen share; storage key 'screens' holds them in start order. */
+type ScreenShare = { id: string; streamId: string; quality: ScreenQuality };
+type Screens = ScreenShare[];
+/** Screen-tree relays per screen: sharer peerId → (relay peerId → forwarding streamId). */
+type ScreenRelays = Record<string, Record<string, string>>;
 /** Peers holding a camera slot — storage, so it survives hibernation. */
 type Cameras = string[];
 /** Peers with their speakers off (`deafen`) — same storage discipline. */
@@ -249,7 +251,7 @@ export class RoomDurableObject {
     await this.ctx.storage.delete('emptyAt');
     await this.ensureAlarmWithin(SWEEP_INTERVAL_MS);
 
-    const screen = (await this.ctx.storage.get<ScreenLock>('screen')) ?? null;
+    const screens = await this.screens();
     this.send(server, {
       t: 'welcome',
       selfId: peerId,
@@ -260,7 +262,7 @@ export class RoomDurableObject {
         ...peers.map((ws) => this.peerInfo(ws)),
         ...Object.values(detached).map((seat) => ({ id: seat.peerId, name: seat.name })),
       ],
-      screen: screen ? { id: screen.id, streamId: screen.streamId } : null,
+      screens: screens.map(({ id, streamId }) => ({ id, streamId })),
       cameras: await this.cameras(),
       deafened: await this.deafened(),
       muted: await this.muted(),
@@ -328,7 +330,7 @@ export class RoomDurableObject {
     await this.ctx.storage.delete('emptyAt');
     await this.ensureAlarmWithin(SWEEP_INTERVAL_MS);
 
-    const screen = (await this.ctx.storage.get<ScreenLock>('screen')) ?? null;
+    const screens = await this.screens();
     const others = this.ctx.getWebSockets().filter((ws) => ws !== server);
     this.send(server, {
       t: 'welcome',
@@ -342,7 +344,7 @@ export class RoomDurableObject {
           .map((ws) => this.peerInfo(ws)),
         ...Object.values(detached).map((seat) => ({ id: seat.peerId, name: seat.name })),
       ],
-      screen: screen ? { id: screen.id, streamId: screen.streamId } : null,
+      screens: screens.map(({ id, streamId }) => ({ id, streamId })),
       cameras: await this.cameras(),
       deafened: await this.deafened(),
       muted: await this.muted(),
@@ -403,48 +405,55 @@ export class RoomDurableObject {
         return;
       }
       case 'screen-request': {
-        // Product rule enforced on the server: one screen at a time.
-        const screen = (await this.ctx.storage.get<ScreenLock>('screen')) ?? null;
-        if (screen && screen.id !== peerId) {
+        // Product rule enforced on the server: at most maxScreens at once;
+        // a holder re-requesting (quality change, resume) never counts.
+        const screens = await this.screens();
+        const mine = screens.find((share) => share.id === peerId);
+        if (!mine && screens.length >= ROOM_LIMITS.maxScreens) {
           this.send(ws, { t: 'screen-denied' });
           return;
         }
-        // A re-send by the sharer itself = live quality change.
-        if (screen?.streamId !== message.streamId) {
-          await this.ctx.storage.delete('screenRelays');
+        if (mine?.streamId !== message.streamId) {
+          // A new stream id restarts this screen's tree of relays.
+          const relays = await this.relays();
+          delete relays[peerId];
+          await this.putRelays(relays);
         }
-        await this.ctx.storage.put('screen', {
-          id: peerId,
-          streamId: message.streamId,
-          quality: message.quality,
-        } satisfies NonNullable<ScreenLock>);
+        const share: ScreenShare = { id: peerId, streamId: message.streamId, quality: message.quality };
+        await this.putScreens(
+          mine ? screens.map((s) => (s.id === peerId ? share : s)) : [...screens, share],
+        );
         this.broadcast({ t: 'screen-started', id: peerId, streamId: message.streamId });
         await this.broadcastScreenRoutes();
         return;
       }
       case 'screen-relay': {
-        // Only relays in the current tree may announce a forwarding stream.
-        const screen = (await this.ctx.storage.get<ScreenLock>('screen')) ?? null;
-        if (!screen || screen.id === peerId) {
+        // Only relays in THAT screen's current tree may announce a
+        // forwarding stream — never the sharer itself.
+        const screens = await this.screens();
+        const sharer = screens.find((share) => share.id === message.of);
+        if (!sharer || sharer.id === peerId) {
           return;
         }
         const peerIds = this.ctx.getWebSockets().map((peer) => this.attachment(peer).peerId);
-        const tree = computeScreenTree(screen.id, peerIds);
+        const tree = computeScreenTree(sharer.id, peerIds);
         if ((tree.get(peerId)?.children.length ?? 0) === 0) {
           return;
         }
-        const relays = (await this.ctx.storage.get<ScreenRelays>('screenRelays')) ?? {};
-        relays[peerId] = message.streamId;
-        await this.ctx.storage.put('screenRelays', relays);
+        const relays = await this.relays();
+        relays[sharer.id] = { ...(relays[sharer.id] ?? {}), [peerId]: message.streamId };
+        await this.putRelays(relays);
         await this.broadcastScreenRoutes();
         return;
       }
       case 'screen-stop': {
-        const screen = (await this.ctx.storage.get<ScreenLock>('screen')) ?? null;
-        if (screen?.id === peerId) {
-          await this.ctx.storage.delete('screen');
-          await this.ctx.storage.delete('screenRelays');
-          this.broadcast({ t: 'screen-stopped' });
+        const screens = await this.screens();
+        if (screens.some((share) => share.id === peerId)) {
+          await this.putScreens(screens.filter((share) => share.id !== peerId));
+          const relays = await this.relays();
+          delete relays[peerId];
+          await this.putRelays(relays);
+          this.broadcast({ t: 'screen-stopped', id: peerId });
         }
         return;
       }
@@ -576,14 +585,21 @@ export class RoomDurableObject {
     const detached = await this.detachedPeers();
 
     // The screen lock's grace is shorter than the seat's: a sharer that
-    // dropped and did not resume in time frees the room's screen first.
-    const screen = (await this.ctx.storage.get<ScreenLock>('screen')) ?? null;
-    if (screen) {
-      const holder = Object.values(detached).find((seat) => seat.peerId === screen.id);
-      if (holder && now - holder.disconnectedAt >= ROOM_LIMITS.screenLockGraceMs) {
-        await this.ctx.storage.delete('screen');
-        await this.ctx.storage.delete('screenRelays');
-        this.broadcast({ t: 'screen-stopped' });
+    // dropped and did not resume in time frees its screen first.
+    const screens = await this.screens();
+    const abandoned = screens.filter((share) => {
+      const holder = Object.values(detached).find((seat) => seat.peerId === share.id);
+      return holder !== undefined && now - holder.disconnectedAt >= ROOM_LIMITS.screenLockGraceMs;
+    });
+    if (abandoned.length > 0) {
+      await this.putScreens(screens.filter((share) => !abandoned.includes(share)));
+      const relays = await this.relays();
+      for (const share of abandoned) {
+        delete relays[share.id];
+      }
+      await this.putRelays(relays);
+      for (const share of abandoned) {
+        this.broadcast({ t: 'screen-stopped', id: share.id });
       }
     }
 
@@ -592,15 +608,15 @@ export class RoomDurableObject {
       (seat) => now - seat.lastSeen > ROOM_LIMITS.peerTimeoutMs,
     );
     if (expired.length > 0) {
-      const relays = (await this.ctx.storage.get<ScreenRelays>('screenRelays')) ?? {};
+      const relays = await this.relays();
       for (const seat of expired) {
         delete detached[seat.resumeToken];
-        delete relays[seat.peerId];
+        this.forgetRelay(relays, seat.peerId);
       }
       await this.putDetachedPeers(detached);
       // Nobody is coming back for these signals.
       await this.ctx.storage.delete(expired.map((seat) => pendingKey(seat.peerId)));
-      await this.ctx.storage.put('screenRelays', relays);
+      await this.putRelays(relays);
       for (const seat of expired) {
         this.broadcast({ t: 'peer-left', id: seat.peerId });
       }
@@ -634,19 +650,20 @@ export class RoomDurableObject {
       this.markLeft(ws);
     }
     const gone = new Set(leaving.map((ws) => this.attachment(ws).peerId));
-    const screen = (await this.ctx.storage.get<ScreenLock>('screen')) ?? null;
-    // The screen lock is released even on a dropped connection.
-    if (screen && gone.has(screen.id)) {
-      await this.ctx.storage.delete('screen');
-      await this.ctx.storage.delete('screenRelays');
-      this.broadcast({ t: 'screen-stopped' }, undefined, leaving);
-    } else if (screen) {
-      // A relay or a leaf left: the screen tree changes shape.
-      const relays = (await this.ctx.storage.get<ScreenRelays>('screenRelays')) ?? {};
+    const screens = await this.screens();
+    // A leaver's screen is released even on a dropped connection; in every
+    // other tree it was at most a relay.
+    if (screens.length > 0) {
+      const stopped = screens.filter((share) => gone.has(share.id));
+      await this.putScreens(screens.filter((share) => !gone.has(share.id)));
+      const relays = await this.relays();
       for (const peerId of gone) {
-        delete relays[peerId];
+        this.forgetRelay(relays, peerId);
       }
-      await this.ctx.storage.put('screenRelays', relays);
+      await this.putRelays(relays);
+      for (const share of stopped) {
+        this.broadcast({ t: 'screen-stopped', id: share.id }, undefined, leaving);
+      }
     }
     // Camera slots free with the seat; `peer-left` prunes the clients' rosters.
     const cameras = await this.cameras();
@@ -673,33 +690,44 @@ export class RoomDurableObject {
    * server's logic (broadcastScreenRoutes in app/signaling.ts).
    */
   private async broadcastScreenRoutes(excluded: WebSocket[] = []): Promise<void> {
-    const screen = (await this.ctx.storage.get<ScreenLock>('screen')) ?? null;
-    if (!screen) {
+    const screens = await this.screens();
+    if (screens.length === 0) {
       return;
     }
     const sockets = this.remaining(excluded);
-    const relays = (await this.ctx.storage.get<ScreenRelays>('screenRelays')) ?? {};
+    const relays = await this.relays();
     // Detached seats stay in the tree: their P2P legs may still be flowing,
     // and yanking them would reroute everyone below for a blip that resumes.
     const detached = await this.detachedPeers();
-    const tree = computeScreenTree(screen.id, [
+    const peerIds = [
       ...sockets.map((ws) => this.attachment(ws).peerId),
       ...Object.values(detached).map((seat) => seat.peerId),
-    ]);
-    for (const ws of sockets) {
-      const route = tree.get(this.attachment(ws).peerId);
-      if (!route) {
-        continue;
+    ];
+    // One tree per screen: a peer may be a child in one and a relay in another.
+    for (const screen of screens) {
+      const tree = computeScreenTree(screen.id, peerIds);
+      const forwarding = relays[screen.id] ?? {};
+      for (const ws of sockets) {
+        const route = tree.get(this.attachment(ws).peerId);
+        if (!route) {
+          continue;
+        }
+        const source =
+          route.parentId === null
+            ? null
+            : route.parentId === screen.id
+              ? { id: screen.id, streamId: screen.streamId }
+              : forwarding[route.parentId]
+                ? { id: route.parentId, streamId: forwarding[route.parentId]! }
+                : null;
+        this.send(ws, {
+          t: 'screen-route',
+          of: screen.id,
+          children: route.children,
+          source,
+          quality: screen.quality,
+        });
       }
-      const source =
-        route.parentId === null
-          ? null
-          : route.parentId === screen.id
-            ? { id: screen.id, streamId: screen.streamId }
-            : relays[route.parentId]
-              ? { id: route.parentId, streamId: relays[route.parentId]! }
-              : null;
-      this.send(ws, { t: 'screen-route', children: route.children, source, quality: screen.quality });
     }
   }
 
@@ -754,6 +782,38 @@ export class RoomDurableObject {
       await this.ctx.storage.delete('deafened');
     } else {
       await this.ctx.storage.put('deafened', deafened);
+    }
+  }
+
+  private async screens(): Promise<Screens> {
+    return (await this.ctx.storage.get<Screens>('screens')) ?? [];
+  }
+
+  private async putScreens(screens: Screens): Promise<void> {
+    if (screens.length === 0) {
+      await this.ctx.storage.delete('screens');
+    } else {
+      await this.ctx.storage.put('screens', screens);
+    }
+  }
+
+  private async relays(): Promise<ScreenRelays> {
+    return (await this.ctx.storage.get<ScreenRelays>('screenRelays')) ?? {};
+  }
+
+  private async putRelays(relays: ScreenRelays): Promise<void> {
+    if (Object.keys(relays).length === 0) {
+      await this.ctx.storage.delete('screenRelays');
+    } else {
+      await this.ctx.storage.put('screenRelays', relays);
+    }
+  }
+
+  /** A peer is gone from every tree: its own screen's relays and its relay seat elsewhere. */
+  private forgetRelay(relays: ScreenRelays, peerId: string): void {
+    delete relays[peerId];
+    for (const sharerId of Object.keys(relays)) {
+      delete relays[sharerId]![peerId];
     }
   }
 

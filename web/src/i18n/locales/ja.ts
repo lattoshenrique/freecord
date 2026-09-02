@@ -173,6 +173,7 @@ export const jaJP: Catalog = {
   'controls.shareScreen': '画面を共有',
   'controls.stopSharing': '共有を停止',
   'controls.someoneSharing': '他の人がすでに画面を共有しています',
+  'controls.screensFull': '画面共有の枠（3つ）はすべて使用中です',
   'controls.quality': '画面共有の品質',
   'controls.openChat': 'チャットを開く',
   'controls.closeChat': 'チャットを閉じる',

@@ -177,6 +177,7 @@ export const enUS = {
   'controls.shareScreen': 'Share screen',
   'controls.stopSharing': 'Stop sharing',
   'controls.someoneSharing': 'Someone else is already sharing their screen',
+  'controls.screensFull': 'All three screen slots are in use',
   'controls.quality': 'Screen sharing quality',
   'controls.openChat': 'Open chat',
   'controls.closeChat': 'Close chat',

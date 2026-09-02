@@ -18,7 +18,7 @@ export interface Welcome extends Msg {
   resumeToken: string;
   room: { slug: string; displayName: string };
   peers: Array<{ id: string; name: string }>;
-  screen: { id: string; streamId: string } | null;
+  screens: Array<{ id: string; streamId: string }>;
   cameras: string[];
 }
 

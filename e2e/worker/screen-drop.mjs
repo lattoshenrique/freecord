@@ -6,11 +6,13 @@
 //
 //   a  the sharer's socket dies: screen-stopped within the lock's grace,
 //      and the next sharer is granted
-//   c  the sharer drops and rejoins at once (new seat, same name): the
-//      first request is denied, the release still lands at the grace —
-//      the regression this guards: a join used to postpone the alarm
+//   c  the sharer drops and rejoins at once (new seat, same name): granted
+//      at once (slots to spare), and the ghost seat's screen is still
+//      released at the grace — the regression this guards: a join used to
+//      postpone the alarm
 //   b  the sharer goes silent (zombie): released on the zombie clock
 //   d  mute presence: peer-muted broadcast and `muted` in the welcome
+//   e  many screens: three at once, the fourth denied, a stop frees the slot
 //
 // Exit code 1 on any failed expectation.
 import WebSocket from 'ws';
@@ -54,13 +56,13 @@ class Client {
     return client;
   }
   send(m) { this.ws.send(JSON.stringify(m)); }
-  async expect(t, timeoutMs = 8_000, from = 0) {
+  async expect(t, timeoutMs = 8_000, from = 0, where = () => true) {
     const deadline = Date.now() + timeoutMs;
     let cursor = from;
     for (;;) {
       while (cursor < this.log.length) {
         const m = this.log[cursor++];
-        if (m.t === t) return m;
+        if (m.t === t && where(m)) return m;
       }
       if (this.closed) throw new Error(`${this.name}: closed while waiting for ${t}`);
       const remaining = deadline - Date.now();
@@ -123,27 +125,21 @@ async function scenarioQuickRejoin() {
   const t0 = Date.now();
   a.terminate();
   const a2 = await Client.join(slug, 'ana');
-  console.log(`ana rejoined at ${stamp(t0)}; welcome.screen =`, a2.welcome.screen, 'peers =', a2.welcome.peers.map((p) => p.name).join(','));
+  console.log(`ana rejoined at ${stamp(t0)}; welcome.screen =`, a2.welcome.screens, 'peers =', a2.welcome.peers.map((p) => p.name).join(','));
   let mark = a2.log.length;
   a2.send({ t: 'screen-request', streamId: 'sA2', quality: 'balanced' });
   let verdict = await Promise.race([
     a2.expect('screen-started', 5_000, mark).then(() => 'started'),
     a2.expect('screen-denied', 5_000, mark).then(() => 'denied'),
   ]);
-  console.log(`first request at ${stamp(t0)} ->`, verdict);
-  if (verdict === 'denied') {
+  console.log(`first request at ${stamp(t0)} ->`, verdict, '(slots to spare: granted at once; the ghost seat is released at the grace below)');
+  {
     mark = a2.log.length;
-    const stopped = await a2.expect('screen-stopped', 45_000, 0);
-    console.log(`screen-stopped reached the rejoined ana at ${stamp(t0, stopped.__at)}`);
+    const ghostId = a.welcome.selfId;
+    const stopped = await a2.expect('screen-stopped', 45_000, 0, (m) => m.id === ghostId);
+    console.log(`the ghost seat's screen-stopped reached the rejoined ana at ${stamp(t0, stopped.__at)}`);
     check(stopped.__at - t0 <= GRACE_BUDGET_MS, `a rejoin postponed the release past the grace budget (${GRACE_BUDGET_MS} ms)`);
-    mark = a2.log.length;
-    a2.send({ t: 'screen-request', streamId: 'sA3', quality: 'balanced' });
-    verdict = await Promise.race([
-      a2.expect('screen-started', 5_000, mark).then(() => 'started'),
-      a2.expect('screen-denied', 5_000, mark).then(() => 'DENIED'),
-    ]);
-    console.log(`second request at ${stamp(t0)} ->`, verdict);
-    check(verdict === 'started', 'the rejoined sharer was not granted after the release');
+    check(verdict === 'started', 'the rejoined sharer should be granted with slots to spare');
   }
   const left = await b.expect('peer-left', 60_000, 0).catch(() => null);
   console.log(`B saw peer-left for the old seat at ${left ? stamp(t0, left.__at) : 'never'}`);
@@ -187,8 +183,50 @@ async function scenarioMutePresence() {
   a.leave(); b.leave(); c.leave();
 }
 
+async function scenarioManyScreens() {
+  console.log('\n== E: three screens at once on the worker, the fourth denied, a stop frees the slot ==');
+  const slug = await createRoom('screens');
+  const names = ['ana', 'bia', 'caio', 'dora', 'eva'];
+  const clients = [];
+  for (const name of names) clients.push(await Client.join(slug, name));
+  const [a, b, c, d, e] = clients;
+  for (const [i, client] of [a, b, c].entries()) {
+    client.send({ t: 'screen-request', streamId: `s-${i}`, quality: 'balanced' });
+    const started = await e.expect('screen-started', 8_000, e.log.length);
+    check(started.id === client.welcome.selfId && started.streamId === `s-${i}`, `screen ${i} was not announced`);
+  }
+  const mark = d.log.length;
+  d.send({ t: 'screen-request', streamId: 's-3', quality: 'balanced' });
+  const denied = await Promise.race([
+    d.expect('screen-denied', 5_000, mark).then(() => 'denied'),
+    d.expect('screen-started', 5_000, mark, (m) => m.streamId === 's-3').then(() => 'started'),
+  ]);
+  console.log('fourth request ->', denied);
+  check(denied === 'denied', 'the fourth screen was not denied');
+  // One route per screen reaches a viewer (the last round may still be landing).
+  const treesOf = () => new Set(e.log.filter((m) => m.t === 'screen-route').map((m) => m.of));
+  for (let i = 0; i < 20 && treesOf().size < 3; i += 1) await new Promise((r) => setTimeout(r, 100));
+  console.log('routes held by a viewer, per screen:', treesOf().size);
+  check(treesOf().size === 3, 'a viewer should hold one route per screen');
+  a.send({ t: 'screen-stop' });
+  const stopped = await e.expect('screen-stopped', 8_000, e.log.length);
+  check(stopped.id === a.welcome.selfId, 'screen-stopped did not name the sharer');
+  const mark2 = d.log.length;
+  d.send({ t: 'screen-request', streamId: 's-3', quality: 'balanced' });
+  const granted = await Promise.race([
+    d.expect('screen-started', 5_000, mark2, (m) => m.streamId === 's-3').then(() => 'started'),
+    d.expect('screen-denied', 5_000, mark2).then(() => 'denied'),
+  ]);
+  console.log('after the stop, the fourth request ->', granted);
+  check(granted === 'started', 'the freed slot was not granted');
+  const late = await Client.join(slug, 'zoe');
+  console.log('late joiner welcome.screens:', late.welcome.screens.map((s) => s.streamId).join(','));
+  check(late.welcome.screens.length === 3, 'welcome should list the three live screens');
+  for (const client of [...clients, late]) client.leave();
+}
+
 const only = process.argv[2];
-const scenarios = { a: scenarioAbruptDrop, c: scenarioQuickRejoin, b: scenarioZombie, d: scenarioMutePresence };
+const scenarios = { a: scenarioAbruptDrop, c: scenarioQuickRejoin, b: scenarioZombie, d: scenarioMutePresence, e: scenarioManyScreens };
 for (const [key, fn] of Object.entries(scenarios)) {
   if (!only || only.includes(key)) {
     try { await fn(); } catch (error) { failures += 1; console.log('FAILED:', error.message); }

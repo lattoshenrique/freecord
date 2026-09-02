@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import {
   loadAudioDevicePrefs,
   micDeviceConstraint,
@@ -61,6 +61,28 @@ export interface JoinOptions {
   camEnabled: boolean;
   /** Room key from the invite link's fragment; null joins without one. */
   roomKey: string | null;
+}
+
+/** One screen being shared in the room, as the server announced it. */
+export interface ScreenShare {
+  id: string;
+  streamId: string;
+}
+
+/** This peer's role in one screen's forwarding tree (see `screen-route`). */
+interface ScreenRoute {
+  children: string[];
+  source: { id: string; streamId: string } | null;
+  quality: ScreenQualityId;
+}
+
+/** The relay role held in someone else's tree: the forwarding stream and its pipe. */
+interface RelayLeg {
+  stream: MediaStream;
+  track: MediaStreamTrack | null;
+  /** The forwarding stream was announced to the server for this tree. */
+  reported: boolean;
+  controller: ScreenRelayController | null;
 }
 
 export interface ChatMessage {
@@ -132,7 +154,8 @@ export function useRoomSession(options: JoinOptions) {
    * downgrade — the UI disables the composer, sendChat refuses anyway.
    */
   const [chatLocked, setChatLocked] = useState(false);
-  const [screen, setScreen] = useState<{ id: string; streamId: string } | null>(null);
+  /** Screens being shared, in start order (at most MAX_SCREENS). */
+  const [screens, setScreens] = useState<ScreenShare[]>([]);
   const [localMedia, setLocalMedia] = useState<MediaStream | null>(null);
   const [localScreen, setLocalScreen] = useState<MediaStream | null>(null);
   const [micOn, setMicOn] = useState(options.micEnabled);
@@ -159,8 +182,36 @@ export function useRoomSession(options: JoinOptions) {
   const [peerLatency, setPeerLatency] = useState<Map<string, PeerLatency>>(new Map());
   const [signalRttMs, setSignalRttMs] = useState<number | null>(null);
   const [screenStats, setScreenStats] = useState<ScreenStats | null>(null);
-  /** Who I receive the screen from in the tree (may be a relay, not the sharer). */
-  const [screenSource, setScreenSource] = useState<{ id: string; streamId: string } | null>(null);
+  /** Who I receive each screen from in its tree (may be a relay, not the sharer), by sharer id. */
+  const [screenSources, setScreenSources] = useState<
+    Map<string, { id: string; streamId: string } | null>
+  >(new Map());
+  /**
+   * The screen on stage: someone else's before our own, the earliest
+   * started first. (The stage learns focus and layouts next; this keeps
+   * the single-stage view meaningful meanwhile.)
+   */
+  const screen = useMemo(
+    () => screens.find((share) => share.id !== selfId) ?? screens[0] ?? null,
+    [screens, selfId],
+  );
+  const screenSource = useMemo(
+    () => (screen ? (screenSources.get(screen.id) ?? null) : null),
+    [screen, screenSources],
+  );
+  /** Every stream id that carries a screen (originals and relays' forwards): never a camera tile. */
+  const screenStreamIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const share of screens) {
+      ids.add(share.streamId);
+    }
+    for (const source of screenSources.values()) {
+      if (source) {
+        ids.add(source.streamId);
+      }
+    }
+    return ids;
+  }, [screens, screenSources]);
   const [meshVersion, bumpVersion] = useReducer((v: number) => v + 1, 0);
 
   const signalingRef = useRef<Signaling | null>(null);
@@ -187,18 +238,10 @@ export function useRoomSession(options: JoinOptions) {
   const camPendingRef = useRef(false);
   const camDeniedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastPongRef = useRef(0);
-  /** Latest route received from the screen-forwarding tree. */
-  const routeRef = useRef<{
-    children: string[];
-    source: { id: string; streamId: string } | null;
-    quality: ScreenQualityId;
-  } | null>(null);
-  /** Local stream that forwards the parent's screen to the children. */
-  const forwardStreamRef = useRef<MediaStream | null>(null);
-  const forwardedTrackRef = useRef<MediaStreamTrack | null>(null);
-  const reportedRelayStreamRef = useRef<string | null>(null);
-  /** Encoded passthrough at the relay position; null = re-encode only. */
-  const relayControllerRef = useRef<ScreenRelayController | null>(null);
+  /** Our route in each screen's forwarding tree, by sharer id (our own share included). */
+  const routesRef = useRef(new Map<string, ScreenRoute>());
+  /** The relay roles we hold in other people's trees, by sharer id. */
+  const relaysRef = useRef(new Map<string, RelayLeg>());
   /** Viewer-side stall watch: flat framesDecoded escalates (stall-watch.ts). */
   const screenStallRef = useRef<StallState>(initialStallState());
   /** Per-peer voice watch: a flat inbound packet counter restarts that leg's ICE. */
@@ -270,7 +313,8 @@ export function useRoomSession(options: JoinOptions) {
    */
   const screenEncoding = useCallback((): TrackEncoding => {
     const preset = presetById(qualityRef.current);
-    const receivers = routeRef.current?.children.length ?? viewerCountRef.current;
+    const own = selfIdRef.current ? routesRef.current.get(selfIdRef.current) : undefined;
+    const receivers = own?.children.length ?? viewerCountRef.current;
     return adaptedEncoding(
       {
         maxBitrate: bitrateFor(preset, receivers),
@@ -298,97 +342,111 @@ export function useRoomSession(options: JoinOptions) {
     [],
   );
 
-  /** Undoes the relay role: stops forwarding without touching the remote track. */
-  const teardownRelay = useCallback(() => {
-    relayControllerRef.current?.close();
-    relayControllerRef.current = null;
-    const forwarded = forwardedTrackRef.current;
-    if (forwarded) {
-      meshRef.current?.removeLocalTrack(forwarded);
-      forwardStreamRef.current?.removeTrack(forwarded);
+  /**
+   * Undoes a relay role (one tree, or every tree when no sharer is named):
+   * stops forwarding without touching the remote track.
+   */
+  const teardownRelay = useCallback((sharerId?: string) => {
+    const legs = relaysRef.current;
+    for (const [id, leg] of [...legs]) {
+      if (sharerId !== undefined && id !== sharerId) {
+        continue;
+      }
+      leg.controller?.close();
+      if (leg.track) {
+        meshRef.current?.removeLocalTrack(leg.track);
+        leg.stream.removeTrack(leg.track);
+      }
+      legs.delete(id);
     }
-    forwardedTrackRef.current = null;
-    forwardStreamRef.current = null;
-    reportedRelayStreamRef.current = null;
   }, []);
 
   /**
-   * Reconciles this peer's role in the screen-forwarding tree.
+   * Reconciles this peer's role in every screen's forwarding tree.
    *
-   * Called when the route changes and when the mesh notifies (the
-   * parent's track may arrive after the route). Sharer: applies targets
-   * and the split to the local track. Relay: announces its forwarding
-   * stream and wires the track received from the parent to the children.
-   * Leaf: undoes any forwarding.
+   * Called when a route changes and when the mesh notifies (a parent's
+   * track may arrive after the route). Our own share: targets and cap
+   * from our route in our own tree. Every other tree where we have
+   * children: announce a forwarding stream once and wire the track
+   * received from that tree's parent to those children; a tree where we
+   * are a leaf again, or that ended, has its relay leg undone.
    */
   const syncScreenTree = useCallback(() => {
     const mesh = meshRef.current;
     if (!mesh) {
       return;
     }
-    const route = routeRef.current;
+    const selfId = selfIdRef.current;
+    const routes = routesRef.current;
 
     const localTrack = localScreenRef.current?.getVideoTracks()[0];
     if (localTrack) {
-      mesh.setTrackTargets(localTrack, route?.children ?? []);
+      const own = selfId ? routes.get(selfId) : undefined;
+      mesh.setTrackTargets(localTrack, own?.children ?? []);
       mesh.setTrackEncoding(localTrack, screenEncoding());
-      return;
     }
 
-    if (!route || route.children.length === 0) {
-      teardownRelay();
-      return;
-    }
-
-    const stream = forwardStreamRef.current ?? new MediaStream();
-    forwardStreamRef.current = stream;
-    if (reportedRelayStreamRef.current !== stream.id) {
-      reportedRelayStreamRef.current = stream.id;
-      signalingRef.current?.send({ t: 'screen-relay', streamId: stream.id });
-    }
-
-    const parentTrack = route.source
-      ? (mesh
-          .getPeerStreams(route.source.id)
-          .find((s) => s.id === route.source!.streamId)
-          ?.getVideoTracks()[0] ?? null)
-      : null;
-
-    const forwarded = forwardedTrackRef.current;
-    if (forwarded && forwarded !== parentTrack) {
-      // Parent changed (a relay dropped, the tree moved): let go of the old track.
-      mesh.removeLocalTrack(forwarded);
-      stream.removeTrack(forwarded);
-      forwardedTrackRef.current = null;
-    }
-    if (parentTrack && route.source && forwardedTrackRef.current !== parentTrack) {
-      stream.addTrack(parentTrack);
-      forwardedTrackRef.current = parentTrack;
-      if (!relayControllerRef.current && ScreenRelayController.supported()) {
-        relayControllerRef.current = new ScreenRelayController(mesh);
+    for (const id of [...relaysRef.current.keys()]) {
+      const route = routes.get(id);
+      if (!route || route.children.length === 0) {
+        teardownRelay(id);
       }
-      const controller = relayControllerRef.current;
-      // Passthrough wants the children on the upstream's codec, and the
-      // preference must land in the same tick as addTrack (see addSender).
-      // Without a controller, a relay re-encodes and the codec gate
-      // (hardware AV1 or default) is its own.
-      const pinned = controller?.childCodecPreferences(
-        route.source.id,
-        parentTrack,
-        screenCodecsRef.current !== null,
-      );
-      mesh.addLocalTrack(
-        parentTrack,
-        stream,
-        relayEncoding(route),
-        route.children,
-        pinned ?? screenCodecsRef.current,
-      );
-      controller?.sync(route.source.id, parentTrack, route.children);
-    } else if (parentTrack && route.source) {
-      mesh.setTrackTargets(parentTrack, route.children);
-      mesh.setTrackEncoding(parentTrack, relayEncoding(route));
-      relayControllerRef.current?.sync(route.source.id, parentTrack, route.children);
+    }
+    for (const [of, route] of routes) {
+      if (of === selfId || route.children.length === 0) {
+        continue;
+      }
+      let leg = relaysRef.current.get(of);
+      if (!leg) {
+        leg = { stream: new MediaStream(), track: null, reported: false, controller: null };
+        relaysRef.current.set(of, leg);
+      }
+      if (!leg.reported) {
+        leg.reported = true;
+        signalingRef.current?.send({ t: 'screen-relay', of, streamId: leg.stream.id });
+      }
+
+      const parentTrack = route.source
+        ? (mesh
+            .getPeerStreams(route.source.id)
+            .find((s) => s.id === route.source!.streamId)
+            ?.getVideoTracks()[0] ?? null)
+        : null;
+
+      if (leg.track && leg.track !== parentTrack) {
+        // Parent changed (a relay dropped, the tree moved): let go of the old track.
+        mesh.removeLocalTrack(leg.track);
+        leg.stream.removeTrack(leg.track);
+        leg.track = null;
+      }
+      if (parentTrack && route.source && leg.track !== parentTrack) {
+        leg.stream.addTrack(parentTrack);
+        leg.track = parentTrack;
+        if (!leg.controller && ScreenRelayController.supported()) {
+          leg.controller = new ScreenRelayController(mesh);
+        }
+        // Passthrough wants the children on the upstream's codec, and the
+        // preference must land in the same tick as addTrack (see addSender).
+        // Without a controller, a relay re-encodes and the codec gate
+        // (hardware AV1 or default) is its own.
+        const pinned = leg.controller?.childCodecPreferences(
+          route.source.id,
+          parentTrack,
+          screenCodecsRef.current !== null,
+        );
+        mesh.addLocalTrack(
+          parentTrack,
+          leg.stream,
+          relayEncoding(route),
+          route.children,
+          pinned ?? screenCodecsRef.current,
+        );
+        leg.controller?.sync(route.source.id, parentTrack, route.children);
+      } else if (parentTrack && route.source) {
+        mesh.setTrackTargets(parentTrack, route.children);
+        mesh.setTrackEncoding(parentTrack, relayEncoding(route));
+        leg.controller?.sync(route.source.id, parentTrack, route.children);
+      }
     }
   }, [screenEncoding, relayEncoding, teardownRelay]);
 
@@ -526,19 +584,39 @@ export function useRoomSession(options: JoinOptions) {
           selfIdRef.current = message.selfId;
           setSelfId(message.selfId);
           setPeers(message.peers);
-          if (
-            message.screen?.id === message.selfId &&
-            !localScreenRef.current &&
-            !pendingScreenRef.current
-          ) {
-            // The server still holds the screen lock for us, but this page
-            // has no capture to back it (the seat came back without the
-            // stream). Release it, or the room could not share until we
-            // left: the lock belongs to whoever is actually sending.
+          const live = message.screens.filter((share) => {
+            if (share.id !== message.selfId || localScreenRef.current || pendingScreenRef.current) {
+              return true;
+            }
+            // The server still lists a screen of ours that this page has
+            // no capture to back (the seat came back without the stream).
+            // Release it, or the room would be short a slot until we left:
+            // a share belongs to whoever is actually sending.
             signalingRef.current?.send({ t: 'screen-stop' });
-            setScreen(null);
-          } else {
-            setScreen(message.screen);
+            return false;
+          });
+          setScreens(live);
+          // Trees that ended while we were away: forget their routes and
+          // undo any relay leg we held in them.
+          const liveIds = new Set(live.map((share) => share.id));
+          for (const id of [...routesRef.current.keys()]) {
+            if (!liveIds.has(id)) {
+              routesRef.current.delete(id);
+            }
+          }
+          setScreenSources((current) => {
+            const next = new Map<string, { id: string; streamId: string } | null>();
+            for (const [id, source] of current) {
+              if (liveIds.has(id)) {
+                next.set(id, source);
+              }
+            }
+            return next;
+          });
+          for (const id of [...relaysRef.current.keys()]) {
+            if (!liveIds.has(id)) {
+              teardownRelay(id);
+            }
           }
           const cameraRoster = new Set(message.cameras);
           setCameras(cameraRoster);
@@ -569,11 +647,9 @@ export function useRoomSession(options: JoinOptions) {
             // and reoffered, downed ICE paths restarted. Before the held
             // signals arrive, which the transport flushes right after this.
             mesh.reconcile();
-            if (!message.screen) {
-              // The share ended while we were away (ours may have hit the
-              // lock's grace); the missed screen-stopped is applied here.
-              routeRef.current = null;
-              teardownRelay();
+            if (!liveIds.has(message.selfId)) {
+              // Our share ended while we were away (it hit the lock's
+              // grace): the missed screen-stopped is applied here.
               dropLocalScreen();
             }
             // Our tree role arrives in the screen-route the server re-emits.
@@ -582,6 +658,7 @@ export function useRoomSession(options: JoinOptions) {
             // stream, passthrough pipe) belonged to the old one — and so
             // did the congestion ladders' verdicts about its links.
             teardownRelay();
+            routesRef.current.clear();
             meshRef.current?.close();
             camLadderRef.current = initialAdaptiveState();
             screenLadderRef.current = initialAdaptiveState();
@@ -693,7 +770,9 @@ export function useRoomSession(options: JoinOptions) {
           // (the server never inspects `data`): peel ours off, let the
           // mesh no-op anything a newer client may add.
           if (extractRelayNote(message.data)) {
-            relayControllerRef.current?.handleStallNote(message.from);
+            for (const leg of relaysRef.current.values()) {
+              leg.controller?.handleStallNote(message.from);
+            }
             return;
           }
           void meshRef.current?.handleSignal(message.from, message.data);
@@ -703,7 +782,12 @@ export function useRoomSession(options: JoinOptions) {
           deliverChat(message.from, message.text);
           return;
         case 'screen-started': {
-          setScreen({ id: message.id, streamId: message.streamId });
+          setScreens((current) => {
+            const share = { id: message.id, streamId: message.streamId };
+            return current.some((s) => s.id === share.id)
+              ? current.map((s) => (s.id === share.id ? share : s))
+              : [...current, share];
+          });
           if (message.id === selfIdRef.current) {
             const stream = pendingScreenRef.current;
             if (stream) {
@@ -737,20 +821,29 @@ export function useRoomSession(options: JoinOptions) {
           return;
         }
         case 'screen-route':
-          routeRef.current = {
+          routesRef.current.set(message.of, {
             children: message.children,
             source: message.source,
             quality: message.quality,
-          };
-          setScreenSource(message.source);
+          });
+          setScreenSources((current) => new Map(current).set(message.of, message.source));
           syncScreenTree();
           return;
         case 'screen-stopped':
-          setScreen(null);
-          setScreenSource(null);
-          routeRef.current = null;
-          teardownRelay();
-          dropLocalScreen();
+          setScreens((current) => current.filter((share) => share.id !== message.id));
+          setScreenSources((current) => {
+            if (!current.has(message.id)) {
+              return current;
+            }
+            const next = new Map(current);
+            next.delete(message.id);
+            return next;
+          });
+          routesRef.current.delete(message.id);
+          teardownRelay(message.id);
+          if (message.id === selfIdRef.current) {
+            dropLocalScreen();
+          }
           return;
         case 'screen-denied':
           dropLocalScreen();
@@ -853,7 +946,7 @@ export function useRoomSession(options: JoinOptions) {
       transfersRef.current = null;
       chatChannelsRef.current?.close();
       chatChannelsRef.current = null;
-      routeRef.current = null;
+      routesRef.current.clear();
       teardownRelay();
       dropLocalScreen();
       localMediaRef.current?.getTracks().forEach((track) => track.stop());
@@ -969,7 +1062,8 @@ export function useRoomSession(options: JoinOptions) {
         return;
       }
       if (stats?.direction === 'receiving') {
-        stats.relayMode = relayControllerRef.current?.modeSummary() ?? null;
+        stats.relayMode =
+          (screen ? relaysRef.current.get(screen.id)?.controller?.modeSummary() : null) ?? null;
       }
       // Self-healing for a screen that froze while the tree says we should
       // be receiving (stall-watch.ts): first tell the parent — a relay
@@ -1386,7 +1480,7 @@ export function useRoomSession(options: JoinOptions) {
   const stopScreenShare = useCallback(() => {
     signalingRef.current?.send({ t: 'screen-stop' });
     dropLocalScreen();
-    setScreen((current) => (current?.id === selfIdRef.current ? null : current));
+    setScreens((current) => current.filter((share) => share.id !== selfIdRef.current));
   }, [dropLocalScreen]);
 
   const leave = useCallback(() => {
@@ -1414,6 +1508,9 @@ export function useRoomSession(options: JoinOptions) {
     transfers,
     screen,
     screenSource,
+    screens,
+    screenSources,
+    screenStreamIds,
     localMedia,
     localScreen,
     micOn,

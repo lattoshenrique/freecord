@@ -173,6 +173,7 @@ export const esES: Catalog = {
   'controls.shareScreen': 'Compartir pantalla',
   'controls.stopSharing': 'Dejar de compartir',
   'controls.someoneSharing': 'Otra persona ya está compartiendo su pantalla',
+  'controls.screensFull': 'Las tres pantallas ya están en uso',
   'controls.quality': 'Calidad de la pantalla compartida',
   'controls.openChat': 'Abrir chat',
   'controls.closeChat': 'Cerrar chat',

@@ -5,7 +5,7 @@ import { renderMarkdown } from '../lib/markdown';
 import { playMessageChime } from '../lib/notification-sound';
 import { useI18n } from '../i18n';
 import { desktopSystemAudio, isDesktopApp } from '../lib/platform';
-import { MAX_PARTICIPANTS } from '../lib/protocol';
+import { MAX_PARTICIPANTS, MAX_SCREENS } from '../lib/protocol';
 import { SCREEN_QUALITY_PRESETS } from '../lib/screen-quality';
 import type { ScreenStats } from '../lib/stats';
 import { useRoomSession, type JoinOptions } from '../lib/use-room';
@@ -703,7 +703,9 @@ export default function RoomView({
     );
   }
 
-  const iAmSharing = session.screen !== null && session.screen.id === session.selfId;
+  const iAmSharing = session.screens.some((share) => share.id === session.selfId);
+  /** Every screen slot taken by others: the button waits for one to free up. */
+  const screensFull = !iAmSharing && session.screens.length >= MAX_SCREENS;
   const someoneElseSharing = session.screen !== null && session.screen.id !== session.selfId;
   const sharerName = someoneElseSharing
     ? (session.peers.find((p) => p.id === session.screen?.id)?.name ?? t('room.someone'))
@@ -864,8 +866,7 @@ export default function RoomView({
               const cameraStream =
                 streams.find(
                   (stream) =>
-                    stream.id !== session.screen?.streamId &&
-                    stream.id !== session.screenSource?.streamId,
+                    !session.screenStreamIds.has(stream.id),
                 ) ?? null;
               return (
                 <Tile
@@ -1077,11 +1078,11 @@ export default function RoomView({
             type="button"
             className={`control ${iAmSharing ? 'control-active' : ''}`}
             aria-pressed={iAmSharing}
-            disabled={someoneElseSharing}
+            disabled={screensFull}
             data-key="S"
             title={
-              someoneElseSharing
-                ? t('controls.someoneSharing')
+              screensFull
+                ? t('controls.screensFull')
                 : iAmSharing
                   ? t('controls.stopSharing')
                   : t('controls.shareScreen')

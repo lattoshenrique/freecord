@@ -13,6 +13,9 @@ export interface PeerInfo {
 /** Mirror of ROOM_LIMITS.maxParticipants — the room's seat count. */
 export const MAX_PARTICIPANTS = 20;
 
+/** Mirror of ROOM_LIMITS.maxScreens — how many screens may be shared at once. */
+export const MAX_SCREENS = 3;
+
 /**
  * How many cameras may be live at once for a given room size — mirror of
  * the server's cameraSlotsFor (≤6: everyone; 7–9: four; 10–16: three;
@@ -47,7 +50,8 @@ export type ServerMessage =
       ice: IceServerConfig[];
       room: { slug: string; displayName: string };
       peers: PeerInfo[];
-      screen: { id: string; streamId: string } | null;
+      /** Screens being shared right now, in start order (at most MAX_SCREENS). */
+      screens: Array<{ id: string; streamId: string }>;
       /** Live cameras, so joiners and resumers see the slots in use. */
       cameras: string[];
       /** Who has their speakers off (see `deafen`), so joiners see it too. */
@@ -60,7 +64,7 @@ export type ServerMessage =
   | { t: 'signal'; from: string; data: unknown }
   | { t: 'chat'; from: PeerInfo; text: string; ts: number }
   | { t: 'screen-started'; id: string; streamId: string }
-  | { t: 'screen-stopped' }
+  | { t: 'screen-stopped'; id: string }
   | { t: 'screen-denied' }
   /** A camera slot was granted (the requester hears this as its grant). */
   | { t: 'camera-started'; id: string }
@@ -77,6 +81,8 @@ export type ServerMessage =
    */
   | {
       t: 'screen-route';
+      /** Whose screen this tree carries: the sharer's peer id. */
+      of: string;
       children: string[];
       source: { id: string; streamId: string } | null;
       quality: ScreenQualityId;
@@ -91,7 +97,7 @@ export type ClientMessage =
   | { t: 'screen-request'; streamId: string; quality: ScreenQualityId }
   | { t: 'screen-stop' }
   /** A screen-tree relay announces the stream it uses for forwarding. */
-  | { t: 'screen-relay'; streamId: string }
+  | { t: 'screen-relay'; of: string; streamId: string }
   /** Camera slots mirror the screen lock: ask first, publish on grant. */
   | { t: 'camera-request' }
   | { t: 'camera-stop' }

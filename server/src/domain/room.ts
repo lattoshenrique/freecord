@@ -53,12 +53,22 @@ export interface IceServerConfig {
 /** Quality preset chosen by the sharer — relays in the tree replicate it. */
 export type ScreenQuality = 'sharp' | 'balanced' | 'smooth';
 
+/** One live screen share: whose, which stream, at what preset. */
+export interface ScreenShare {
+  id: string;
+  streamId: string;
+  quality: ScreenQuality;
+}
+
 export interface Room {
   slug: string;
   displayName: string;
   peers: Map<string, Peer>;
-  /** Who holds the screen-share lock, if anyone. */
-  screenSharer: { id: string; streamId: string; quality: ScreenQuality } | null;
+  /**
+   * Live screen shares by sharer id, in start order — at most
+   * ROOM_LIMITS.maxScreens at once, each with a forwarding tree of its own.
+   */
+  screens: Map<string, ScreenShare>;
   /** Who holds a camera slot right now (see cameraSlotsFor). */
   cameras: Set<string>;
   /** Who has their speakers off (`deafen`), so newcomers see it too. */
@@ -66,10 +76,10 @@ export interface Room {
   /** Who has their microphone off (`mute`) — presence only, like `deafened`. */
   muted: Set<string>;
   /**
-   * Forwarding streams reported by the screen tree's relays:
-   * relay peerId → streamId it uses to forward to its children.
+   * Forwarding streams reported by the relays of each screen's tree:
+   * sharer peerId → (relay peerId → streamId it forwards to its children).
    */
-  screenRelays: Map<string, string>;
+  screenRelays: Map<string, Map<string, string>>;
   /** When the room became empty, for expiration. */
   emptyAt: number | null;
 }
@@ -105,6 +115,12 @@ export const ROOM_LIMITS = {
    * room, while a frozen tile blocks nobody.
    */
   screenLockGraceMs: 10 * 1000,
+  /**
+   * How many screens may be shared at once. Every viewer receives every
+   * screen, so this is a downlink budget more than an uplink one: three
+   * is a whiteboard, a document and a demo, and still fits a laptop link.
+   */
+  maxScreens: 3,
   displayNameMaxLength: 60,
   guestNameMaxLength: 40,
   /** Plaintext budget, enforced by the composer and re-clamped here. */
@@ -234,7 +250,8 @@ export type ServerMessage =
       ice: IceServerConfig[];
       room: { slug: string; displayName: string };
       peers: PeerInfo[];
-      screen: { id: string; streamId: string } | null;
+      /** Screens being shared right now, in start order (see `maxScreens`). */
+      screens: Array<{ id: string; streamId: string }>;
       /** Live cameras, so joiners and resumers see the slots in use. */
       cameras: string[];
       /** Who has their speakers off (see `deafen`), so joiners see it too. */
@@ -247,7 +264,7 @@ export type ServerMessage =
   | { t: 'signal'; from: string; data: unknown }
   | { t: 'chat'; from: PeerInfo; text: string; ts: number }
   | { t: 'screen-started'; id: string; streamId: string }
-  | { t: 'screen-stopped' }
+  | { t: 'screen-stopped'; id: string }
   | { t: 'screen-denied' }
   /** A camera slot was granted (the requester hears this as its grant). */
   | { t: 'camera-started'; id: string }
@@ -267,6 +284,8 @@ export type ServerMessage =
    */
   | {
       t: 'screen-route';
+      /** Whose screen this tree carries: the sharer's peer id. */
+      of: string;
       children: string[];
       source: { id: string; streamId: string } | null;
       quality: ScreenQuality;
@@ -282,7 +301,7 @@ export type ClientMessage =
   | { t: 'screen-request'; streamId: string; quality: ScreenQuality }
   | { t: 'screen-stop' }
   /** A screen-tree relay announces the stream it uses for forwarding. */
-  | { t: 'screen-relay'; streamId: string }
+  | { t: 'screen-relay'; of: string; streamId: string }
   /** Camera slots mirror the screen lock: ask first, publish on grant. */
   | { t: 'camera-request' }
   | { t: 'camera-stop' }

@@ -99,29 +99,38 @@ describe('SignalingSession', () => {
     expect(bia.inbox.some((m) => m.t === 'pong')).toBe(false);
   });
 
-  it('screen lock: one at a time, denied to the second, released on stop', () => {
+  it('screens: up to three at once, the fourth is denied, a stop frees the slot', () => {
     const { registry, slug } = setup();
-    const ana = connect(registry, slug, 'Ana');
-    const bia = connect(registry, slug, 'Bia');
-
-    ana.session.handleMessage({ t: 'screen-request', streamId: 's-ana', quality: 'balanced' });
-    expect(bia.inbox.map((m) => m.t)).toContain('screen-started');
-    expect(bia.inbox.at(-2)).toEqual({
-      t: 'screen-started',
-      id: ana.session.peerId,
-      streamId: 's-ana',
-    });
-
-    bia.session.handleMessage({ t: 'screen-request', streamId: 's-bia', quality: 'balanced' });
-    expect(bia.last()).toEqual({ t: 'screen-denied' });
-
-    ana.session.handleMessage({ t: 'screen-stop' });
-    expect(bia.last()).toEqual({ t: 'screen-stopped' });
-
-    bia.session.handleMessage({ t: 'screen-request', streamId: 's-bia', quality: 'balanced' });
-    expect(ana.inbox.some((m) => m.t === 'screen-started' && m.id === bia.session.peerId)).toBe(
-      true,
+    const [ana, bia, carla, dan, eva] = ['Ana', 'Bia', 'Carla', 'Dan', 'Eva'].map((name) =>
+      connect(registry, slug, name),
     );
+    const started = (inbox: ServerMessage[]) =>
+      inbox.flatMap((m) => (m.t === 'screen-started' ? [m.streamId] : []));
+
+    ana!.session.handleMessage({ t: 'screen-request', streamId: 's-ana', quality: 'balanced' });
+    bia!.session.handleMessage({ t: 'screen-request', streamId: 's-bia', quality: 'balanced' });
+    carla!.session.handleMessage({ t: 'screen-request', streamId: 's-carla', quality: 'balanced' });
+    expect(started(eva!.inbox)).toEqual(['s-ana', 's-bia', 's-carla']);
+
+    // The fourth is denied, privately.
+    dan!.session.handleMessage({ t: 'screen-request', streamId: 's-dan', quality: 'balanced' });
+    expect(dan!.last()).toEqual({ t: 'screen-denied' });
+    expect(started(eva!.inbox)).toHaveLength(3);
+
+    // Each screen has a tree of its own: a viewer holds a route per screen.
+    const trees = new Set(eva!.inbox.flatMap((m) => (m.t === 'screen-route' ? [m.of] : [])));
+    expect(trees).toEqual(new Set([ana!, bia!, carla!].map((p) => p.session.peerId)));
+
+    // A holder re-requesting (a quality change) never counts against the cap.
+    ana!.session.handleMessage({ t: 'screen-request', streamId: 's-ana', quality: 'sharp' });
+    expect(ana!.inbox.some((m) => m.t === 'screen-denied')).toBe(false);
+
+    ana!.session.handleMessage({ t: 'screen-stop' });
+    expect(eva!.last()).toEqual({ t: 'screen-stopped', id: ana!.session.peerId });
+
+    dan!.session.handleMessage({ t: 'screen-request', streamId: 's-dan', quality: 'balanced' });
+    expect(started(eva!.inbox).at(-1)).toBe('s-dan');
+    expect(dan!.inbox.filter((m) => m.t === 'screen-denied')).toHaveLength(1);
   });
 
   it('a deliberate leave releases the screen lock and announces the departure', () => {
@@ -240,7 +249,7 @@ describe('screen relay tree', () => {
       expect(leafBefore.source).toBeNull();
     }
 
-    relay.session.handleMessage({ t: 'screen-relay', streamId: 'fwd-1' });
+    relay.session.handleMessage({ t: 'screen-relay', of: sharer.session.peerId, streamId: 'fwd-1' });
     const leafAfter = routesOf(leaf.inbox).at(-1)!;
     if (leafAfter.t === 'screen-route') {
       expect(leafAfter.source).toEqual({ id: relayId, streamId: 'fwd-1' });
@@ -254,7 +263,7 @@ describe('screen relay tree', () => {
 
     sharer.session.handleMessage({ t: 'screen-request', streamId: 's-1', quality: 'balanced' });
     const before = routesOf(bia.inbox).length;
-    bia.session.handleMessage({ t: 'screen-relay', streamId: 'forged' });
+    bia.session.handleMessage({ t: 'screen-relay', of: sharer.session.peerId, streamId: 'forged' });
     // With no children in the tree, the report is ignored: no new route goes out.
     expect(routesOf(bia.inbox).length).toBe(before);
   });
@@ -454,11 +463,11 @@ describe('parseClientMessage', () => {
     expect(
       parseClientMessage(JSON.stringify({ t: 'screen-request', streamId: 's', quality: '4k' })),
     ).toEqual({ t: 'screen-request', streamId: 's', quality: 'balanced' });
-    expect(parseClientMessage(JSON.stringify({ t: 'screen-relay', streamId: 'fwd' }))).toEqual({
-      t: 'screen-relay',
-      streamId: 'fwd',
-    });
-    expect(parseClientMessage(JSON.stringify({ t: 'screen-relay', streamId: 7 }))).toBeNull();
+    expect(
+      parseClientMessage(JSON.stringify({ t: 'screen-relay', of: 'p1', streamId: 'fwd' })),
+    ).toEqual({ t: 'screen-relay', of: 'p1', streamId: 'fwd' });
+    expect(parseClientMessage(JSON.stringify({ t: 'screen-relay', of: 'p1', streamId: 7 }))).toBeNull();
+    expect(parseClientMessage(JSON.stringify({ t: 'screen-relay', streamId: 'fwd' }))).toBeNull();
   });
 });
 

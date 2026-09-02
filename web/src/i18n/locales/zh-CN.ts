@@ -171,6 +171,7 @@ export const zhCN: Catalog = {
   'controls.shareScreen': '共享屏幕',
   'controls.stopSharing': '停止共享',
   'controls.someoneSharing': '已有其他人在共享屏幕',
+  'controls.screensFull': '三个屏幕共享位已全部占用',
   'controls.quality': '屏幕共享画质',
   'controls.openChat': '打开聊天',
   'controls.closeChat': '关闭聊天',

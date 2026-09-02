@@ -172,6 +172,7 @@ export const ptBR: Catalog = {
   'controls.shareScreen': 'Compartilhar tela',
   'controls.stopSharing': 'Parar de compartilhar',
   'controls.someoneSharing': 'Outra pessoa já está compartilhando a tela',
+  'controls.screensFull': 'As três telas já estão em uso',
   'controls.quality': 'Qualidade do compartilhamento de tela',
   'controls.openChat': 'Abrir chat',
   'controls.closeChat': 'Fechar chat',

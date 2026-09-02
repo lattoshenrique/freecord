@@ -43,7 +43,7 @@ export class RoomRegistry {
       slug,
       displayName,
       peers: new Map(),
-      screenSharer: null,
+      screens: new Map(),
       cameras: new Set(),
       deafened: new Set(),
       muted: new Set(),
@@ -159,15 +159,17 @@ export class RoomRegistry {
    * resume as a regular participant. Returns the affected rooms so the
    * caller can announce `screen-stopped`.
    */
-  releaseAbandonedScreenLocks(): Room[] {
+  releaseAbandonedScreenLocks(): Array<{ room: Room; id: string }> {
     const cutoff = this.now() - ROOM_LIMITS.screenLockGraceMs;
-    const affected: Room[] = [];
+    const affected: Array<{ room: Room; id: string }> = [];
     for (const room of this.rooms.values()) {
-      const sharer = room.screenSharer && room.peers.get(room.screenSharer.id);
-      if (sharer && sharer.disconnectedAt !== null && sharer.disconnectedAt <= cutoff) {
-        room.screenSharer = null;
-        room.screenRelays.clear();
-        affected.push(room);
+      for (const id of [...room.screens.keys()]) {
+        const sharer = room.peers.get(id);
+        if (sharer && sharer.disconnectedAt !== null && sharer.disconnectedAt <= cutoff) {
+          room.screens.delete(id);
+          room.screenRelays.delete(id);
+          affected.push({ room, id });
+        }
       }
     }
     return affected;
@@ -186,14 +188,15 @@ export class RoomRegistry {
     if (!room || !room.peers.delete(peerId)) {
       return null;
     }
-    if (room.screenSharer?.id === peerId) {
-      room.screenSharer = null;
-      room.screenRelays.clear();
+    // Its own screen goes; in every other tree it was at most a relay.
+    room.screens.delete(peerId);
+    room.screenRelays.delete(peerId);
+    for (const relays of room.screenRelays.values()) {
+      relays.delete(peerId);
     }
     room.cameras.delete(peerId);
     room.deafened.delete(peerId);
     room.muted.delete(peerId);
-    room.screenRelays.delete(peerId);
     if (room.peers.size === 0) {
       room.emptyAt = this.now();
     }
