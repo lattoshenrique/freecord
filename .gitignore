@@ -7,3 +7,16 @@ dist/
 .wrangler
 # Electron installers and packaged apps
 desktop/release/
+
+# AI/LLM assets are canonical under .ai/. Provider-specific adapters stay local.
+/.claude/
+/.codex/
+/.cursor/
+/.gemini/
+/.windsurf/
+/.continue/
+/CLAUDE.md
+/GEMINI.md
+/.cursorrules
+/.windsurfrules
+/.github/copilot-instructions.md
