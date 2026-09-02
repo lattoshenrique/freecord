@@ -2091,6 +2091,13 @@ select {
      com o card do nome da sala. */
   border-width: 0;
   box-shadow: none;
+  /* O raio também zera. O palco recortava a 14px um card que se desenha a
+     10px: nos quatro cantos o recorte comia a borda e o fundo do card e
+     sobrava uma quina sem cor. Quem desenha o canto aqui é o card — e ele
+     assume o raio do palco logo abaixo, para o palco continuar do mesmo
+     feitio das outras superfícies grandes da sala. */
+  border-radius: 0;
+  overflow: visible;
 }
 
 /*
@@ -2102,6 +2109,7 @@ select {
 .screen-stage.stage-person .tile {
   width: 100%;
   height: 100%;
+  border-radius: var(--radius);
 }
 
 /* ---- latência ---- */
