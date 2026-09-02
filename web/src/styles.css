@@ -1300,6 +1300,105 @@ select:focus-visible,
   background: var(--panel-2);
 }
 
+/* Search, save and close: one row of quiet keys at the end of the header. */
+.chat-header-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.1rem;
+}
+
+/*
+ * The search row, between the header and the log. It is not part of the
+ * scrolling list on purpose: the field has to stay where it was typed while
+ * the list under it changes.
+ */
+.chat-search {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.6rem 0.4rem 0.85rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--muted);
+  animation: fade-in var(--dur-quick) var(--ease) both;
+}
+
+.chat-search svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+
+.chat-search-field {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.85rem;
+  padding: 0.2rem 0;
+}
+
+.chat-search-field:focus {
+  outline: none;
+}
+
+.chat-search-field::placeholder {
+  color: var(--muted);
+}
+
+/* Safari draws its own clear button inside a search field; ours is the row's. */
+.chat-search-field::-webkit-search-decoration,
+.chat-search-field::-webkit-search-cancel-button {
+  appearance: none;
+}
+
+.chat-search-count {
+  flex: none;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* What the search found, marked inside the message. */
+.chat-hit {
+  background: rgba(88, 101, 242, 0.45);
+  color: inherit;
+  border-radius: 3px;
+  padding: 0 0.1em;
+}
+
+.chat-bubble.mine .chat-hit {
+  background: rgba(255, 255, 255, 0.32);
+}
+
+/*
+ * The day a run of messages belongs to. A rule through the middle, the date
+ * sitting in it — the room can outlive a night, and 14:02 has to say which.
+ */
+.chat-day {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  align-self: stretch;
+  margin: 0.35rem 0 0.1rem;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.64rem;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+}
+
+.chat-day::before,
+.chat-day::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.09);
+}
+
 .chat-messages {
   flex: 1;
   overflow-y: auto;
@@ -1411,45 +1510,72 @@ select:focus-visible,
   color: rgba(255, 255, 255, 0.8);
 }
 
-/* "Reply" rides the bubble's top corner, and only shows on hover. */
-.chat-reply-btn {
+/* Reply and copy ride the bubble's top corner, and only show on hover. */
+.chat-actions {
   position: absolute;
   top: -0.55rem;
   right: -0.55rem;
+  display: flex;
+  gap: 0.2rem;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.chat-action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 1.6rem;
   height: 1.6rem;
+  padding: 0;
   border: 1px solid var(--hud-border);
   border-radius: 50%;
   background: var(--panel-2);
   color: var(--muted);
   cursor: pointer;
-  opacity: 0;
-  transition:
-    opacity 0.15s ease,
-    color 0.15s ease;
+  transition: color 0.15s ease, background 0.15s ease;
 }
 
-.chat-bubble.mine .chat-reply-btn {
+.chat-action svg {
+  width: 14px;
+  height: 14px;
+}
+
+.chat-bubble.mine .chat-actions {
   right: auto;
   left: -0.55rem;
+  flex-direction: row-reverse;
 }
 
-.chat-bubble:hover .chat-reply-btn,
-.chat-reply-btn:focus-visible {
+.chat-bubble:hover .chat-actions,
+.chat-actions:focus-within {
   opacity: 1;
 }
 
-.chat-reply-btn:hover {
+.chat-action:hover {
   color: var(--text);
 }
 
-/* No hover on touch: the button is always there, quietly. */
+/* Copied: the tick goes green for as long as it is up, then quietly back. */
+.chat-action[data-copied='true'],
+.chat-code-copy[data-copied='true'] {
+  /* The same green the invite key turns; nothing else in the app says done. */
+  color: #4ade80;
+  border-color: currentColor;
+}
+
+/*
+ * No hover on touch: the keys are always there, quietly — and the bubble
+ * grows a little headroom for them. With nothing to hover, a key that sits
+ * over the first line of the message covers it for good, not for a moment.
+ */
 @media (hover: none) {
-  .chat-reply-btn {
+  .chat-actions {
     opacity: 0.6;
+  }
+
+  .chat-bubble {
+    padding-top: 1.15rem;
   }
 }
 
@@ -2201,6 +2327,74 @@ select:focus-visible,
   padding: 0;
   font-size: 0.8rem;
   line-height: 1.45;
+}
+
+/*
+ * A code block and its copy key. The key floats over the top-right corner of
+ * the block and not outside it, because the block already scrolls sideways —
+ * anything parked beside it would be the first thing to go.
+ */
+.chat-code {
+  position: relative;
+}
+
+/* Room for the key, so the first line of code does not run under it. */
+.chat-code pre {
+  padding-right: 2.5rem;
+}
+
+.chat-code-copy {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.35rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.55rem;
+  height: 1.55rem;
+  padding: 0;
+  border: 1px solid var(--hud-border);
+  border-radius: 6px;
+  /* Opaque: the code scrolls underneath it. */
+  background: var(--panel-2);
+  color: var(--muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.chat-code-copy svg {
+  width: 13px;
+  height: 13px;
+}
+
+.chat-code:hover .chat-code-copy,
+.chat-code-copy:focus-visible,
+.chat-code-copy[data-copied='true'] {
+  opacity: 1;
+}
+
+.chat-code-copy:hover {
+  color: var(--text);
+}
+
+@media (hover: none) {
+  .chat-code-copy {
+    opacity: 0.7;
+  }
+}
+
+/*
+ * A message while a search is running: shown as it was typed, so a hit inside
+ * a link or a code fence is visible too. The line breaks are the author's, so
+ * they have to survive the markdown not being rendered.
+ */
+.chat-plain {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .chat-md ul,

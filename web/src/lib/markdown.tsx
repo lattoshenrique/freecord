@@ -7,6 +7,7 @@
  * depend on.
  */
 import type { ReactNode } from 'react';
+import CodeBlock, { type CodeLabels } from '../components/CodeBlock';
 
 /** http(s) only: blocks `javascript:` and `data:` coming from the chat. */
 function safeHref(url: string): string | null {
@@ -94,7 +95,12 @@ const QUOTE = /^>\s?(.*)$/;
 const BULLET = /^[-*+]\s+(.*)$/;
 const NUMBER = /^\d+[.)]\s+(.*)$/;
 
-export function renderMarkdown(source: string): ReactNode[] {
+/**
+ * `codeLabels` are the two words a code block's copy key needs. They are
+ * passed in rather than read from the catalog here, so this module keeps
+ * rendering a message with no page, no provider and no translation around it.
+ */
+export function renderMarkdown(source: string, codeLabels?: CodeLabels): ReactNode[] {
   const lines = source.split('\n');
   const blocks: ReactNode[] = [];
   let i = 0;
@@ -111,11 +117,7 @@ export function renderMarkdown(source: string): ReactNode[] {
         i += 1;
       }
       i += 1; // close the fence (or run out of text)
-      blocks.push(
-        <pre key={`k${key++}`}>
-          <code>{code.join('\n')}</code>
-        </pre>,
-      );
+      blocks.push(<CodeBlock key={`k${key++}`} code={code.join('\n')} labels={codeLabels} />);
       continue;
     }
 

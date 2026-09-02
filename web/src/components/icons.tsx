@@ -351,3 +351,34 @@ export function YouTubeIcon() {
     </svg>
   );
 }
+
+/** Two sheets, one behind the other: copy, in every toolbar since 1990. */
+export function CopyIcon() {
+  return (
+    <svg {...base}>
+      <rect x="9" y="9" width="11" height="11" rx="2.5" />
+      <path d="M5 15H4.5A1.5 1.5 0 0 1 3 13.5v-9A1.5 1.5 0 0 1 4.5 3h9A1.5 1.5 0 0 1 15 4.5V5" />
+    </svg>
+  );
+}
+
+export function SearchIcon() {
+  return (
+    <svg {...base}>
+      <circle cx="11" cy="11" r="6.5" />
+      <path d="m16 16 4.5 4.5" />
+    </svg>
+  );
+}
+
+/** A page with lines and an arrow down: the conversation, saved to disk. */
+export function TranscriptIcon() {
+  return (
+    <svg {...base}>
+      <path d="M14 3H7a2 2 0 0 0-2 2v9" />
+      <path d="M14 3l5 5v3" />
+      <path d="M9 8h3M9 11h6" />
+      <path d="M12 16v5m0 0 2.5-2.5M12 21l-2.5-2.5" />
+    </svg>
+  );
+}

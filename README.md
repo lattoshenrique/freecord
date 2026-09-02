@@ -121,7 +121,12 @@ localhost. `CORS_ORIGIN` restricts the origin in production.
   fragment, and the sealed text rides **peer to peer** on a data channel of
   its own; the server relays a message only for a seat whose channel is not
   up yet (joining, resuming), and it cannot read what it relays — zero
-  content storage. Messages can be replied to with a quote. The seal covers
+  content storage. Messages can be replied to with a quote, copied as they
+  were typed (a fenced code block carries a copy key of its own), searched
+  inside the room with case and accents ignored, and saved as a markdown
+  transcript — the file is assembled in the browser from what that browser
+  is already holding, so saving uploads nothing and stores nothing anywhere.
+  The seal covers
   message text, not metadata: sender names, timestamps and membership are
   signaling and visible to the server, there is no forward secrecy, and
   whoever holds the link holds the key.

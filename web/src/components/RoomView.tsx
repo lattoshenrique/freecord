@@ -1,4 +1,5 @@
 import {
+  Fragment,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -22,9 +23,16 @@ import { useRoomSession, type JoinOptions, type ScreenShare } from '../lib/use-r
 import { useSpeaking } from '../lib/use-speaking';
 import Avatar from './Avatar';
 import ChatComposer from './ChatComposer';
+import ChatSearch from './ChatSearch';
+import CopyButton from './CopyButton';
 import FileTransferBubble from './FileTransferBubble';
+import Highlight from './Highlight';
 import { MAX_FILE_BYTES, formatBytes } from '../lib/file-transfer';
 import { bodyBudget, excerptOf, type ChatQuote } from '../lib/chat-body';
+import { matches, queryTerms } from '../lib/chat-search';
+import { dayKey, dayLabel } from '../lib/chat-time';
+import { buildTranscript, transcriptFilename, type TranscriptLine } from '../lib/chat-transcript';
+import { downloadText } from '../lib/clipboard';
 import InviteButton from './InviteButton';
 import Logo from './Logo';
 import Brand from './Brand';
@@ -53,8 +61,10 @@ import {
   PinIcon,
   ReplyIcon,
   ScreenIcon,
+  SearchIcon,
   SlidersIcon,
   ToolboxIcon,
+  TranscriptIcon,
 } from './icons';
 import { SpeakerIcon, SpeakerOffIcon } from './icons';
 import '../pages/state.css';
@@ -698,6 +708,8 @@ export default function RoomView({
   }, []);
   /** The message the next one replies to; cleared on send or cancel. */
   const [replyTo, setReplyTo] = useState<ChatQuote | null>(null);
+  /** The search over what was said here; empty string = the row is open, filtering nothing. */
+  const [search, setSearch] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   /** Why the last attach went nowhere; cleared on the next attempt. */
@@ -779,6 +791,13 @@ export default function RoomView({
     () => new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' }),
     [locale],
   );
+  // The date a saved conversation is filed under, written out in full: the
+  // separators in the panel say "Today", and a file read next month cannot.
+  const dayFormat = useMemo(
+    () => new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'long', year: 'numeric' }),
+    [locale],
+  );
+  const roomTitle = room.displayName || t('room.unnamed');
 
   const chatCount = session.chat.length;
   const seenCountRef = useRef(0);
@@ -848,6 +867,38 @@ export default function RoomView({
     return entries.sort((a, b) => a.ts - b.ts);
   }, [session.chat, session.transfers]);
 
+  const terms = useMemo(() => queryTerms(search ?? ''), [search]);
+
+  /**
+   * What the list actually draws: the timeline, filtered by the search, with
+   * the day written in wherever it turns over. The separator is computed on
+   * the filtered list on purpose — a search that leaves two lines from two
+   * different weeks has to say so, or they read as one conversation.
+   */
+  const shown = useMemo(() => {
+    const now = Date.now();
+    const kept = timeline.filter((entry) =>
+      terms.length === 0
+        ? true
+        : entry.kind === 'text'
+          ? matches(
+              [entry.message.text, entry.message.from.name, entry.message.quote?.text ?? ''],
+              terms,
+            )
+          : matches(
+              entry.transfers.map((transfer) => transfer.name),
+              terms,
+            ),
+    );
+    let day = '';
+    return kept.map((entry) => {
+      const key = dayKey(entry.ts);
+      const opensDay = key !== day;
+      day = key;
+      return { entry, day: opensDay ? dayLabel(entry.ts, now, locale) : null };
+    });
+  }, [timeline, terms, locale]);
+
   // Names outlive seats: a transfer bubble still says who sent the file
   // after that person has left the room.
   const knownNamesRef = useRef(new Map<string, string>());
@@ -861,6 +912,52 @@ export default function RoomView({
       '…',
     [session.peers],
   );
+
+  /**
+   * Saves the conversation as a markdown file. Everything is read from what
+   * this browser is already holding — the room's chat never lived anywhere
+   * else — and the whole timeline goes in, not the search's results: someone
+   * saving a conversation wants the conversation.
+   */
+  function saveTranscript(): void {
+    const lines: TranscriptLine[] = timeline.map((entry) =>
+      entry.kind === 'text'
+        ? {
+            ts: entry.ts,
+            author: entry.message.from.name,
+            text: entry.message.text,
+            quote: entry.message.quote ?? null,
+            unreadable: entry.message.unreadable,
+          }
+        : {
+            ts: entry.ts,
+            author:
+              entry.transfers[0]!.direction === 'out'
+                ? t('room.you')
+                : peerName(entry.transfers[0]!.peerId),
+            files: [...new Set(entry.transfers.map((transfer) => transfer.name))],
+          },
+    );
+    const savedAt = Date.now();
+    downloadText(
+      transcriptFilename(roomTitle, savedAt),
+      buildTranscript({
+        lines,
+        room: roomTitle,
+        savedAt,
+        labels: {
+          title: t('chat.transcript.title'),
+          savedAt: t('chat.transcript.savedAt'),
+          file: t('chat.transcript.file'),
+          locked: t('chat.locked'),
+          replyTo: t('chat.transcript.replyTo'),
+        },
+        formatDay: (at) => dayFormat.format(at),
+        formatTime: (at) => timeFormat.format(at),
+      }),
+      'text/markdown',
+    );
+  }
 
   function sendFiles(files: File[]): void {
     setFileNote(null);
@@ -1600,15 +1697,46 @@ export default function RoomView({
           >
             <header className="chat-header">
               <h2>{t('chat.title')}</h2>
-              <button
-                type="button"
-                className="chat-close"
-                aria-label={t('controls.closeChat')}
-                onClick={closeChat}
-              >
-                <CloseIcon />
-              </button>
+              <div className="chat-header-tools">
+                <button
+                  type="button"
+                  className={`chat-close ${search !== null ? 'chat-tool-on' : ''}`}
+                  aria-label={t('chat.search')}
+                  aria-pressed={search !== null}
+                  title={t('chat.search')}
+                  onClick={() => setSearch((current) => (current === null ? '' : null))}
+                >
+                  <SearchIcon />
+                </button>
+                {timeline.length > 0 && (
+                  <button
+                    type="button"
+                    className="chat-close"
+                    aria-label={t('chat.save')}
+                    title={`${t('chat.save')} · ${t('chat.saveNote')}`}
+                    onClick={saveTranscript}
+                  >
+                    <TranscriptIcon />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="chat-close"
+                  aria-label={t('controls.closeChat')}
+                  onClick={closeChat}
+                >
+                  <CloseIcon />
+                </button>
+              </div>
             </header>
+            {search !== null && (
+              <ChatSearch
+                value={search}
+                hits={shown.length}
+                onChange={setSearch}
+                onClose={() => setSearch(null)}
+              />
+            )}
             {/* A log: what arrives is read out as it comes, without
                 stealing the focus from wherever the reader is. */}
             <div
@@ -1621,58 +1749,90 @@ export default function RoomView({
               {session.chat.length === 0 && session.transfers.length === 0 && (
                 <p className="chat-empty">{t('chat.empty')}</p>
               )}
-              {timeline.map((entry) => {
+              {terms.length > 0 && shown.length === 0 && (
+                <p className="chat-empty">{t('chat.searchNone')}</p>
+              )}
+              {shown.map(({ entry, day }) => {
+                // The day heading and the bubble are siblings in the list, so
+                // the flex column keeps spacing them the same way.
+                const separator = day && (
+                  <p className="chat-day" key={`day-${entry.key}`}>
+                    <span>{day}</span>
+                  </p>
+                );
                 if (entry.kind === 'file') {
                   return (
-                    <FileTransferBubble
-                      key={entry.key}
-                      transfers={entry.transfers}
-                      peerName={peerName}
-                      onAccept={session.acceptTransfer}
-                      onDecline={session.declineTransfer}
-                      onCancel={session.cancelTransfer}
-                      onDismiss={session.dismissTransfer}
-                    />
+                    <Fragment key={entry.key}>
+                      {separator}
+                      <FileTransferBubble
+                        transfers={entry.transfers}
+                        peerName={peerName}
+                        onAccept={session.acceptTransfer}
+                        onDecline={session.declineTransfer}
+                        onCancel={session.cancelTransfer}
+                        onDismiss={session.dismissTransfer}
+                      />
+                    </Fragment>
                   );
                 }
                 const { message } = entry;
                 const mine = message.from.id === session.selfId;
                 return (
-                  <div key={entry.key} className={`chat-bubble ${mine ? 'mine' : ''}`}>
-                    {mine ? (
-                      // Said by the colour of the bubble to the eye; said in a word here.
-                      <span className="visually-hidden">{t('room.you')}</span>
-                    ) : (
-                      <span className="chat-author">{message.from.name}</span>
-                    )}
-                    {message.quote && (
-                      <blockquote className="chat-quote">
-                        <span className="chat-quote-name">{message.quote.name}</span>
-                        <span className="chat-quote-text">{message.quote.text}</span>
-                      </blockquote>
-                    )}
-                    {message.unreadable ? (
-                      <p className="chat-locked">{t('chat.locked')}</p>
-                    ) : (
-                      <div className="chat-md">{renderMarkdown(message.text)}</div>
-                    )}
-                    <time className="chat-time" dateTime={new Date(message.ts).toISOString()}>
-                      {timeFormat.format(message.ts)}
-                    </time>
-                    {!message.unreadable && (
-                      <button
-                        type="button"
-                        className="chat-reply-btn"
-                        aria-label={t('chat.reply')}
-                        title={t('chat.reply')}
-                        onClick={() =>
-                          setReplyTo({ name: message.from.name, text: excerptOf(message.text) })
-                        }
-                      >
-                        <ReplyIcon />
-                      </button>
-                    )}
-                  </div>
+                  <Fragment key={entry.key}>
+                    {separator}
+                    <div className={`chat-bubble ${mine ? 'mine' : ''}`}>
+                      {mine ? (
+                        // Said by the colour of the bubble to the eye; said in a word here.
+                        <span className="visually-hidden">{t('room.you')}</span>
+                      ) : (
+                        <span className="chat-author">{message.from.name}</span>
+                      )}
+                      {message.quote && (
+                        <blockquote className="chat-quote">
+                          <span className="chat-quote-name">{message.quote.name}</span>
+                          <span className="chat-quote-text">{message.quote.text}</span>
+                        </blockquote>
+                      )}
+                      {message.unreadable ? (
+                        <p className="chat-locked">{t('chat.locked')}</p>
+                      ) : terms.length > 0 ? (
+                        <p className="chat-md chat-plain">
+                          <Highlight text={message.text} terms={terms} />
+                        </p>
+                      ) : (
+                        <div className="chat-md">
+                          {renderMarkdown(message.text, {
+                            copy: t('chat.copyCode'),
+                            copied: t('chat.copied'),
+                          })}
+                        </div>
+                      )}
+                      <time className="chat-time" dateTime={new Date(message.ts).toISOString()}>
+                        {timeFormat.format(message.ts)}
+                      </time>
+                      {!message.unreadable && (
+                        <div className="chat-actions">
+                          <CopyButton
+                            text={message.text}
+                            label={t('chat.copy')}
+                            doneLabel={t('chat.copied')}
+                            className="chat-action"
+                          />
+                          <button
+                            type="button"
+                            className="chat-action"
+                            aria-label={t('chat.reply')}
+                            title={t('chat.reply')}
+                            onClick={() =>
+                              setReplyTo({ name: message.from.name, text: excerptOf(message.text) })
+                            }
+                          >
+                            <ReplyIcon />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </Fragment>
                 );
               })}
               <div ref={chatEndRef} />
