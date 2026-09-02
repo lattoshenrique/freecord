@@ -12,6 +12,7 @@ export default function Avatar({
   className,
   micOff,
   deafened,
+  bare,
   ref,
 }: {
   name: string;
@@ -20,6 +21,8 @@ export default function Avatar({
   micOff?: boolean;
   /** Speakers off: earmuffs on. */
   deafened?: boolean;
+  /** No ground: the mascot alone, for somewhere it stands free of a tile. */
+  bare?: boolean;
   /** The room's tiles drive the mouth through it (see RoomView's Tile). */
   ref?: Ref<SVGSVGElement>;
 }) {
@@ -48,7 +51,9 @@ export default function Avatar({
           <stop offset="100%" stopColor={ground.to} />
         </linearGradient>
       </defs>
-      <rect x="0" y="0" width={AVATAR_SIZE} height={AVATAR_SIZE} fill={`url(#${gradientId})`} />
+      {!bare && (
+        <rect x="0" y="0" width={AVATAR_SIZE} height={AVATAR_SIZE} fill={`url(#${gradientId})`} />
+      )}
       {shapes.map((shape, index) => {
         // --cell is the drawing order: a caller that animates the mascot
         // arriving staggers the shapes by it. data-shape marks the shapes

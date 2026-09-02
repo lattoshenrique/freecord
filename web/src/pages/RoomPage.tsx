@@ -6,6 +6,7 @@ import { heroTransition } from '../lib/hero-transition';
 import { randomNickname } from '../lib/identity';
 import { useI18n } from '../i18n';
 import Avatar from '../components/Avatar';
+import AvatarParade from '../components/AvatarParade';
 import Brand from '../components/Brand';
 import MeshBackground from '../components/MeshBackground';
 import RoomView from '../components/RoomView';
@@ -51,6 +52,7 @@ export default function RoomPage() {
   const [micEnabled, setMicEnabled] = useState(false);
   const [camEnabled, setCamEnabled] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
+  const avatarRef = useRef<SVGSVGElement>(null);
   // A new name should read as a change of name, not as a field that blinked:
   // the old one leaves, the new one arrives, and the icon turns once. The
   // counter drives the turn; the phase drives the swap.
@@ -81,6 +83,17 @@ export default function RoomPage() {
       // Long enough for the last of the avatar's tiles to land.
       swapTimer.current = window.setTimeout(() => setSwap(null), 700);
     }, 150);
+  }
+  /**
+   * One of the mascots on the ground was picked and has just landed in the
+   * avatar: its name goes into the field, drawn in like a shuffled one. It
+   * is a suggestion like any other — the field stays free to be typed in.
+   */
+  function takeName(picked: string) {
+    if (swapTimer.current !== null) window.clearTimeout(swapTimer.current);
+    setName(picked);
+    setSwap('in');
+    swapTimer.current = window.setTimeout(() => setSwap(null), 700);
   }
   // The room's own name is the title, and the title is an input: null while
   // nobody is typing in it, the draft while someone is.
@@ -224,6 +237,7 @@ export default function RoomPage() {
 
     return (
       <main className="join">
+        <AvatarParade target={avatarRef} onPick={takeName} />
         <form
           className="join-form"
           onSubmit={(event) => {
@@ -336,6 +350,7 @@ export default function RoomPage() {
 
           <div className="join-identity">
             <Avatar
+              ref={avatarRef}
               name={name}
               micOff={!micEnabled}
               className={`join-avatar${swap === 'in' ? ' swap-in' : ''}`}

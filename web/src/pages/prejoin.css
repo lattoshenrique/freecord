@@ -13,6 +13,9 @@
 }
 
 .join-form {
+  /* Above the crowd on the ground (avatar-parade.css), where the two meet. */
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: center;

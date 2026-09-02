@@ -1,0 +1,249 @@
+/*
+ * The crowd along the bottom of the doorstep (components/AvatarParade.tsx).
+ *
+ * Fixed to the viewport's bottom edge, under the form (which sits a step
+ * above it in prejoin.css) but not under the page: the mascots can be
+ * clicked, and anything the page draws behind them cannot. The form is
+ * centred and never reaches this far down on a screen that is tall enough,
+ * and where it does the mascots pass behind it rather than in front of it.
+ * While one of them is leaping up into the guest's avatar the whole ground
+ * comes to the front, so the leap crosses the form rather than going under
+ * it.
+ *
+ * Where each one is, which way it faces and what it is doing are written by
+ * the script: a transform on the outer box, and data-dir / data-state on
+ * it. The CSS does the rest — the gait, the hop, the greeting — so the
+ * script never has to animate a frame itself.
+ */
+
+.parade {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 6.5rem;
+  z-index: 0;
+  pointer-events: none;
+  animation: fade-in 1.2s var(--ease) 0.3s both;
+}
+
+.parade.lifting {
+  z-index: 5;
+}
+
+/* The mascots themselves can be picked; the ground between them cannot. */
+.parade-walker {
+  position: absolute;
+  bottom: 0.5rem;
+  left: 0;
+  will-change: transform;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.parade-walker[data-state='leap'] {
+  pointer-events: none;
+}
+
+/* A soft shadow on the ground, so the mascot stands on something. */
+.parade-walker::after {
+  content: '';
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  bottom: -0.25rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  filter: blur(3px);
+}
+
+/* The body turns with the direction of travel. The mascots are near enough
+   symmetrical for a mirror to read as a turn rather than as a new face. */
+.parade-body {
+  width: 100%;
+  height: 100%;
+  transform-origin: 50% 100%;
+  transition: transform 0.25s var(--ease);
+}
+
+.parade-walker[data-dir='left'] .parade-body {
+  transform: scaleX(-1);
+}
+
+.parade-face {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  transform-origin: 50% 100%;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.35));
+}
+
+/* Walking: a bob and a lean, one foot then the other. */
+.parade-walker[data-state='walk'] .parade-face {
+  animation: parade-step 0.46s ease-in-out infinite alternate;
+}
+
+/* Standing: a slow sway, looking about. */
+.parade-walker[data-state='stand'] .parade-face {
+  animation: parade-sway 1.6s ease-in-out infinite alternate;
+}
+
+/* Noticing the pointer: perks up, a quick little bounce. */
+.parade-walker[data-state='notice'] .parade-face {
+  animation: parade-notice 0.5s cubic-bezier(0.3, 0, 0.2, 1) 2;
+}
+
+/* Asleep: breathing, slowly; the z's drift off as they do in the room. */
+.parade-walker[data-state='sleep'] .parade-face {
+  animation: parade-breathe 2.6s ease-in-out infinite alternate;
+}
+
+.parade-face [data-part='zzz'] {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: avatar-zzz 3s ease-out infinite both;
+}
+
+/* Awake, the eyes blink as they do on a tile in the room. */
+.parade-face [data-part='eye'] {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: avatar-blink 4.2s ease-in-out infinite;
+}
+
+/* Startled awake: one jump, higher than a hop. */
+.parade-walker[data-state='wake'] .parade-face {
+  animation: parade-hop 0.7s cubic-bezier(0.3, 0, 0.2, 1);
+}
+
+/* Picked: tucks in for the jump, then stretches out along it. */
+.parade-walker[data-state='leap'] .parade-face {
+  animation: parade-leap 0.72s cubic-bezier(0.35, 0, 0.25, 1) both;
+}
+
+.parade-walker:hover .parade-face {
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.35)) brightness(1.15);
+}
+
+.parade-walker[data-state='hop'] .parade-face {
+  animation: parade-hop 0.52s cubic-bezier(0.3, 0, 0.2, 1);
+}
+
+/* Meeting someone: two little hops and a squash on landing. */
+.parade-walker[data-state='greet'] .parade-face {
+  animation: parade-greet 0.6s cubic-bezier(0.3, 0, 0.2, 1) 2;
+}
+
+@keyframes parade-step {
+  from {
+    transform: translateY(0) rotate(-5deg) scaleY(0.97);
+  }
+  to {
+    transform: translateY(-10%) rotate(5deg) scaleY(1.02);
+  }
+}
+
+@keyframes parade-sway {
+  from {
+    transform: rotate(-3deg);
+  }
+  to {
+    transform: rotate(3deg);
+  }
+}
+
+@keyframes parade-hop {
+  0% {
+    transform: scaleY(0.9) scaleX(1.06);
+  }
+  40% {
+    transform: translateY(-45%) scaleY(1.06) scaleX(0.96);
+  }
+  80% {
+    transform: translateY(0) scaleY(0.92) scaleX(1.06);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+@keyframes parade-breathe {
+  from {
+    transform: scaleY(0.98) scaleX(1.01);
+  }
+  to {
+    transform: scaleY(1.03) scaleX(0.99);
+  }
+}
+
+@keyframes parade-notice {
+  0% {
+    transform: scaleY(0.94) scaleX(1.04);
+  }
+  45% {
+    transform: translateY(-16%) scaleY(1.05) scaleX(0.97);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+@keyframes parade-leap {
+  0% {
+    transform: scaleY(0.8) scaleX(1.15);
+  }
+  25% {
+    transform: scaleY(1.15) scaleX(0.9) rotate(-8deg);
+  }
+  60% {
+    transform: scaleY(1.05) scaleX(0.95) rotate(6deg);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+@keyframes parade-greet {
+  0% {
+    transform: scaleY(0.92) scaleX(1.05);
+  }
+  40% {
+    transform: translateY(-28%) rotate(-6deg);
+  }
+  75% {
+    transform: translateY(0) scaleY(0.92) scaleX(1.05);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+/* A phone has no room to spare under the form: a smaller crowd. */
+@media (max-width: 640px) {
+  .parade {
+    height: 5rem;
+  }
+
+  .parade-walker:nth-child(n + 5) {
+    display: none;
+  }
+}
+
+/* Too little height and the form itself reaches the bottom edge. */
+@media (max-height: 640px) {
+  .parade {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .parade-face,
+  .parade-body,
+  .parade-face [data-part='zzz'],
+  .parade-face [data-part='eye'] {
+    animation: none;
+    transition: none;
+  }
+}
