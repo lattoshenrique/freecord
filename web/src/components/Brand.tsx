@@ -25,10 +25,8 @@ type Props = {
  * dress it. That is what lets one component sit inside a link that lights up
  * on hover and inside a page title that does not.
  *
- * The name is drawn one letter to a span so each can arrive on its own and
- * sit tucked under its neighbour (see brand.css). The letters are hidden
- * from assistive tech — a word cut into eight pieces is read as eight
- * words — and the whole name is carried once, unseen, beside them.
+ * The name is one word, set plainly — the way it is set in the share card
+ * (web/public/og.png), so the brand looks the same wherever it turns up.
  */
 export default function Brand({ size = 26, name = true, className }: Props) {
   const { t } = useI18n();
@@ -37,27 +35,7 @@ export default function Brand({ size = 26, name = true, className }: Props) {
   return (
     <span className={['brand', className ?? ''].join(' ').trim()}>
       <Logo size={size} />
-      <span className={name ? 'brand-name' : 'brand-name brand-name-off'}>
-        <span className="brand-word" aria-hidden="true">
-          {[...word].map((letter, index) => (
-            <span
-              key={index}
-              className="brand-letter"
-              style={
-                {
-                  '--i': index,
-                  // Later letters sit under earlier ones, so the overlap
-                  // always falls the same way: left over right.
-                  '--z': word.length - index,
-                } as React.CSSProperties
-              }
-            >
-              {letter}
-            </span>
-          ))}
-        </span>
-        <span className="brand-said">{word}</span>
-      </span>
+      <span className={name ? 'brand-name' : 'brand-name brand-name-off'}>{word}</span>
     </span>
   );
 }
