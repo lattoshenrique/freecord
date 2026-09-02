@@ -10,6 +10,27 @@ export const enUS = {
     'Voice, video, chat and screen sharing over a P2P mesh. No media server in the middle.',
   'app.buildInfo': 'Version {version} · build {build}',
 
+  /*
+   * The desktop app's own title bar (components/TitleBar.tsx). The window has
+   * no system chrome, so these are the labels the operating system would
+   * otherwise have written for us.
+   */
+  'desktop.window.room': 'Room',
+  'desktop.window.minimize': 'Minimize',
+  'desktop.window.maximize': 'Maximize',
+  'desktop.window.restore': 'Restore',
+  'desktop.window.close': 'Close',
+  'desktop.menu.open': 'Menu',
+  'desktop.menu.reload': 'Reload',
+  'desktop.menu.zoomIn': 'Zoom in',
+  'desktop.menu.zoomOut': 'Zoom out',
+  'desktop.menu.resetZoom': 'Actual size',
+  'desktop.menu.fullscreen': 'Full screen',
+  'desktop.menu.devTools': 'Developer tools',
+  'desktop.menu.openInBrowser': 'Open in browser',
+  'desktop.menu.sourceCode': 'Source code',
+  'desktop.menu.quit': 'Quit',
+
   'home.roomName': 'Room name',
   'home.roomNamePlaceholder': 'Room name — or paste an invite link',
   'home.create': 'Create room',

@@ -1,0 +1,131 @@
+/**
+ * The desktop shell, from the page's side.
+ *
+ * In the app this page runs inside an Electron window with **no system title
+ * bar**: the shell asks for a frameless window and the page draws the bar
+ * itself, so the product looks the same in the browser and in the app instead
+ * of wearing a strip of Windows above it. See desktop/src/window-chrome.ts for
+ * the other half.
+ *
+ * The two halves ship separately — the shell is installed, the page is
+ * deployed — so nothing here assumes a shape. A bridge that is absent, a
+ * capability that is missing, a call that is not a function: all of them mean
+ * "browser", and the page simply draws no bar. That is what lets an old shell
+ * run a new page (no `windowChrome`, so no bar and the system frame is still
+ * there) and a new shell run an old page (no bar drawn, so the shell puts the
+ * menu bar back — a frameless window nobody can close is the one outcome we
+ * cannot ship).
+ */
+import type { MessageKey } from '../i18n/locales/en-US';
+
+/** What the bar needs to know about the window it is drawn on. */
+export interface DesktopWindowState {
+  maximized: boolean;
+  fullScreen: boolean;
+  focused: boolean;
+}
+
+/**
+ * Everything the page may ask of its window. Mirrors `WindowCommand` in
+ * desktop/src/window-chrome.ts, which whitelists them again on arrival — a
+ * command this side invents is ignored, not obeyed.
+ */
+export type WindowCommand =
+  | 'minimize'
+  | 'toggle-maximize'
+  | 'close'
+  | 'reload'
+  | 'zoom-in'
+  | 'zoom-out'
+  | 'zoom-reset'
+  | 'fullscreen'
+  | 'devtools'
+  | 'open-browser'
+  | 'source'
+  | 'quit';
+
+export interface DesktopWindowApi {
+  /** "The bar is on screen" — until this lands the shell assumes it is not. */
+  ready(): void;
+  state(): Promise<unknown>;
+  onState(handler: (state: unknown) => void): () => void;
+  run(command: WindowCommand): void;
+}
+
+export interface DesktopBridge {
+  version?: unknown;
+  platform?: unknown;
+  capabilities?: {
+    systemAudio?: unknown;
+    windowChrome?: unknown;
+    trafficLights?: unknown;
+  };
+  window?: Partial<Record<keyof DesktopWindowApi, unknown>>;
+}
+
+interface BridgeHost {
+  freecordDesktop?: DesktopBridge;
+}
+
+/**
+ * The bridge the shell's preload exposed, if this is running inside one.
+ * Guarded for the places with no window at all — the unit tests, and any
+ * prerender that might one day import this.
+ */
+export function desktopBridge(): DesktopBridge | undefined {
+  return typeof window === 'undefined'
+    ? undefined
+    : (window as unknown as BridgeHost).freecordDesktop;
+}
+
+/**
+ * The window controls, or null when nothing should be drawn: outside the app,
+ * on a shell that still draws its own frame, or on one whose bridge is missing
+ * a call this bar depends on.
+ */
+export function windowChrome(bridge = desktopBridge()): DesktopWindowApi | null {
+  if (bridge?.capabilities?.windowChrome !== true) {
+    return null;
+  }
+  const api = bridge.window;
+  const calls = ['ready', 'state', 'onState', 'run'] as const;
+  if (!api || calls.some((call) => typeof api[call] !== 'function')) {
+    return null;
+  }
+  return api as unknown as DesktopWindowApi;
+}
+
+/** True where the platform keeps its own buttons and the bar makes room. */
+export function hasTrafficLights(bridge = desktopBridge()): boolean {
+  return bridge?.capabilities?.trafficLights === true;
+}
+
+/** Narrows what came over the bridge; a malformed state is simply ignored. */
+export function isWindowState(value: unknown): value is DesktopWindowState {
+  const state = value as Partial<DesktopWindowState> | null;
+  return (
+    typeof state === 'object' &&
+    state !== null &&
+    typeof state.maximized === 'boolean' &&
+    typeof state.fullScreen === 'boolean' &&
+    typeof state.focused === 'boolean'
+  );
+}
+
+/**
+ * What the bar writes in the middle: where you are, not what the page is
+ * called. The room deliberately has no name of its own here — the slug is the
+ * credential and the title bar is the first thing in any screenshot.
+ */
+export function titleBarLabel(pathname: string): MessageKey | null {
+  if (pathname.startsWith('/r/')) {
+    return 'desktop.window.room';
+  }
+  if (pathname.startsWith('/community')) {
+    return 'home.community';
+  }
+  if (pathname.startsWith('/how-it-works')) {
+    return 'how.link';
+  }
+  return null;
+}

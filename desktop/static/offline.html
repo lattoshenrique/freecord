@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta
@@ -8,32 +8,145 @@
     />
     <title>Freecord</title>
     <style>
-      :root { color-scheme: dark; }
+      /*
+       * Shown when the app cannot reach the page it is a shell around.
+       *
+       * The window has no system frame (see frameOptions in main.ts), so this
+       * page carries a bar of its own — without it, the one screen that shows
+       * up when everything else failed would be a window nobody can move or
+       * close. The buttons talk to the same bridge the app's title bar uses
+       * (window.freecordDesktop.window, see desktop/src/preload.ts).
+       */
+      :root {
+        color-scheme: dark;
+        --text: #e9ebf0;
+        --muted: #9aa0ad;
+        --accent: #5865f2;
+        --danger: #e5484d;
+        --bar-h: 34px;
+      }
+      * { box-sizing: border-box; }
       body {
-        margin: 0; height: 100vh; display: flex; flex-direction: column;
-        align-items: center; justify-content: center; gap: 0.75rem; text-align: center;
+        margin: 0;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
         /* The same face as the app: see web/src/styles.css. */
         font-family:
           'JetBrains Mono', 'Fira Code', 'IBM Plex Mono', 'Cascadia Code', ui-monospace,
           'SF Mono', SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
         font-variant-ligatures: none;
-        color: #e9ebf0;
+        color: var(--text);
         background:
           radial-gradient(40rem 26rem at 12% -8%, rgba(88, 101, 242, 0.16), transparent 60%),
           #0b0d12;
       }
+
+      .bar {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex: none;
+        height: var(--bar-h);
+        padding-left: 0.75rem;
+        -webkit-app-region: drag;
+        user-select: none;
+      }
+      /* macOS keeps its traffic lights: leave them the room, drop ours. */
+      body[data-platform='darwin'] .bar { padding-left: 5.5rem; }
+      body[data-platform='darwin'] .controls { display: none; }
+      .bar .name {
+        font-size: 0.72rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .bar .spacer { flex: 1; }
+      .controls { display: flex; -webkit-app-region: no-drag; }
+      .controls button {
+        display: grid;
+        place-items: center;
+        width: 44px;
+        height: var(--bar-h);
+        border: 0;
+        background: none;
+        color: var(--muted);
+        cursor: pointer;
+      }
+      .controls button:hover { background: rgba(255, 255, 255, 0.08); color: var(--text); }
+      .controls button.close:hover { background: var(--danger); color: #fff; }
+
+      .page {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+        padding: 1.5rem;
+        text-align: center;
+      }
       h1 { font-size: 1.2rem; margin: 0; }
-      p { color: #9aa0ad; margin: 0; max-width: 26rem; line-height: 1.5; }
+      p { color: var(--muted); margin: 0; max-width: 26rem; line-height: 1.5; }
       a {
-        margin-top: 0.5rem; background: #5865f2; border-radius: 8px; color: #fff;
-        font-weight: 600; padding: 0.7rem 1.3rem; text-decoration: none;
+        margin-top: 0.5rem;
+        background: var(--accent);
+        border-radius: 8px;
+        color: #fff;
+        font-weight: 600;
+        padding: 0.7rem 1.3rem;
+        text-decoration: none;
       }
     </style>
   </head>
   <body>
-    <h1 id="title"></h1>
-    <p id="body"></p>
-    <a id="retry" href="#"></a>
+    <div class="bar">
+      <!-- The mark, still: the same geometry the app animates. -->
+      <svg width="16" height="16" viewBox="0 0 64 64" aria-hidden="true">
+        <defs>
+          <linearGradient id="mark" x1="14" y1="14" x2="50" y2="50" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#5865f2" />
+            <stop offset="1" stop-color="#a855f7" />
+          </linearGradient>
+        </defs>
+        <path
+          d="M40.1 14.4 49.5 49.5 14.4 40.1Z"
+          fill="none"
+          stroke="url(#mark)"
+          stroke-width="5.5"
+          stroke-linejoin="round"
+        />
+        <circle cx="40.1" cy="14.4" r="7.5" fill="url(#mark)" />
+        <circle cx="49.5" cy="49.5" r="7.5" fill="url(#mark)" />
+        <circle cx="14.4" cy="40.1" r="7.5" fill="url(#mark)" />
+      </svg>
+      <span class="name">Freecord</span>
+      <span class="spacer"></span>
+      <div class="controls">
+        <button id="minimize" type="button">
+          <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+            <path d="M0 5h10" stroke="currentColor" stroke-width="1.2" />
+          </svg>
+        </button>
+        <button id="maximize" type="button">
+          <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+            <rect x="0.6" y="0.6" width="8.8" height="8.8" fill="none" stroke="currentColor" stroke-width="1.2" />
+          </svg>
+        </button>
+        <button id="close" class="close" type="button">
+          <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+            <path d="M0 0 10 10M10 0 0 10" stroke="currentColor" stroke-width="1.2" />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="page">
+      <h1 id="title"></h1>
+      <p id="body"></p>
+      <a id="retry" href="#"></a>
+    </div>
+
     <script>
       // URL and already-translated strings come by query from the main process
       // (see did-fail-load in main.ts) — one source of truth for the locale.
@@ -46,6 +159,21 @@
       if (url) {
         retry.href = url;
       }
+      document.documentElement.lang = params.get('locale') ?? 'en';
+      document.body.dataset.platform = params.get('platform') ?? '';
+
+      // The bar is only a bar if it works: without these, a frameless window
+      // showing this page could not be closed.
+      const shell = window.freecordDesktop?.window;
+      const wire = (id, command, label) => {
+        const button = document.getElementById(id);
+        button.setAttribute('aria-label', params.get(label) ?? command);
+        button.addEventListener('click', () => shell?.run(command));
+      };
+      wire('minimize', 'minimize', 'minimize');
+      wire('maximize', 'toggle-maximize', 'maximize');
+      wire('close', 'close', 'close');
+      shell?.ready();
     </script>
   </body>
 </html>

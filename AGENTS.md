@@ -147,9 +147,18 @@ and its installers are built by GitHub Actions on a `desktop-v*` tag.
 
 The Electron app is a **shell around the production page**, not a copy of the
 build: every Worker deploy reaches installed apps immediately. What it adds is
-what a browser can't do — a native screen-source picker
+what a browser can't do — a screen-source picker of our own
 (`setDisplayMediaRequestHandler`, which Electron requires or screen sharing
 simply fails), system media permissions, and a real window.
+
+Its windows are **frameless**, and the page draws the title bar
+(`web/src/components/TitleBar.tsx` ↔ `desktop/src/window-chrome.ts`). Two rules
+follow. The height the bar costs is `--titlebar-h`, subtracted once into
+`--app-h`: a full-height screen measures itself against that token and never
+writes `100dvh` again. And both sides fail safe — the page draws no bar unless
+the shell declares the `windowChrome` capability, and a shell whose page never
+reports one back puts the menu bar in, because a frameless window nobody can
+close is the one outcome neither side may ship.
 
 Installers are too big for Cloudflare assets (25 MiB per file cap, ~130 MB per
 installer), so they live in GitHub Releases with **fixed filenames** — that's

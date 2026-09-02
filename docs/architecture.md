@@ -304,9 +304,27 @@ client, one deploy. What it adds is permission the browser cannot give
   link, so the screen uplink budget rises from 10 to 25 Mbps and every preset's
   bitrate ceiling doubles. Browsers keep the conservative numbers.
 
+The one thing the shell adds that is not about media is **the window itself**.
+Electron offers an app the system's title bar or nothing at all, and a strip of
+Windows grey above a Freecord was the one surface the product's design never
+reached — and the first thing anyone saw. So both windows are frameless
+(`desktop/src/window-chrome.ts`) and the page draws the bar: the mark, where
+you are, the three buttons and the application menu behind the mark, in the
+app's own type and colours (`web/src/components/TitleBar.tsx`). macOS keeps its
+traffic lights — there they *are* the platform's affordance — and the bar
+leaves them room. What the bar costs is a token, not a number each screen
+knows: `--titlebar-h`, subtracted once into `--app-h`, which every full-height
+screen measures itself against; full screen gives all of it back. The screen
+picker window wears the same chrome, and so does the offline page, which is the
+one screen that shows up when everything else has failed.
+
 The shell announces what it can do through one additive-safe surface
 (`window.freecordDesktop.capabilities`); the site treats a missing flag as
-`false`, so old shells and new pages keep working in both directions.
+`false`, so old shells and new pages keep working in both directions. The title
+bar rides that contract in both directions: the page draws no bar unless the
+shell declares `windowChrome`, and a shell whose page never reports one back
+puts the menu bar in — a frameless window nobody can close is the one outcome
+neither side may ship.
 
 The shell also updates itself (`desktop/src/updater.ts`, zero dependencies):
 it polls the same `/api/downloads` catalog the website serves, and applies

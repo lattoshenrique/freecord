@@ -10,6 +10,11 @@ import HomePage from './pages/Home';
  */
 import RoomRoute from './pages/room-route';
 import RouteMeta from './seo/RouteMeta';
+/*
+ * The desktop app's window has no system title bar: this draws it. In a
+ * browser it renders nothing — see components/TitleBar.tsx.
+ */
+import TitleBar from './components/TitleBar';
 import './styles.css';
 // After styles.css: the hero names have to win any tie with the sheets they
 // name, and they are the last word on how a screen change moves.
@@ -32,6 +37,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <I18nProvider>
       <BrowserRouter>
         <RouteMeta />
+        <TitleBar />
         <Suspense fallback={<RouteFallback />}>
           <Routes>
             <Route path="/" element={<HomePage />} />

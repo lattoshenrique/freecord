@@ -13,6 +13,11 @@
  *   fails. Here it becomes a window of ours (`static/picker.html`).
  * - Media permissions decided in the main process, only for the app's origin.
  * - A dedicated window, a dock/taskbar icon and system shortcuts.
+ *
+ * Both windows are frameless: the title bar is drawn by the page, in the
+ * product's own type and colours, instead of by the operating system. See
+ * window-chrome.ts for the contract, and web/src/components/TitleBar.tsx for
+ * the bar the app page draws.
  */
 import {
   BrowserWindow,
@@ -29,8 +34,10 @@ import {
   type MenuItemConstructorOptions,
 } from 'electron';
 import path from 'node:path';
-import { createTranslator, pickerStrings, type StringKey } from './i18n';
+import { pathToFileURL } from 'node:url';
+import { createTranslator, pickerStrings, resolveLocale, type Locale, type StringKey } from './i18n';
 import { startUpdater } from './updater';
+import { attachWindowChrome, installWindowChrome } from './window-chrome';
 
 /** Production by default; `FREECORD_URL=http://localhost:5173` for dev. */
 const APP_URL = process.env.FREECORD_URL ?? 'https://freecord.lattoshenrique.workers.dev';
@@ -38,6 +45,8 @@ const APP_ORIGIN = new URL(APP_URL).origin;
 const SOURCE_URL = 'https://github.com/lattoshenrique/freecord';
 
 const STATIC_DIR = path.join(__dirname, '..', 'static');
+/** The same directory as a URL prefix — what `loadFile` puts in the address. */
+const STATIC_URL = pathToFileURL(STATIC_DIR).href;
 
 // Command-line switches must land before `app.whenReady()` — Chromium reads
 // them once, at startup, and only honors the *last* occurrence of each flag
@@ -60,6 +69,8 @@ if (process.platform === 'linux') {
 
 let mainWindow: BrowserWindow | null = null;
 let t: (key: StringKey) => string = createTranslator('en-US');
+/** The tag our own pages get in `lang`: CJK line breaking depends on it. */
+let locale: Locale = 'en-US';
 
 function isAppUrl(url: string): boolean {
   try {
@@ -67,6 +78,21 @@ function isAppUrl(url: string): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * How a window of ours asks the system for no chrome.
+ *
+ * Windows and Linux get a frameless window and the page draws everything.
+ * macOS keeps its traffic lights — they are the platform's own affordance and
+ * an app without them reads as broken — and hides the rest of the bar; the
+ * page leaves a gap for them (see `--titlebar-lights` in web/src/styles.css).
+ * `trafficLightPosition` centres the three buttons in the bar's height.
+ */
+function frameOptions(): Partial<Electron.BrowserWindowConstructorOptions> {
+  return process.platform === 'darwin'
+    ? { titleBarStyle: 'hidden', trafficLightPosition: { x: 14, y: 12 } }
+    : { frame: false };
 }
 
 /* ------------------------------------------------------------------ *
@@ -97,19 +123,26 @@ function openPicker(parent: BrowserWindow | null, sources: PickerSource[]): Prom
     const win = new BrowserWindow({
       parent: parent ?? undefined,
       modal: Boolean(parent),
-      width: 880,
-      height: 640,
-      minWidth: 520,
-      minHeight: 420,
+      width: 900,
+      height: 660,
+      minWidth: 560,
+      minHeight: 460,
       title: t('pickerTitle'),
       backgroundColor: '#0b0d12',
       show: false,
+      // Same chrome as the main window: the picker is part of the app, not a
+      // system dialog that happens to be ours.
+      ...frameOptions(),
+      // A child window inherits the application menu on Windows and Linux;
+      // a modal sheet with a File menu in it is nobody's design.
+      autoHideMenuBar: true,
       webPreferences: {
         preload: path.join(__dirname, 'picker-preload.js'),
         contextIsolation: true,
         sandbox: true,
       },
     });
+    win.removeMenu();
 
     let settled = false;
     const finish = (id: string | null) => {
@@ -133,7 +166,18 @@ function openPicker(parent: BrowserWindow | null, sources: PickerSource[]): Prom
     ipcMain.on('picker:choose', onChoose);
     win.on('closed', () => finish(null));
     win.webContents.once('did-finish-load', () => {
-      win.webContents.send('picker:sources', { sources, strings: pickerStrings(t) });
+      win.webContents.send('picker:sources', {
+        sources,
+        strings: pickerStrings(t),
+        locale,
+        // The page draws its own chrome, and what that costs differs per
+        // platform: room for the traffic lights on macOS, our own close
+        // button everywhere else.
+        platform: process.platform,
+        // Only Windows loops system audio into the capture (see below), so
+        // only there may the picker promise it.
+        systemAudio: process.platform === 'win32',
+      });
       win.show();
     });
     void win.loadFile(path.join(STATIC_DIR, 'picker.html'));
@@ -191,7 +235,8 @@ function configureSession(): void {
       try {
         const sources = await desktopCapturer.getSources({
           types: ['screen', 'window'],
-          thumbnailSize: { width: 480, height: 270 },
+          // Big enough to stay sharp on a HiDPI screen at card width.
+          thumbnailSize: { width: 640, height: 360 },
           fetchWindowIcons: true,
         });
         const chosen = await openPicker(parent, sources.map(toPickerSource));
@@ -266,6 +311,10 @@ function createWindow(): BrowserWindow {
     minHeight: 600,
     backgroundColor: '#0b0d12',
     title: 'Freecord',
+    ...frameOptions(),
+    // The menu still exists off screen on Windows and Linux — it is where the
+    // accelerators live, and Alt is the fire exit if the page's own bar ever
+    // fails to draw (window-chrome.ts arms that fallback).
     autoHideMenuBar: process.platform !== 'darwin',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -302,8 +351,24 @@ function createWindow(): BrowserWindow {
           title: t('offlineTitle'),
           body: t('offlineBody'),
           retry: t('offlineRetry'),
+          locale,
+          // The window has no frame: this page carries the bar, so it needs
+          // the labels and the platform to draw it (see offline.html).
+          platform: process.platform,
+          minimize: t('windowMinimize'),
+          maximize: t('windowMaximize'),
+          close: t('windowClose'),
         },
       });
+    }
+  });
+
+  // Window buttons, live window state, and the fallback for a page that never
+  // draws a bar: without a frame, that would be a window nobody can close.
+  attachWindowChrome(win, (target) => {
+    if (process.platform !== 'darwin') {
+      target.setAutoHideMenuBar(false);
+      target.setMenuBarVisibility(true);
     }
   });
 
@@ -376,7 +441,18 @@ if (!app.requestSingleInstanceLock()) {
   void app.whenReady().then(() => {
     // Locale is only reliable after the app is ready.
     t = createTranslator(app.getLocale());
+    locale = resolveLocale(app.getLocale());
     configureSession();
+    installWindowChrome({
+      appUrl: APP_URL,
+      sourceUrl: SOURCE_URL,
+      // Only a window we opened, showing either the app's origin or one of
+      // the pages we ship, may drive its window.
+      isTrusted: (contents) => {
+        const url = contents.getURL();
+        return isAppUrl(url) || url.startsWith(STATIC_URL);
+      },
+    });
     buildMenu();
     mainWindow = createWindow();
     // The page updates on every deploy; this keeps the shell itself fresh.

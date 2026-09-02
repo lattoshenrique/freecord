@@ -33,6 +33,20 @@
   --track-display: -0.02em;
   --track-tight: -0.01em;
   --track-label: 0.08em;
+  /*
+   * What the desktop app's own title bar costs the page.
+   *
+   * In a browser there is no bar and no cost: zero, and --app-h is the
+   * viewport. Inside the shell the window has no system frame and the page
+   * draws the bar itself (components/TitleBar.tsx), so every full-height
+   * screen measures itself against --app-h instead of the viewport — one
+   * token, rather than each screen knowing the app exists. In full screen the
+   * bar steps aside and the attribute goes with it.
+   */
+  --titlebar-h: 0px;
+  --app-h: calc(100dvh - var(--titlebar-h));
+  /* The gap macOS's traffic lights need before anything of ours starts. */
+  --titlebar-lights: 5rem;
   /* A mesma folga em todos os cantos da sala: header, palco, chat e dock. */
   --room-pad: 0.75rem;
   /*
@@ -93,8 +107,14 @@ body {
   color: var(--text);
 }
 
+:root[data-desktop-chrome='bar'] {
+  --titlebar-h: 2.125rem;
+}
+
 #root {
-  height: 100dvh;
+  height: var(--app-h);
+  /* Where the bar is, when there is one: it floats, so this is its room. */
+  margin-top: var(--titlebar-h);
 }
 
 ::selection {
@@ -257,7 +277,7 @@ select:focus-visible,
    pages/prejoin.css; what is left here is the card the loading, not-found and
    error states share. */
 .centered {
-  min-height: 100dvh;
+  min-height: var(--app-h);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -364,7 +384,7 @@ select:focus-visible,
   position: relative;
   display: flex;
   flex-direction: column;
-  height: 100dvh;
+  height: var(--app-h);
   animation: fade-in 0.3s var(--ease) both;
 }
 

@@ -8,8 +8,8 @@
  */
 
 .community {
-  min-height: 100dvh;
-  /* The page scrolls; the room pages don't. #root is a fixed 100dvh box. */
+  min-height: var(--app-h);
+  /* The page scrolls; the room pages don't. #root is a fixed --app-h box. */
   overflow-y: auto;
 }
 

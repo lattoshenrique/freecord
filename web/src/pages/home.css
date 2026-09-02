@@ -7,15 +7,15 @@
  */
 
 .home {
-  min-height: 100dvh;
-  /* Short viewports still reach the footer; #root is a fixed 100dvh box. */
+  min-height: var(--app-h);
+  /* Short viewports still reach the footer; #root is a fixed --app-h box. */
   overflow-y: auto;
 }
 
 /* ---- the screen ---- */
 
 .start {
-  min-height: 100dvh;
+  min-height: var(--app-h);
   display: flex;
   flex-direction: column;
   padding: 1.5rem;

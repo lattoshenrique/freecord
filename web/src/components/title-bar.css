@@ -1,0 +1,201 @@
+/*
+ * The window's own bar (TitleBar.tsx), and the height it costs everything
+ * under it.
+ *
+ * Its own sheet by the same convention as home.css and download.css: a
+ * self-contained block cannot be clobbered by another session editing the
+ * global sheet. The two tokens it *sets* live in styles.css, next to the rest
+ * of them, because every full-height screen reads them.
+ */
+
+.titlebar {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  height: var(--titlebar-h);
+  padding-left: 0.7rem;
+  background: rgba(11, 13, 18, 0.72);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  /* The strip is the window's handle; every control opts back out below. */
+  -webkit-app-region: drag;
+  user-select: none;
+  animation: fade-in 0.3s var(--ease) both;
+}
+
+/* macOS draws its traffic lights over this corner: leave them the room. */
+.titlebar[data-mac='true'] {
+  padding-left: var(--titlebar-lights);
+}
+
+/* An unfocused window says so, the way every platform does. */
+.titlebar[data-blurred='true'] {
+  opacity: 0.62;
+}
+
+/* ---- the mark, and the menu behind it ---- */
+
+.titlebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0 0.35rem;
+  height: calc(var(--titlebar-h) - 0.5rem);
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.78rem;
+  letter-spacing: var(--track-tight);
+}
+
+.titlebar-trigger {
+  -webkit-app-region: no-drag;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.titlebar-trigger:hover,
+.titlebar-trigger[aria-expanded='true'] {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.titlebar-trigger:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* The affordance stays quiet until there is a reason to look for it. */
+.titlebar-chevron {
+  display: flex;
+  color: var(--muted);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.titlebar-trigger:hover .titlebar-chevron,
+.titlebar-trigger:focus-visible .titlebar-chevron,
+.titlebar-trigger[aria-expanded='true'] .titlebar-chevron {
+  opacity: 1;
+}
+
+/* Where you are, set as one of the small labels the rest of the app uses. */
+.titlebar-label {
+  margin-left: 0.5rem;
+  padding-left: 0.6rem;
+  border-left: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.68rem;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.titlebar-drag {
+  flex: 1;
+  align-self: stretch;
+}
+
+/* ---- minimize, maximize, close ---- */
+
+.titlebar-controls {
+  display: flex;
+  align-self: stretch;
+  -webkit-app-region: no-drag;
+}
+
+.titlebar-button {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.titlebar-button:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+}
+
+.titlebar-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* The one button that should never be pressed by accident wears the warning. */
+.titlebar-close:hover {
+  background: var(--danger);
+  color: #fff;
+}
+
+/* ---- the menu ---- */
+
+.titlebar-menu {
+  position: absolute;
+  top: calc(var(--titlebar-h) - 0.25rem);
+  left: 0.5rem;
+  z-index: 1;
+  min-width: 15rem;
+  display: flex;
+  flex-direction: column;
+  padding: 0.35rem;
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  background: var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow);
+  -webkit-app-region: no-drag;
+  animation: rise-in 0.16s var(--ease) both;
+}
+
+.titlebar-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 0.45rem 0.6rem;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8rem;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.titlebar-menu-item:hover,
+.titlebar-menu-item:focus-visible {
+  background: var(--accent);
+  color: #fff;
+  outline: none;
+}
+
+.titlebar-menu-hint {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.titlebar-menu-item:hover .titlebar-menu-hint,
+.titlebar-menu-item:focus-visible .titlebar-menu-hint {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.titlebar-menu-rule {
+  height: 1px;
+  margin: 0.3rem 0.35rem;
+  background: var(--border);
+}

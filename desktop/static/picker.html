@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta
@@ -8,6 +8,16 @@
     />
     <title>Freecord</title>
     <style>
+      /*
+       * The screen picker, dressed like the rest of the product.
+       *
+       * Electron gives `getDisplayMedia` no picker of its own, so this window
+       * is the whole experience of choosing what to share — and it used to
+       * arrive wearing the system's title bar and the app menu above it. Now
+       * the window is frameless (see frameOptions in main.ts) and everything
+       * on screen is ours: the same tokens, the same face and the same glass
+       * as web/src/styles.css.
+       */
       :root {
         color-scheme: dark;
         --bg: #0b0d12;
@@ -15,7 +25,13 @@
         --muted: #9aa0ad;
         --accent: #5865f2;
         --accent-hover: #6a76f5;
+        --danger: #e5484d;
         --border: rgba(255, 255, 255, 0.14);
+        --glass-bg: rgba(255, 255, 255, 0.06);
+        --glass-border: rgba(255, 255, 255, 0.12);
+        --ease: cubic-bezier(0.22, 1, 0.36, 1);
+        --track-label: 0.08em;
+        --bar-h: 44px;
       }
       * { box-sizing: border-box; }
       body {
@@ -28,85 +44,226 @@
           'JetBrains Mono', 'Fira Code', 'IBM Plex Mono', 'Cascadia Code', ui-monospace,
           'SF Mono', SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
         font-variant-ligatures: none;
+        font-variant-numeric: tabular-nums;
+        -webkit-font-smoothing: antialiased;
         color: var(--text);
         background:
           radial-gradient(40rem 26rem at 10% -10%, rgba(88, 101, 242, 0.18), transparent 60%),
           radial-gradient(36rem 24rem at 95% 10%, rgba(168, 85, 247, 0.13), transparent 60%),
           var(--bg);
       }
-      header { padding: 1.25rem 1.5rem 0.75rem; }
-      h1 { margin: 0; font-size: 1.05rem; }
-      p { margin: 0.35rem 0 0; color: var(--muted); font-size: 0.85rem; }
-      .tabs { display: flex; gap: 0.5rem; padding: 0.75rem 1.5rem 0; }
-      .tab {
-        background: none; border: 1px solid transparent; border-radius: 999px;
-        color: var(--muted); cursor: pointer; font: inherit; font-size: 0.85rem;
-        padding: 0.35rem 0.9rem;
+
+      /* ---- the window's own bar ---- */
+
+      .bar {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        flex: none;
+        height: var(--bar-h);
+        padding-left: 0.85rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+        /* The whole strip drags the window; the buttons opt out below. */
+        -webkit-app-region: drag;
+        user-select: none;
       }
+      /* macOS keeps its traffic lights: leave them the room they need. */
+      body[data-platform='darwin'] .bar { padding-left: 5.5rem; }
+      body[data-platform='darwin'] .bar-close { display: none; }
+      .bar .mark { flex: none; }
+      .bar h1 {
+        margin: 0;
+        font-size: 0.82rem;
+        font-weight: 600;
+        letter-spacing: var(--track-label);
+        text-transform: uppercase;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .bar-spacer { flex: 1; }
+      .bar-close {
+        -webkit-app-region: no-drag;
+        display: grid;
+        place-items: center;
+        width: 46px;
+        height: var(--bar-h);
+        border: 0;
+        background: none;
+        color: var(--muted);
+        cursor: pointer;
+        transition: background-color 0.15s ease, color 0.15s ease;
+      }
+      .bar-close:hover { background: var(--danger); color: #fff; }
+      .bar-close:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+      /* ---- what to share ---- */
+
+      .lead { padding: 1.1rem 1.5rem 0; }
+      .lead p { margin: 0; color: var(--muted); font-size: 0.85rem; line-height: 1.5; }
+      .tabs { display: flex; gap: 0.4rem; padding: 0.9rem 1.5rem 0; }
+      .tab {
+        background: none;
+        border: 1px solid transparent;
+        border-radius: 999px;
+        color: var(--muted);
+        cursor: pointer;
+        font: inherit;
+        font-size: 0.82rem;
+        padding: 0.35rem 0.95rem;
+        transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+      }
+      .tab:hover { color: var(--text); }
       .tab[aria-selected='true'] {
-        background: rgba(255, 255, 255, 0.08);
-        border-color: var(--border);
+        background: var(--glass-bg);
+        border-color: var(--glass-border);
         color: var(--text);
       }
-      main { flex: 1; overflow-y: auto; padding: 1rem 1.5rem; }
+      .tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+      main { flex: 1; overflow-y: auto; padding: 1rem 1.5rem 1.25rem; }
       .grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
         gap: 0.85rem;
       }
       .card {
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid var(--border);
+        position: relative;
+        background: var(--glass-bg);
+        border: 1px solid var(--glass-border);
         border-radius: 14px;
         cursor: pointer;
         overflow: hidden;
         padding: 0;
         text-align: left;
-        transition: border-color 0.15s ease, transform 0.15s ease;
         font: inherit;
         color: inherit;
+        transition:
+          border-color 0.18s var(--ease),
+          transform 0.18s var(--ease),
+          box-shadow 0.18s var(--ease);
       }
-      .card:hover { transform: translateY(-2px); }
-      .card[aria-pressed='true'] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+      .card:hover { transform: translateY(-2px); border-color: rgba(255, 255, 255, 0.24); }
+      .card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+      .card[aria-pressed='true'] {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 1px var(--accent), 0 10px 26px rgba(88, 101, 242, 0.28);
+      }
+      /* Arrow keys move the choice and the focus together, so the chosen card
+         wears one ring, not two. */
+      .card[aria-pressed='true']:focus-visible { outline: none; }
       .card img.shot {
-        width: 100%; aspect-ratio: 16 / 9; object-fit: contain;
-        background: #05070b; display: block;
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        object-fit: contain;
+        background: #05070b;
+        display: block;
       }
+      /* The tick that says "this one", drawn only on the chosen card. */
+      .card .tick {
+        position: absolute;
+        top: 0.55rem;
+        right: 0.55rem;
+        display: none;
+        place-items: center;
+        width: 22px;
+        height: 22px;
+        border-radius: 999px;
+        background: var(--accent);
+        color: #fff;
+      }
+      .card[aria-pressed='true'] .tick { display: grid; }
       .meta { display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 0.75rem; }
-      .meta img { width: 16px; height: 16px; }
+      .meta img { width: 16px; height: 16px; flex: none; }
       .meta span {
-        font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        font-size: 0.8rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
-      .empty { color: var(--muted); font-size: 0.9rem; padding: 2rem 0; text-align: center; }
+      .empty { color: var(--muted); font-size: 0.9rem; padding: 3rem 0; text-align: center; }
+
       footer {
-        display: flex; justify-content: flex-end; gap: 0.6rem;
-        padding: 0.9rem 1.5rem; border-top: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 0.9rem 1.5rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.07);
+      }
+      #hint {
+        flex: 1;
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.75rem;
+        line-height: 1.4;
       }
       button.action {
-        border-radius: 8px; cursor: pointer; font: inherit; font-weight: 600;
-        padding: 0.55rem 1.1rem; border: 1px solid var(--border);
-        background: transparent; color: var(--text);
+        border-radius: 10px;
+        cursor: pointer;
+        font: inherit;
+        font-weight: 600;
+        font-size: 0.85rem;
+        padding: 0.55rem 1.15rem;
+        border: 1px solid var(--glass-border);
+        background: transparent;
+        color: var(--text);
+        transition: background-color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
       }
+      button.action:hover:not(:disabled) { background: var(--glass-bg); }
+      button.action:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
       button.primary { background: var(--accent); border-color: transparent; color: #fff; }
       button.primary:hover:not(:disabled) { background: var(--accent-hover); }
-      button.primary:disabled { opacity: 0.5; cursor: default; }
+      button.primary:disabled { opacity: 0.45; cursor: default; }
+
+      @media (prefers-reduced-motion: reduce) {
+        * { transition: none !important; }
+        .card:hover { transform: none; }
+      }
     </style>
   </head>
   <body>
     <!-- Every label is filled from the main process (desktop/src/i18n.ts):
          the shell is localized in the same five languages as the web app. -->
-    <header>
+    <div class="bar">
+      <!-- The mark, still: the same geometry the app animates
+           (web/src/components/Logo.tsx, desktop/build/icon.svg). -->
+      <svg class="mark" width="18" height="18" viewBox="0 0 64 64" aria-hidden="true">
+        <defs>
+          <linearGradient id="mark" x1="14" y1="14" x2="50" y2="50" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#5865f2" />
+            <stop offset="1" stop-color="#a855f7" />
+          </linearGradient>
+        </defs>
+        <path
+          d="M40.1 14.4 49.5 49.5 14.4 40.1Z"
+          fill="none"
+          stroke="url(#mark)"
+          stroke-width="5.5"
+          stroke-linejoin="round"
+        />
+        <circle cx="40.1" cy="14.4" r="7.5" fill="url(#mark)" />
+        <circle cx="49.5" cy="49.5" r="7.5" fill="url(#mark)" />
+        <circle cx="14.4" cy="40.1" r="7.5" fill="url(#mark)" />
+      </svg>
       <h1 id="title"></h1>
-      <p id="subtitle"></p>
-    </header>
+      <span class="bar-spacer"></span>
+      <button class="bar-close" id="bar-close" type="button">
+        <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+          <path d="M0 0 10 10M10 0 0 10" stroke="currentColor" stroke-width="1.2" />
+        </svg>
+      </button>
+    </div>
+
+    <div class="lead"><p id="subtitle"></p></div>
     <div class="tabs" role="tablist">
-      <button class="tab" role="tab" data-kind="screen" aria-selected="true"></button>
-      <button class="tab" role="tab" data-kind="window" aria-selected="false"></button>
+      <button class="tab" role="tab" type="button" data-kind="screen" aria-selected="true"></button>
+      <button class="tab" role="tab" type="button" data-kind="window" aria-selected="false"></button>
     </div>
     <main><div class="grid" id="grid"></div></main>
     <footer>
-      <button class="action" id="cancel"></button>
-      <button class="action primary" id="share" disabled></button>
+      <p id="hint"></p>
+      <button class="action" id="cancel" type="button"></button>
+      <button class="action primary" id="share" type="button" disabled></button>
     </footer>
 
     <script>
@@ -117,24 +274,54 @@
       let kind = 'screen';
       let selected = null;
 
+      const visibleSources = () => sources.filter((source) => source.kind === kind);
+
+      function select(id, { focus = false } = {}) {
+        selected = id;
+        shareButton.disabled = id === null;
+        for (const card of grid.querySelectorAll('.card')) {
+          card.setAttribute('aria-pressed', String(card.dataset.id === id));
+          if (focus && card.dataset.id === id) {
+            card.focus();
+          }
+        }
+      }
+
       function render() {
-        const visible = sources.filter((source) => source.kind === kind);
+        const visible = visibleSources();
         grid.replaceChildren();
         if (visible.length === 0) {
           const empty = document.createElement('p');
           empty.className = 'empty';
           empty.textContent = kind === 'screen' ? strings.noScreens : strings.noWindows;
           grid.append(empty);
+          select(null);
           return;
         }
         for (const source of visible) {
           const card = document.createElement('button');
           card.className = 'card';
+          card.type = 'button';
+          card.dataset.id = source.id;
           card.setAttribute('aria-pressed', String(selected === source.id));
           const shot = document.createElement('img');
           shot.className = 'shot';
           shot.src = source.thumbnail;
           shot.alt = '';
+          const tick = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+          tick.setAttribute('class', 'tick');
+          tick.setAttribute('viewBox', '0 0 24 24');
+          tick.setAttribute('width', '14');
+          tick.setAttribute('height', '14');
+          tick.setAttribute('aria-hidden', 'true');
+          const check = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          check.setAttribute('d', 'M4 12.5 9.5 18 20 6.5');
+          check.setAttribute('fill', 'none');
+          check.setAttribute('stroke', 'currentColor');
+          check.setAttribute('stroke-width', '2.6');
+          check.setAttribute('stroke-linecap', 'round');
+          check.setAttribute('stroke-linejoin', 'round');
+          tick.append(check);
           const meta = document.createElement('div');
           meta.className = 'meta';
           if (source.appIcon) {
@@ -145,58 +332,93 @@
           }
           const name = document.createElement('span');
           name.textContent = source.name;
+          name.title = source.name;
           meta.append(name);
-          card.append(shot, meta);
-          card.addEventListener('click', () => {
-            selected = source.id;
-            shareButton.disabled = false;
-            render();
-          });
+          card.append(shot, tick, meta);
+          card.addEventListener('click', () => select(source.id));
           // Double click shares straight away — the path for people who know.
           card.addEventListener('dblclick', () => window.picker.choose(source.id));
           grid.append(card);
         }
+        // Nothing chosen yet: the first source is the likely answer, and it
+        // makes Enter work the moment the window opens.
+        if (!visible.some((source) => source.id === selected)) {
+          select(visible[0].id);
+        }
+      }
+
+      function showKind(next) {
+        kind = next;
+        for (const tab of document.querySelectorAll('.tab')) {
+          tab.setAttribute('aria-selected', String(tab.dataset.kind === next));
+        }
+        selected = null;
+        render();
       }
 
       for (const tab of document.querySelectorAll('.tab')) {
-        tab.addEventListener('click', () => {
-          kind = tab.dataset.kind;
-          for (const other of document.querySelectorAll('.tab')) {
-            other.setAttribute('aria-selected', String(other === tab));
-          }
-          render();
-        });
+        tab.addEventListener('click', () => showKind(tab.dataset.kind));
       }
 
       document.getElementById('cancel').addEventListener('click', () => window.picker.choose(null));
+      document.getElementById('bar-close').addEventListener('click', () => window.picker.choose(null));
       shareButton.addEventListener('click', () => {
         if (selected) {
           window.picker.choose(selected);
         }
       });
+
+      /*
+       * The keyboard alone is enough: arrows walk the grid, Enter shares what
+       * is chosen and Escape cancels — the same three keys any file chooser
+       * answers to.
+       */
       document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') {
           window.picker.choose(null);
+          return;
+        }
+        if (event.key === 'Enter' && selected && !event.target.closest('.tab')) {
+          window.picker.choose(selected);
+          return;
+        }
+        const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key];
+        if (!step) {
+          return;
+        }
+        const visible = visibleSources();
+        const at = visible.findIndex((source) => source.id === selected);
+        const next = visible[Math.min(visible.length - 1, Math.max(0, at + step))];
+        if (next) {
+          event.preventDefault();
+          select(next.id, { focus: true });
         }
       });
 
       window.picker.onSources((payload) => {
         sources = payload.sources;
         strings = payload.strings;
+        if (payload.locale) {
+          document.documentElement.lang = payload.locale;
+        }
+        document.body.dataset.platform = payload.platform ?? '';
         document.getElementById('title').textContent = strings.title;
         document.getElementById('subtitle').textContent = strings.subtitle;
         document.querySelector('.tab[data-kind="screen"]').textContent = strings.screens;
         document.querySelector('.tab[data-kind="window"]').textContent = strings.windows;
         document.getElementById('cancel').textContent = strings.cancel;
         document.getElementById('share').textContent = strings.share;
+        document.getElementById('bar-close').setAttribute('aria-label', strings.close);
+        // Windows is the only platform that can loop the machine's own sound
+        // into the capture (see main.ts), so it is the only one told so.
+        document.getElementById('hint').textContent = payload.systemAudio ? strings.systemAudio : '';
         // Open on the tab that has content: someone with a single screen
         // should not land on an empty "Screens" tab.
-        if (!sources.some((source) => source.kind === 'screen')) {
-          kind = 'window';
-          document.querySelector('.tab[data-kind="window"]').setAttribute('aria-selected', 'true');
-          document.querySelector('.tab[data-kind="screen"]').setAttribute('aria-selected', 'false');
+        showKind(sources.some((source) => source.kind === 'screen') ? 'screen' : 'window');
+        const first = grid.querySelector('.card');
+        if (first) {
+          first.focus();
         }
-        render();
       });
     </script>
   </body>
