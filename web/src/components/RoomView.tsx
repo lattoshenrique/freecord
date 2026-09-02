@@ -1278,14 +1278,11 @@ export default function RoomView({
         <div className="room-title">
           <Logo size={22} className="room-logo" />
           <h1>{room.displayName || t('room.unnamed')}</h1>
-          <span className="room-count">
-            {t('room.participants', { count: participantCount })}
-          </span>
           <span
             className="seat-count"
             aria-label={t('room.seatsAria', { count: participantCount, max: MAX_PARTICIPANTS })}
           >
-            {participantCount}/{MAX_PARTICIPANTS}
+            {t('room.seats', { count: participantCount, max: MAX_PARTICIPANTS })}
           </span>
         </div>
         {hudMetrics.length > 0 && (

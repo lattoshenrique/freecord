@@ -67,9 +67,14 @@ export async function joinMany(browser: Browser, slug: string, count: number, pr
   return handles;
 }
 
-/** "3/20" from the seat counter — the max is the server's own limit. */
+/**
+ * "3/20" from the seat counter — the max is the server's own limit. The UI
+ * spells the unit after the numbers ("3/20 participants"), so only the
+ * reading itself comes back.
+ */
 export async function seatCount(page: Page): Promise<string> {
-  return (await page.locator('.seat-count').innerText()).trim();
+  const text = (await page.locator('.seat-count').innerText()).trim();
+  return text.match(/\d+\s*\/\s*\d+/)?.[0] ?? text;
 }
 
 export async function expectSeatCount(
@@ -77,7 +82,10 @@ export async function expectSeatCount(
   occupied: number,
   max = ROOM_LIMITS.maxParticipants,
 ): Promise<void> {
-  await expect(page.locator('.seat-count')).toHaveText(`${occupied}/${max}`, { timeout: 20_000 });
+  await expect(page.locator('.seat-count')).toHaveText(
+    new RegExp(`^${occupied}/${max}\\b`),
+    { timeout: 20_000 },
+  );
 }
 
 /** Occupied participant tiles (ghost/empty seats, if the UI adds them, excluded). */

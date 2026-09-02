@@ -440,15 +440,6 @@ select:focus-visible,
   white-space: nowrap;
 }
 
-/* A count is a reading: monospace, tabular, so it never shifts as it changes. */
-.room-count {
-  color: var(--muted);
-  font-family: var(--mono);
-  font-size: 0.72rem;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
 .room-body {
   flex: 1;
   display: flex;
@@ -1106,7 +1097,7 @@ select:focus-visible,
   font-style: normal;
 }
 
-/* n/12 — a reading, like the latency. */
+/* n/20 participantes — a reading, like the latency. */
 .seat-count {
   color: var(--muted);
   font-family: var(--mono);
@@ -1787,11 +1778,6 @@ select:focus-visible,
     padding: 0.85rem 1rem;
   }
 
-  /* "3 participants" and "3/20" say the same thing; the short one stays. */
-  .room-count {
-    display: none;
-  }
-
   .tiles-strip .tile {
     flex-basis: 9rem;
   }
@@ -1842,16 +1828,12 @@ select:focus-visible,
 
 /*
  * A phone on its side: the header and the dock alone would eat half the
- * height. Both pull in, the keys shrink a step, and the label under the
- * title goes so the stage keeps most of the picture.
+ * height. Both pull in and the keys shrink a step, so the stage keeps most
+ * of the picture.
  */
 @media (max-height: 480px) {
   :root {
     --room-pad: 0.5rem;
-  }
-
-  .room-count {
-    display: none;
   }
 
   .control,

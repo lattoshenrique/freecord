@@ -151,6 +151,7 @@ export const zhCN: Catalog = {
   'room.endedFull': '房间满了 —— 二十人是上限。再多，网状连接就不诚实了。',
   'room.endedNotFound': '这个房间已经没了。空房间会自己关掉。',
   'room.endedClosed': '与房间的连接断了。常有的事；链接还能用。',
+  'room.seats': { other: '{count}/{max} 人' },
   'room.seatsAria': '座位：{max} 个中已占 {count} 个',
   'room.camSlotsFull': '摄像头名额已满 —— 语音永远管够',
   'room.camDenied': '当前没有空余的摄像头名额。有人一关，你的立刻就开。',

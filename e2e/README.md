@@ -84,8 +84,9 @@ healthy laptop run sits well under 10 ms). Budgets warn; only real errors
 Browser tests avoid text and layout assertions and lean on these hooks —
 if the restyle renames them, update `helpers/pages.ts` in one place:
 
-- `.seat-count` — the "3/20" counter (also the "we are in the room" signal);
-  specs read the cap from `ROOM_LIMITS` instead of spelling it
+- `.seat-count` — the "3/20 participants" counter (also the "we are in the
+  room" signal); specs read the cap from `ROOM_LIMITS` instead of spelling it,
+  and match the numbers as a prefix so the unit word can change
 - `.tile` — an OCCUPIED participant tile; `.tile video` — its live camera
 - `.tile-seat` — ghost/empty seats: not in the UI yet; the smoke test
   asserts them only if present
