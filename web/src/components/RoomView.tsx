@@ -54,6 +54,7 @@ import {
   ToolboxIcon,
 } from './icons';
 import { SpeakerIcon, SpeakerOffIcon } from './icons';
+import '../pages/state.css';
 
 /**
  * How this person sees the room. `spotlight`: one thing big on stage, the
@@ -1095,13 +1096,38 @@ export default function RoomView({
         : status.reason === 'room_not_found'
           ? t('room.endedNotFound')
           : t('room.endedClosed');
+    // A room that dropped is the one dead end you can walk back out of: the
+    // link still works, so the lit button reloads it and the way home is the
+    // line of text under it. A full or vanished room has nothing to retry.
+    const dropped = status.reason !== 'room_full' && status.reason !== 'room_not_found';
     return (
-      <main className="centered fade-in">
-        <h1>{t('room.leftTitle')}</h1>
-        <p>{message}</p>
-        <Link to="/" className="button-link">
-          {t('prejoin.backHome')}
-        </Link>
+      <main className="state">
+        {/* The same mesh, mark and button as the other two dead ends of the
+            way in (pages/state.css) — an ended call is one more of them. */}
+        <MeshBackground />
+        <div className="state-center">
+          <Brand className="home-logo" size={44} name={false} />
+          <h1>{t('room.leftTitle')}</h1>
+          <p>{message}</p>
+          {dropped ? (
+            <button
+              type="button"
+              className="state-cta"
+              onClick={() => window.location.reload()}
+            >
+              {t('room.endedRetry')}
+            </button>
+          ) : (
+            <Link to="/" className="state-cta">
+              {t('prejoin.createNew')}
+            </Link>
+          )}
+          {dropped ? (
+            <Link to="/" className="state-back">
+              {t('prejoin.backHome')}
+            </Link>
+          ) : null}
+        </div>
       </main>
     );
   }

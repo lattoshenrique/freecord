@@ -151,6 +151,7 @@ export const jaJP: Catalog = {
   'room.endedFull': 'ルームは満員です — 上限は 20 人。それを超えるとメッシュは正直でいられません。',
   'room.endedNotFound': 'このルームはもうありません。空のルームは自分で閉じます。',
   'room.endedClosed': 'ルームとの接続が切れました。よくあることです。リンクはまだ生きています。',
+  'room.endedRetry': 'もう一度入ってみる',
   'room.seats': { other: '{count}/{max} 人' },
   'room.seatsAria': '座席: {max} 席中 {count} 席が埋まっています',
   'room.camSlotsFull': 'カメラの枠は満席 — 音声は尽きません',
