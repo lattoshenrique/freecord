@@ -160,6 +160,8 @@ export const esES: Catalog = {
     'La sala está llena — veinte es el tope. Más allá, una malla deja de ser honesta.',
   'room.endedNotFound': 'Esta sala ya no está. Las salas vacías se cierran solas.',
   'room.endedClosed': 'Se cayó la conexión con la sala. Pasa; el enlace sigue valiendo.',
+  'room.reconnecting':
+    'Reconectando con el servidor de la sala — la llamada entre ustedes sigue sin él.',
   'room.endedRetry': 'Volver a entrar',
   'room.seats': { one: '{count}/{max} participante', other: '{count}/{max} participantes' },
   'room.seatsAria': 'Asientos: {count} de {max} ocupados',

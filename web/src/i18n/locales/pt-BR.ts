@@ -160,6 +160,8 @@ export const ptBR: Catalog = {
     'A sala está cheia — vinte é o teto. Acima disso a malha deixa de ser honesta.',
   'room.endedNotFound': 'Esta sala já era. Sala vazia fecha sozinha.',
   'room.endedClosed': 'A conexão com a sala caiu. Acontece; o link continua valendo.',
+  'room.reconnecting':
+    'Reconectando com o servidor da sala — a chamada de vocês segue sem ele.',
   'room.endedRetry': 'Tentar entrar de novo',
   'room.seats': { one: '{count}/{max} participante', other: '{count}/{max} participantes' },
   'room.seatsAria': 'Assentos: {count} de {max} ocupados',

@@ -173,6 +173,8 @@ export const enUS = {
   'room.endedFull': 'The room is full — twenty is the cap. Past that a mesh stops being honest.',
   'room.endedNotFound': 'This room is gone. Empty rooms close themselves.',
   'room.endedClosed': 'The connection to the room dropped. It happens; the link still works.',
+  'room.reconnecting':
+    'Reconnecting to the room’s server — the call between you carries on without it.',
   'room.endedRetry': 'Try the room again',
   'room.seats': { one: '{count}/{max} participant', other: '{count}/{max} participants' },
   'room.seatsAria': 'Seats: {count} of {max} taken',

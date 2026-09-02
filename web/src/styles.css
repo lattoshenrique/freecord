@@ -1708,7 +1708,8 @@ select:focus-visible,
  * — a sentence that blinks into the middle of a call reads as an error in
  * the page rather than as an answer to the key that was just pressed.
  */
-.cam-denied-note {
+.cam-denied-note,
+.reconnecting-note {
   margin: 0 0 var(--room-pad);
   max-width: min(28rem, calc(100vw - 2 * var(--room-pad)));
   padding: 0.45rem 0.75rem;
@@ -1723,6 +1724,13 @@ select:focus-visible,
   line-height: 1.4;
   text-align: center;
   animation: rise-in var(--dur-panel) var(--ease) both;
+}
+
+/* Same pill as the camera's refusal — the same kind of news — in the
+   colour of a wait instead of the colour of a no. */
+.reconnecting-note {
+  border-color: rgba(251, 191, 36, 0.45);
+  color: #fbbf24;
 }
 
 /*

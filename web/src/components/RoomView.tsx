@@ -1753,6 +1753,14 @@ export default function RoomView({
             </div>
           </div>
         )}
+        {/* The room's server went away; the mesh did not. Said here
+            because the room otherwise looks perfectly normal while
+            nothing it sends is reaching anyone. */}
+        {session.reconnecting && (
+          <p className="reconnecting-note" role="status">
+            {t('room.reconnecting')}
+          </p>
+        )}
         {session.camDenied && (
           <p className="cam-denied-note" role="status">
             {t('room.camDenied')}
