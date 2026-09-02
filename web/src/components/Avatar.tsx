@@ -50,7 +50,10 @@ export default function Avatar({
 
   // The drawing, in order. --cell is that order: a caller that animates the
   // mascot arriving staggers the shapes by it, and data-shape marks the
-  // shapes that arrive, as opposed to the ground. The eyes travel together
+  // shapes that arrive, as opposed to the ground. They are drawn inside one
+  // group so that a caller can move the mascot on its own — the room's tile
+  // makes it lean while its guest talks — and leave the ground and the frame
+  // around it still. The eyes travel together
   // when the face glances aside, so they are gathered in one group, placed
   // where the first of them is drawn. The z's of a sleeper are drawn on top
   // of each other and set off one after another; limbs sway out of step.
@@ -152,7 +155,7 @@ export default function Avatar({
       {!bare && (
         <rect x="0" y="0" width={AVATAR_SIZE} height={AVATAR_SIZE} fill={`url(#${gradientId})`} />
       )}
-      {drawn}
+      <g data-part="mascot">{drawn}</g>
     </svg>
   );
 }
