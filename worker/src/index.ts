@@ -72,18 +72,29 @@ interface PeerAttachment {
 }
 
 /**
- * A seat kept for a resume after its socket dropped — mirror of the Node
- * core's detached Peer. Lives in storage (keyed by resume token) because a
- * hibernated DO only remembers live sockets.
+ * A seat in the room, keyed by its resume token.
+ *
+ * Written from the moment of the join and not only when a socket drops,
+ * because a Durable Object restarted under the room — a deploy, an
+ * eviction — comes back with no sockets and no memory of who was in it.
+ * What it does come back with is storage: these seats, and so the tokens
+ * that reclaim them. Without them a new version of the Worker refused
+ * every resume, and every browser in every room was thrown out of a call
+ * that was still going on without us.
  */
-interface DetachedPeer {
+interface Seat {
   peerId: string;
   name: string;
   resumeToken: string;
-  /** Last ping before the drop: the seat expires on the zombie clock. */
+  /** Last ping this side saw: the seat expires on the zombie clock. */
   lastSeen: number;
-  disconnectedAt: number;
+  /** When its socket dropped; absent while somebody is sitting in it. */
+  disconnectedAt?: number;
 }
+type Seats = Record<string, Seat>;
+
+/** A seat whose socket is gone, held for a resume — mirror of the Node core's detached Peer. */
+type DetachedPeer = Seat & { disconnectedAt: number };
 type DetachedPeers = Record<string, DetachedPeer>;
 
 /**
@@ -177,6 +188,8 @@ export class RoomDurableObject {
   private readonly ctx: DurableObjectState;
   /** Kept for the room's one report to the global counter (settleCompany). */
   private readonly env: Env;
+  /** This instance has looked at the seats it woke up holding (adoptOrphanSeats). */
+  private adopted = false;
 
   constructor(ctx: DurableObjectState, env: Env) {
     this.ctx = ctx;
@@ -184,6 +197,7 @@ export class RoomDurableObject {
   }
 
   async fetch(request: Request): Promise<Response> {
+    await this.adoptOrphanSeats();
     const url = new URL(request.url);
     switch (url.pathname) {
       case '/create':
@@ -252,10 +266,10 @@ export class RoomDurableObject {
     const peers = this.ctx.getWebSockets();
     const detached = await this.detachedPeers();
     // Detached peers still hold seats: a full room stays full during a grace.
-    const seats = peers.length + Object.keys(detached).length;
+    const taken = peers.length + Object.keys(detached).length;
     const rejection: 'room_not_found' | 'room_full' | null = !meta
       ? 'room_not_found'
-      : seats >= ROOM_LIMITS.maxParticipants
+      : taken >= ROOM_LIMITS.maxParticipants
         ? 'room_full'
         : null;
 
@@ -276,6 +290,11 @@ export class RoomDurableObject {
       lastSeen: Date.now(),
       resumeToken,
     } satisfies PeerAttachment);
+    // The seat goes to storage now, not when the socket drops: what a
+    // restarted object knows about this room is what is written down.
+    const seats = await this.seats();
+    seats[resumeToken] = { peerId, name, resumeToken, lastSeen: Date.now() };
+    await this.putSeats(seats);
     // With people inside, the expiration clock stops and the zombie sweep
     // begins — without postponing one already due: a seat that just
     // dropped set the alarm for its screen lock's grace, and a join must
@@ -324,13 +343,16 @@ export class RoomDurableObject {
     const [client, server] = [pair[0], pair[1]];
 
     const meta = await this.ctx.storage.get<RoomMeta>('meta');
-    const detached = await this.detachedPeers();
-    const record = detached[token] ?? null;
-    const stale = record
-      ? null
-      : (this.ctx.getWebSockets().find((ws) => this.attachment(ws).resumeToken === token) ?? null);
+    const seats = await this.seats();
+    const seat = seats[token] ?? null;
+    // A seat with a socket still on it is the half-dead case: this side
+    // never saw that socket close, and the resume replaces it.
+    const stale = seat
+      ? (this.ctx.getWebSockets().find((ws) => this.attachment(ws).resumeToken === token) ?? null)
+      : null;
+    const record = seat && !stale ? seat : null;
 
-    if (!meta || (!record && !stale)) {
+    if (!meta || !seat) {
       // Unknown token: the seat was already swept. The client starts over.
       server.accept();
       server.send(JSON.stringify({ t: 'error', code: 'resume_invalid' } satisfies ServerMessage));
@@ -338,17 +360,19 @@ export class RoomDurableObject {
       return new Response(null, { status: 101, webSocket: client });
     }
 
-    const identity = record ?? this.attachment(stale!);
+    const identity = seat;
     // Signals that arrived during the absence: delivered after `welcome`,
-    // in order, then forgotten (the key is read before the seat's record
-    // goes, and cleared whether or not anything was held).
+    // in order, then forgotten (the key is read before the seat is marked
+    // taken again, and cleared whether or not anything was held).
     const pendingKeyOf = pendingKey(identity.peerId);
     const pending = record
       ? ((await this.ctx.storage.get<ServerMessage[]>(pendingKeyOf)) ?? [])
       : [];
+    // Somebody is sitting here again: the seat stops counting down.
+    delete seat.disconnectedAt;
+    seat.lastSeen = Date.now();
+    await this.putSeats(seats);
     if (record) {
-      delete detached[token];
-      await this.putDetachedPeers(detached);
       await this.ctx.storage.delete(pendingKeyOf);
     }
     this.ctx.acceptWebSocket(server);
@@ -371,6 +395,8 @@ export class RoomDurableObject {
 
     const screens = await this.screens();
     const others = this.ctx.getWebSockets().filter((ws) => ws !== server);
+    // Seats still held for a resume — ours is no longer one of them.
+    const detached = Object.values(seats).filter((held) => held.disconnectedAt !== undefined);
     this.send(server, {
       t: 'welcome',
       selfId: identity.peerId,
@@ -381,7 +407,7 @@ export class RoomDurableObject {
         ...others
           .filter((ws) => this.attachment(ws).peerId !== identity.peerId)
           .map((ws) => this.peerInfo(ws)),
-        ...Object.values(detached).map((seat) => ({ id: seat.peerId, name: seat.name })),
+        ...detached.map((held) => ({ id: held.peerId, name: held.name })),
       ],
       screens: screens.map(({ id, streamId }) => ({ id, streamId })),
       cameras: await this.cameras(),
@@ -612,15 +638,15 @@ export class RoomDurableObject {
     if (replaced) {
       return;
     }
-    const detached = await this.detachedPeers();
-    detached[attachment.resumeToken] = {
+    const seats = await this.seats();
+    seats[attachment.resumeToken] = {
       peerId: attachment.peerId,
       name: attachment.name,
       resumeToken: attachment.resumeToken,
       lastSeen: attachment.lastSeen,
       disconnectedAt: Date.now(),
     };
-    await this.putDetachedPeers(detached);
+    await this.putSeats(seats);
     // The camera slot gets no grace, unlike the screen lock: a slot held
     // through an outage blocks someone else's camera for nothing, while
     // the resumer only pays a re-request (its welcome roster says the
@@ -645,6 +671,7 @@ export class RoomDurableObject {
    * the ghost socket would hold the room alive forever.
    */
   async alarm(): Promise<void> {
+    await this.adoptOrphanSeats();
     const now = Date.now();
     const detached = await this.detachedPeers();
 
@@ -673,11 +700,12 @@ export class RoomDurableObject {
     );
     if (expired.length > 0) {
       const relays = await this.relays();
+      const seats = await this.seats();
       for (const seat of expired) {
-        delete detached[seat.resumeToken];
+        delete seats[seat.resumeToken];
         this.forgetRelay(relays, seat.peerId);
       }
-      await this.putDetachedPeers(detached);
+      await this.putSeats(seats);
       // Nobody is coming back for these signals.
       await this.ctx.storage.delete(expired.map((seat) => pendingKey(seat.peerId)));
       await this.putRelays(relays);
@@ -715,6 +743,20 @@ export class RoomDurableObject {
     // Their close events must not resurrect them as detached seats.
     for (const ws of leaving) {
       this.markLeft(ws);
+    }
+    // And the seats themselves go: a token nobody may come back with is
+    // an empty chair the room would otherwise keep counting as a person.
+    const seats = await this.seats();
+    let vacated = false;
+    for (const ws of leaving) {
+      const token = this.attachment(ws).resumeToken;
+      if (seats[token]) {
+        delete seats[token];
+        vacated = true;
+      }
+    }
+    if (vacated) {
+      await this.putSeats(seats);
     }
     const gone = new Set(leaving.map((ws) => this.attachment(ws).peerId));
     const screens = await this.screens();
@@ -865,8 +907,60 @@ export class RoomDurableObject {
     return this.ctx.getWebSockets().filter((ws) => !excluded.includes(ws));
   }
 
+  /**
+   * A restart is not a goodbye either.
+   *
+   * An object that comes back — a new version of the Worker, an eviction
+   * — finds its seats in storage and its sockets gone. Nobody left: the
+   * media is P2P, so the room is still talking to itself while every
+   * browser in it knocks on this door. Each seat with no socket on it is
+   * marked as dropped NOW (the ping it last answered was told to an
+   * object that no longer exists), which buys it the same grace a dropped
+   * socket gets and arms the sweep to end the ones nobody comes back for.
+   */
+  private async adoptOrphanSeats(): Promise<void> {
+    if (this.adopted) {
+      return;
+    }
+    this.adopted = true;
+    const seats = await this.seats();
+    const live = new Set(this.ctx.getWebSockets().map((ws) => this.attachment(ws).peerId));
+    const now = Date.now();
+    let orphans = false;
+    for (const seat of Object.values(seats)) {
+      if (seat.disconnectedAt === undefined && !live.has(seat.peerId)) {
+        seat.disconnectedAt = now;
+        seat.lastSeen = now;
+        orphans = true;
+      }
+    }
+    if (orphans) {
+      await this.putSeats(seats);
+      await this.ensureAlarmWithin(SWEEP_INTERVAL_MS);
+    }
+  }
+
+  private async seats(): Promise<Seats> {
+    return (await this.ctx.storage.get<Seats>('seats')) ?? {};
+  }
+
+  private async putSeats(seats: Seats): Promise<void> {
+    if (Object.keys(seats).length === 0) {
+      await this.ctx.storage.delete('seats');
+    } else {
+      await this.ctx.storage.put('seats', seats);
+    }
+  }
+
+  /** The seats nobody is sitting in right now, still held for a resume. */
   private async detachedPeers(): Promise<DetachedPeers> {
-    return (await this.ctx.storage.get<DetachedPeers>('detached')) ?? {};
+    const held: DetachedPeers = {};
+    for (const [token, seat] of Object.entries(await this.seats())) {
+      if (seat.disconnectedAt !== undefined) {
+        held[token] = seat as DetachedPeer;
+      }
+    }
+    return held;
   }
 
   private async cameras(): Promise<Cameras> {
@@ -945,14 +1039,6 @@ export class RoomDurableObject {
       await this.ctx.storage.delete('muted');
     } else {
       await this.ctx.storage.put('muted', muted);
-    }
-  }
-
-  private async putDetachedPeers(detached: DetachedPeers): Promise<void> {
-    if (Object.keys(detached).length === 0) {
-      await this.ctx.storage.delete('detached');
-    } else {
-      await this.ctx.storage.put('detached', detached);
     }
   }
 
