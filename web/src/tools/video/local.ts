@@ -12,6 +12,7 @@
  * browser at all. The round trip is for pages, and only for pages.
  */
 import type { VideoCandidate } from '../../api';
+import type { VideoState } from './state';
 
 const MEDIA: Record<string, VideoCandidate['play']> = {
   m3u8: 'hls',
@@ -116,4 +117,23 @@ export function hostOf(url: string): string {
 export function isYouTube(url: string): boolean {
   const host = hostOf(url).toLowerCase();
   return host === 'youtube.com' || host === 'youtu.be' || host === 'youtube-nocookie.com';
+}
+
+/**
+ * A Twitch clip's own embed, or null when this is not one.
+ *
+ * Their JS player takes a channel or a past broadcast and nothing else,
+ * so a clip cannot go through the same door: it gets the iframe their
+ * site hands out, which requires naming the host it will sit on. Which
+ * means a clip has no shared clock either — `hasSharedClock` says so,
+ * and the shelf says so before anybody picks it.
+ */
+export function twitchClipUrl(
+  state: VideoState,
+  hostname: string = typeof window === 'undefined' ? '' : window.location.hostname,
+): string | null {
+  const clip = state.play === 'twitch' ? state.twitch?.clip : undefined;
+  return clip
+    ? `https://clips.twitch.tv/embed?clip=${encodeURIComponent(clip)}&parent=${encodeURIComponent(hostname)}`
+    : null;
 }

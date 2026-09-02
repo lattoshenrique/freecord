@@ -283,7 +283,9 @@ function Option({
           twitch: 'kindTwitch',
           frame: 'kindFrame',
         }[candidate.play];
-  const shared = candidate.play !== 'frame' && !candidate.live;
+  // A clip is a frame in everything but name (Stage.tsx), so it must not
+  // promise a clock the room will not get.
+  const shared = candidate.play !== 'frame' && !candidate.live && !candidate.twitch?.clip;
   return (
     <label className={`video-option${checked ? ' is-chosen' : ''}`}>
       <input

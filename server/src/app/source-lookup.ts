@@ -50,6 +50,13 @@ export const LOOKUP_LIMITS = {
   maxRedirects: 3,
   /** How long one request may take. */
   timeoutMs: 6_000,
+  /**
+   * How long the whole lookup may take, however it spends it. Without
+   * this, a page that redirects three times and then embeds a player
+   * that redirects three more could hold somebody's shelf for half a
+   * minute, one honest six-second wait at a time.
+   */
+  totalMs: 14_000,
   /** A page bigger than this is not a page we need to finish reading. */
   maxBytes: SOURCE_LIMITS.maxHtmlBytes,
 } as const;
@@ -81,9 +88,15 @@ interface Fetched {
 }
 
 /** One GET, its redirects walked by hand so each hop is checked again. */
-async function readPage(url: string, fetchImpl: FetchLike): Promise<Fetched | null> {
+async function readPage(url: string, fetchImpl: FetchLike, deadline: number): Promise<Fetched | null> {
   let target = url;
   for (let hop = 0; hop <= LOOKUP_LIMITS.maxRedirects; hop += 1) {
+    // Whatever is left of the whole lookup, and never more than one
+    // request's share of it.
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) {
+      return null;
+    }
     let response: Response;
     try {
       response = await fetchImpl(target, {
@@ -94,7 +107,7 @@ async function readPage(url: string, fetchImpl: FetchLike): Promise<Fetched | nu
           Accept: 'text/html,application/xhtml+xml,*/*;q=0.5',
           'Accept-Language': '*',
         },
-        signal: AbortSignal.timeout(LOOKUP_LIMITS.timeoutMs),
+        signal: AbortSignal.timeout(Math.min(LOOKUP_LIMITS.timeoutMs, remaining)),
       });
     } catch {
       return null; // refused, timed out, DNS, TLS: all the same to us
@@ -125,7 +138,7 @@ async function readPage(url: string, fetchImpl: FetchLike): Promise<Fetched | nu
       // source, and the caller decides that from the type.
       return { url: target, html: '', framable, contentType };
     }
-    const html = await readCapped(response);
+    const html = await readCapped(response, contentType);
     return html === null
       ? null
       : { url: target, html, framable, contentType };
@@ -137,8 +150,14 @@ async function readPage(url: string, fetchImpl: FetchLike): Promise<Fetched | nu
  * The first couple of megabytes and not a byte more. A page that keeps
  * talking is cut off mid-sentence, which is fine: everything worth
  * reading is in the head and the player's markup.
+ *
+ * The bytes are kept as bytes and decoded once at the end, for two
+ * reasons. A chunk boundary can fall in the middle of a character, and
+ * plenty of the web is still not UTF-8 — a page in windows-1252 decoded
+ * as UTF-8 gives a title with a row of replacement characters in it,
+ * which is then what the room reads on the stage.
  */
-async function readCapped(response: Response): Promise<string | null> {
+async function readCapped(response: Response, contentType: string): Promise<string | null> {
   const declared = Number(response.headers.get('content-length') ?? '0');
   if (declared > LOOKUP_LIMITS.maxBytes * 4) {
     return null;
@@ -148,11 +167,7 @@ async function readCapped(response: Response): Promise<string | null> {
     return '';
   }
   const reader = body.getReader();
-  // Bare, not configured: the Worker's TextDecoder types demand the whole
-  // option bag, and the defaults (utf-8, replacement characters over
-  // throwing) are exactly what a page of unknown encoding wants.
-  const decoder = new TextDecoder();
-  const chunks: string[] = [];
+  const chunks: Uint8Array[] = [];
   let read = 0;
   try {
     for (;;) {
@@ -160,19 +175,53 @@ async function readCapped(response: Response): Promise<string | null> {
       if (done || !value) {
         break;
       }
+      chunks.push(value);
       read += value.byteLength;
-      chunks.push(decoder.decode(value, { stream: true }));
       if (read >= LOOKUP_LIMITS.maxBytes) {
         break;
       }
     }
   } catch {
-    return chunks.length > 0 ? chunks.join('') : null;
+    if (chunks.length === 0) {
+      return null;
+    }
   } finally {
     // Stop the download the moment we have what we came for.
     await reader.cancel().catch(() => undefined);
   }
-  return chunks.join('');
+  const bytes = new Uint8Array(read);
+  let at = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, at);
+    at += chunk.byteLength;
+  }
+  return decodeHtml(bytes, contentType);
+}
+
+const CHARSET = /charset\s*=\s*["']?([a-z0-9_-]{2,20})/i;
+
+/**
+ * The page's own idea of its encoding: the header first, then the `<meta>`
+ * that says so — which survives a UTF-8 reading whatever the page really
+ * is, because it is ASCII either way. An encoding this runtime does not
+ * know falls back rather than throwing; a mangled title is a worse
+ * answer than no answer only when it is the only answer.
+ */
+function decodeHtml(bytes: Uint8Array, contentType: string): string {
+  const utf8 = new TextDecoder().decode(bytes);
+  const label = (
+    CHARSET.exec(contentType)?.[1] ??
+    CHARSET.exec(utf8.slice(0, 4096))?.[1] ??
+    'utf-8'
+  ).toLowerCase();
+  if (label === 'utf-8' || label === 'utf8' || label === 'ascii' || label === 'us-ascii') {
+    return utf8;
+  }
+  try {
+    return new TextDecoder(label).decode(bytes);
+  } catch {
+    return utf8; // a runtime that ships only UTF-8 (some edges do)
+  }
 }
 
 /** A response that turned out to be the media itself. */
@@ -210,7 +259,8 @@ export async function lookupSource(
     return { ok: true, lookup: { url, candidates: [direct], empty: false } };
   }
 
-  const page = await readPage(url, fetchImpl);
+  const deadline = Date.now() + LOOKUP_LIMITS.totalMs;
+  const page = await readPage(url, fetchImpl, deadline);
   if (!page) {
     return { ok: false, reason: 'unreachable' };
   }
@@ -226,7 +276,7 @@ export async function lookupSource(
   // a page can look empty while its video is right there.
   const embed = embedToFollow(candidates, page.url);
   if (embed) {
-    const inner = await readPage(embed, fetchImpl);
+    const inner = await readPage(embed, fetchImpl, deadline);
     if (inner) {
       const innerTyped = candidateFromType(inner.url, inner.contentType);
       const found = innerTyped ? [innerTyped] : candidatesFromHtml(inner.html, inner.url);
@@ -252,17 +302,26 @@ export async function lookupSource(
    * their own address, which is exactly what a link signed for one
    * viewer needs. What it cannot give is a shared clock, and the tool
    * says so rather than pretending.
+   *
+   * It gets a slot RESERVED rather than a place in the queue: it sorts
+   * last by design, so a page generous enough to offer a dozen files
+   * would have pushed the one option that always works off the end of
+   * the list.
    */
-  if (page.framable && !candidates.some((candidate) => candidate.url === page.url)) {
-    candidates.push({ play: 'frame', url: page.url, found: 'link', framable: true });
-  }
+  const pageFrame: VideoCandidate | null =
+    page.framable && !candidates.some((candidate) => candidate.url === page.url)
+      ? { play: 'frame', url: page.url, found: 'link', framable: true }
+      : null;
 
   // Ranked once more at the end: what came back from the second page has
   // to take its place among what the first one offered, and a frame we
   // now know is refused is not an option at all.
-  const offered = rankCandidates(
+  const ranked = rankCandidates(
     candidates.filter((candidate) => candidate.play !== 'frame' || candidate.framable !== false),
   );
+  const offered = pageFrame
+    ? [...ranked.slice(0, SOURCE_LIMITS.maxCandidates - 1), pageFrame]
+    : ranked;
 
   return {
     ok: true,

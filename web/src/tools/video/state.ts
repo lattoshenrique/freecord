@@ -179,5 +179,10 @@ export function positionAt(state: VideoState, at: number, now: number = Date.now
  * one position, which is now.
  */
 export function hasSharedClock(state: VideoState): boolean {
-  return state.play !== 'frame' && !state.live;
+  if (state.play === 'frame' || state.live) {
+    return false;
+  }
+  // A Twitch clip plays in an iframe we cannot reach into, the same as
+  // any other page — see twitchClipUrl in Stage.tsx.
+  return !state.twitch?.clip;
 }

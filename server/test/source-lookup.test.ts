@@ -103,6 +103,50 @@ describe('reading the page', () => {
   });
 });
 
+describe('the fallback that always works', () => {
+  it('keeps its place however generous the page was', async () => {
+    // A page offering a dozen files would otherwise push the one option
+    // that survives a click-gated site off the end of the list.
+    const sources = Array.from(
+      { length: 20 },
+      (_, index) => `<source src="https://cdn.example/${index}.mp4" type="video/mp4">`,
+    ).join('');
+    const { fetchImpl } = web({ 'https://site.example/ep/1': { body: sources } });
+    const result = await lookupSource('https://site.example/ep/1', fetchImpl);
+    const candidates = result.ok ? result.lookup.candidates : [];
+    expect(candidates).toHaveLength(12);
+    expect(candidates[candidates.length - 1]).toMatchObject({
+      play: 'frame',
+      url: 'https://site.example/ep/1',
+    });
+  });
+});
+
+describe('a page that is not UTF-8', () => {
+  it('is read in the encoding it says it is, not the one we hoped for', async () => {
+    // windows-1252: 0xF3 is ó. Read as UTF-8 it is a replacement
+    // character, and the room gets a title with a black diamond in it.
+    const body = new Uint8Array([
+      ...new TextEncoder().encode('<meta charset="windows-1252"><title>Epis'),
+      0xf3,
+      ...new TextEncoder().encode('dio 11</title><video src="/11.mp4"></video>'),
+    ]);
+    const fetchImpl: FetchLike = async () =>
+      new Response(body, { headers: { 'content-type': 'text/html' } });
+    const result = await lookupSource('https://site.example/ep/1', fetchImpl);
+    expect(result.ok && result.lookup.title).toBe('Episódio 11');
+  });
+
+  it('falls back rather than throwing on an encoding this runtime lacks', async () => {
+    const fetchImpl: FetchLike = async () =>
+      new Response('<meta charset="x-nonsense-9000"><video src="/11.mp4"></video>', {
+        headers: { 'content-type': 'text/html' },
+      });
+    const result = await lookupSource('https://site.example/ep/1', fetchImpl);
+    expect(result.ok && result.lookup.candidates[0]?.url).toBe('https://site.example/11.mp4');
+  });
+});
+
 describe('redirects', () => {
   it('are followed, and the destination is the page that was read', async () => {
     const { fetchImpl } = web({

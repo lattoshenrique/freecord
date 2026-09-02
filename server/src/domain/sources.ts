@@ -191,6 +191,27 @@ export function isBlockedHost(hostname: string): boolean {
 }
 
 /**
+ * A host that is a NAME, not an address.
+ *
+ * The blocklist above parses dotted quads, and that is not enough on its
+ * own, because an address can be written several ways and only one of
+ * them looks like an address. `http://127.1/` is loopback with two
+ * labels; `http://0x7f.0.0.1/` is loopback in hex; `http://2130706433/`
+ * is loopback as a single integer. Chasing the notations is a game with
+ * no last move, so this refuses the whole class: the last label has to
+ * be alphabetic, the way a real top-level domain is.
+ *
+ * The cost is bare IP addresses, which are then unreachable even when
+ * public. That is a fair price — a page with a video in it lives at a
+ * name — and it is a refusal we can explain, which the alternative is
+ * not.
+ */
+export function isNamedHost(hostname: string): boolean {
+  const labels = hostname.split('.');
+  return labels.length >= 2 && /^[a-z]{2,63}$/i.test(labels[labels.length - 1] ?? '');
+}
+
+/**
  * What somebody typed, as a URL we are willing to open — or null.
  *
  * A missing scheme is the common paste, so it gets https. Everything else
@@ -220,7 +241,7 @@ export function normalizeSourceUrl(input: string): string | null {
   if (url.port && url.port !== '80' && url.port !== '443') {
     return null;
   }
-  if (isBlockedHost(url.hostname) || !url.hostname.includes('.')) {
+  if (isBlockedHost(url.hostname) || !isNamedHost(url.hostname)) {
     return null;
   }
   url.hash = '';
@@ -503,6 +524,7 @@ const TAG = {
   video: /<video\b[^>]*>/gi,
   source: /<source\b[^>]*>/gi,
   iframe: /<iframe\b[^>]*>/gi,
+  base: /<base\b[^>]*>/i,
   script: /<script\b[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]{0,20000}?)<\/script>/gi,
   title: /<title[^>]*>([\s\S]{0,300}?)<\/title>/i,
 };
@@ -634,8 +656,13 @@ function walkSchema(node: unknown, base: string, out: VideoCandidate[], depth: n
  * be offered it. The caller decides what to fetch next (an embed worth a
  * second look) and what to show.
  */
-export function candidatesFromHtml(html: string, base: string): VideoCandidate[] {
+export function candidatesFromHtml(html: string, pageUrl: string): VideoCandidate[] {
   const page = html.slice(0, SOURCE_LIMITS.maxHtmlBytes);
+  // A page is allowed to say what its relative URLs are relative to, and
+  // one that says so and is not believed resolves every source it has to
+  // the wrong host.
+  const declared = TAG.base.exec(page)?.[0];
+  const base = (declared && absolute(attr(declared, 'href'), pageUrl)) || pageUrl;
   const title = pageTitle(page);
   const poster = absolute(metaContent(page, ['og:image', 'twitter:image']), base) ?? undefined;
   const found: VideoCandidate[] = [];

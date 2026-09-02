@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   SOURCE_LIMITS,
+  isNamedHost,
   candidateForUrl,
   candidatesFromHtml,
   embedToFollow,
@@ -66,10 +67,24 @@ describe('the link, before anything is fetched', () => {
     }
   });
 
-  it('lets a public address through, literal or named', () => {
+  it('lets a named host through', () => {
     expect(isBlockedHost('example.com')).toBe(false);
-    expect(isBlockedHost('8.8.8.8')).toBe(false);
-    expect(normalizeSourceUrl('https://8.8.8.8/a.mp4')).toBe('https://8.8.8.8/a.mp4');
+    expect(normalizeSourceUrl('https://cdn.example.com/a.mp4')).toBe('https://cdn.example.com/a.mp4');
+  });
+
+  it('refuses an address however it is spelled, which is the only way to win that game', () => {
+    // Every one of these is 127.0.0.1 to a resolver, and only the first
+    // looks like it. Parsing the notations is a game with no last move,
+    // so the rule is that a host must be a NAME.
+    for (const host of ['127.1', '0x7f.0.0.1', '2130706433', '0177.0.0.1', '127.0.0.1']) {
+      expect(normalizeSourceUrl(`http://${host}/a.mp4`), host).toBeNull();
+    }
+    // And a public address is refused too, which is the price: a page
+    // with a video in it lives at a name.
+    expect(normalizeSourceUrl('https://8.8.8.8/a.mp4')).toBeNull();
+    expect(isNamedHost('example.com')).toBe(true);
+    expect(isNamedHost('8.8.8.8')).toBe(false);
+    expect(isNamedHost('site.co.uk')).toBe(true);
   });
 
   it('refuses a single-label host: an intranet name, not a site', () => {
@@ -309,6 +324,13 @@ describe('reading a page', () => {
     // A frame is a page, opened by each browser in its own name — the
     // token in it is nobody's problem.
     expect(found.find((candidate) => candidate.play === 'frame')?.personal).toBeUndefined();
+  });
+
+  it('believes a page that says what its relative URLs are relative to', () => {
+    // A page with a <base> that is not believed resolves every source it
+    // has to the wrong host.
+    const html = '<base href="https://cdn.example.com/media/"><video src="11.mp4"></video>';
+    expect(candidatesFromHtml(html, PAGE)[0]?.url).toBe('https://cdn.example.com/media/11.mp4');
   });
 
   it('finds nothing in a page that has nothing', () => {

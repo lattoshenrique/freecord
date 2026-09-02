@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { twitchClipUrl } from './local';
 import { hasSharedClock, isFramableHere, parseState, positionAt } from './state';
 
 /** A state that is fine, so a test can spoil exactly one thing about it. */
@@ -102,5 +103,28 @@ describe('what the room can agree on', () => {
     expect(hasSharedClock({ ...good } as never)).toBe(true);
     expect(hasSharedClock({ ...good, live: true } as never)).toBe(false);
     expect(hasSharedClock({ ...good, play: 'frame' } as never)).toBe(false);
+  });
+});
+
+describe('a Twitch clip is a frame wearing another name', () => {
+  const clip = {
+    play: 'twitch' as const,
+    url: 'https://clips.twitch.tv/FunnyMoment-abc',
+    twitch: { clip: 'FunnyMoment-abc' },
+    live: false,
+    playing: true,
+    time: 0,
+  };
+
+  it('promises no shared clock, because their player will not take one', () => {
+    expect(hasSharedClock(clip)).toBe(false);
+    expect(hasSharedClock({ ...clip, twitch: { channel: 'gaules' } })).toBe(true);
+  });
+
+  it('builds the embed their site hands out, naming the host it sits on', () => {
+    expect(twitchClipUrl(clip, 'freecord.example')).toBe(
+      'https://clips.twitch.tv/embed?clip=FunnyMoment-abc&parent=freecord.example',
+    );
+    expect(twitchClipUrl({ ...clip, twitch: { channel: 'gaules' } }, 'x.example')).toBeNull();
   });
 });

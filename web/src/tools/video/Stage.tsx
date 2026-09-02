@@ -25,11 +25,11 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ToolViewProps } from '../contract';
 import { CloseGlyph, HandGlyph } from './icons';
-import { hostOf } from './local';
+import { hostOf, twitchClipUrl } from './local';
 import { attachSource, liveEdgeOf, type SourceFailure } from './player';
 import { hasSharedClock, isFramableHere, positionAt, type VideoState } from './state';
 import { correctionFor, liveCorrectionFor } from './sync';
-import { mountTwitch, seekString, type TwitchPlayer } from './twitch';
+import { mountTwitch, type TwitchPlayer } from './twitch';
 import './stage.css';
 
 /** How often a player is read against the room. */
@@ -40,6 +40,8 @@ const TICK_MS = 1000;
  * reported back as a move is how a room starts arguing with itself.
  */
 const QUIET_MS = 1200;
+/** After this many refusals the element is left to its own controls. */
+const REFUSALS_BEFORE_GIVING_UP = 3;
 
 export default function Stage(props: ToolViewProps<VideoState>) {
   return props.state ? <Source {...props} state={props.state} /> : null;
@@ -48,7 +50,13 @@ export default function Stage(props: ToolViewProps<VideoState>) {
 function Source(props: ToolViewProps<VideoState> & { state: VideoState }) {
   const { state, setState, t } = props;
   const [failure, setFailure] = useState<SourceFailure | null>(null);
+
+  // A failure belongs to the source that caused it. Without this, one
+  // dead link turns the stage into an error message that outlives it —
+  // the room puts on something else and still reads "did not play here".
+  useEffect(() => setFailure(null), [state.url, state.play]);
   const framable = state.play !== 'frame' || isFramableHere(state.url, window.location.origin);
+  const clipUrl = twitchClipUrl(state);
 
   return (
     <div className="screen-stage video-stage fade-in">
@@ -79,6 +87,10 @@ function Source(props: ToolViewProps<VideoState> & { state: VideoState }) {
       <div className="video-frame">
         {failure || !framable ? null : state.play === 'frame' ? (
           <FramedPage state={state} t={t} />
+        ) : clipUrl ? (
+          /* A clip is not a channel and not a VOD: their player API does
+             not take one, so it gets the frame their site gives out. */
+          <FramedPage state={{ ...state, url: clipUrl }} t={t} />
         ) : state.play === 'twitch' ? (
           <TwitchSource {...props} state={state} onFailure={setFailure} />
         ) : (
@@ -99,7 +111,7 @@ function Source(props: ToolViewProps<VideoState> & { state: VideoState }) {
         )}
       </div>
 
-      {state.play === 'frame' && !failure && framable && (
+      {(state.play === 'frame' || clipUrl) && !failure && framable && (
         <p className="video-note">{t('frameNote')}</p>
       )}
     </div>
@@ -149,9 +161,36 @@ function MediaSource({
   mineRef.current = mine;
   /** Sampling and reporting are suspended until this moment. */
   const quietUntil = useRef(0);
+  /**
+   * How many times in a row this browser has refused to start playing.
+   *
+   * Autoplay with sound is blocked by every browser until somebody has
+   * interacted with the page, and a player that keeps being told to play
+   * keeps refusing. That is not the bug. The bug is that each attempt
+   * quiets the sampler, and a sampler quieted once a second is a sampler
+   * that never hears the person press PAUSE — so the room stays playing
+   * and this browser keeps being dragged back to it. After a few
+   * refusals we stop asking and leave the element's own controls to it.
+   */
+  const refusedRef = useRef(0);
 
   function quiet(): void {
     quietUntil.current = Date.now() + QUIET_MS;
+  }
+
+  /** Starts the element, and gets out of the way if it will not start. */
+  function tryPlay(video: HTMLVideoElement): void {
+    void video
+      .play()
+      .then(() => {
+        refusedRef.current = 0;
+      })
+      .catch(() => {
+        refusedRef.current += 1;
+        // We are not applying anything after all: stop suppressing what
+        // the person does next.
+        quietUntil.current = 0;
+      });
   }
 
   /** Anything a person does to the player is news for the room. */
@@ -193,7 +232,7 @@ function MediaSource({
         // A browser that refuses to autoplay is not an error: the
         // element keeps its controls and whoever is watching presses
         // play. What must not happen is telling the room it was paused.
-        video.play().catch(() => undefined);
+        tryPlay(video);
       }
     });
     return () => {
@@ -213,8 +252,11 @@ function MediaSource({
       return;
     }
     quiet();
+    // The room said something new: whatever this browser refused before
+    // was about the old intention.
+    refusedRef.current = 0;
     if (state.playing && video.paused) {
-      video.play().catch(() => undefined);
+      tryPlay(video);
     } else if (!state.playing && !video.paused) {
       video.pause();
     }
@@ -248,9 +290,14 @@ function MediaSource({
       if (correction.kind === 'idle') {
         return;
       }
+      if (correction.kind === 'play' && refusedRef.current >= REFUSALS_BEFORE_GIVING_UP) {
+        // It has said no three times. Asking again every second costs
+        // the person their own pause button (see refusedRef).
+        return;
+      }
       quiet();
       if (correction.kind === 'play') {
-        video.play().catch(() => undefined);
+        tryPlay(video);
       } else if (correction.kind === 'pause') {
         video.pause();
       } else {
@@ -373,7 +420,7 @@ function TwitchSource({
     playerRef.current?.setMuted(!speakerOn);
   }, [speakerOn]);
 
-  return <div className="video-twitch" ref={hostRef} data-start={seekString(state.time)} />;
+  return <div className="video-twitch" ref={hostRef} />;
 }
 
 /** The host a stage shows when it has nothing better to call a source. */
