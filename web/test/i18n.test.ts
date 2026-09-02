@@ -26,13 +26,13 @@ describe('detectLocale', () => {
 
 describe('resolve', () => {
   it('interpolates named placeholders', () => {
-    expect(resolve(enUS, enUS, 'en-US', 'latency.peer', { name: 'Ana' })).toBe(
-      'Direct latency with Ana',
+    expect(resolve(enUS, enUS, 'en-US', 'chat.replyingTo', { name: 'Ana' })).toBe(
+      'Replying to Ana',
     );
   });
 
   it('leaves an unknown placeholder untouched instead of printing undefined', () => {
-    expect(resolve(enUS, enUS, 'en-US', 'latency.peer', {})).toBe('Direct latency with {name}');
+    expect(resolve(enUS, enUS, 'en-US', 'chat.replyingTo', {})).toBe('Replying to {name}');
   });
 
   it('picks the plural form the locale actually uses', () => {
