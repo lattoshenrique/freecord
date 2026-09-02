@@ -33,6 +33,15 @@ import {
   screenConstraints,
   type ScreenQualityId,
 } from './screen-quality';
+import {
+  loadParticipation,
+  makeScreenRefusal,
+  mayRefuse,
+  saveParticipation,
+  extractScreenRefusal,
+  sendingTargets,
+  type Participation,
+} from './participation';
 import { ScreenRelayController, extractRelayNote, makeRelayNote } from './screen-relay';
 import {
   advanceAudioStall,
@@ -124,6 +133,8 @@ export type RoomStatus =
   | { kind: 'ended'; reason: 'closed' | 'left' | 'room_not_found' | 'room_full' | 'invalid_name' };
 
 const MAX_CHAT_MESSAGES = 200;
+/** Nobody refused this tree — shared, so the common case allocates nothing. */
+const EMPTY_REFUSALS: ReadonlySet<string> = new Set<string>();
 /** Mirrors the server's ROOM_LIMITS.heartbeatIntervalMs. */
 const HEARTBEAT_MS = 10_000;
 /** Mirrors ROOM_LIMITS.peerTimeoutMs: no pong within this and the session is over. */
@@ -202,6 +213,8 @@ export function useRoomSession(options: JoinOptions) {
   const [screenQuality, setScreenQualityState] = useState<ScreenQualityId>(loadQuality);
   /** User-tunable media prefs (mic profile, camera ceiling, screen audio). */
   const [mediaSettings, setMediaSettings] = useState<MediaSettings>(loadMediaSettings);
+  /** What this person takes part in (participation.ts) — local, never on the wire. */
+  const [participation, setParticipation] = useState<Participation>(loadParticipation);
   /** Per-machine device choice: which mic captures, where playback goes. */
   const [audioDevices, setAudioDevices] = useState<AudioDevicePrefs>(loadAudioDevicePrefs);
   const [peerLatency, setPeerLatency] = useState<Map<string, PeerLatency>>(new Map());
@@ -262,6 +275,11 @@ export function useRoomSession(options: JoinOptions) {
   const qualityRef = useRef<ScreenQualityId>(screenQuality);
   /** Mirror for callbacks (share start) that must not close over state. */
   const mediaSettingsRef = useRef<MediaSettings>(mediaSettings);
+  const participationRef = useRef<Participation>(participation);
+  /** Peers who refused a screen, by the sharer whose tree it is. */
+  const refusedRef = useRef<Map<string, Set<string>>>(new Map());
+  /** What this client last told each tree's source, so it says it once. */
+  const toldSourceRef = useRef<Map<string, { to: string; on: boolean }>>(new Map());
   /** Mirror of audioDevices for the same reason. */
   const audioDevicesRef = useRef<AudioDevicePrefs>(audioDevices);
   /** Serializes live mic swaps so two quick picks cannot interleave. */
@@ -417,21 +435,47 @@ export function useRoomSession(options: JoinOptions) {
     const selfId = selfIdRef.current;
     const routes = routesRef.current;
 
+    const refusedIn = (of: string): ReadonlySet<string> =>
+      refusedRef.current.get(of) ?? EMPTY_REFUSALS;
+
     const localTrack = localScreenRef.current?.getVideoTracks()[0];
     if (localTrack) {
       const own = selfId ? routes.get(selfId) : undefined;
-      mesh.setTrackTargets(localTrack, own?.children ?? []);
+      // Somebody who refused this screen is not a target: the capture
+      // keeps running for everyone else, and for whoever joins next.
+      mesh.setTrackTargets(
+        localTrack,
+        selfId ? sendingTargets(own?.children ?? [], refusedIn(selfId)) : [],
+      );
       mesh.setTrackEncoding(localTrack, screenEncoding());
     }
 
     for (const id of [...relaysRef.current.keys()]) {
       const route = routes.get(id);
-      if (!route || route.children.length === 0) {
+      if (!route || sendingTargets(route.children, refusedIn(id)).length === 0) {
         teardownRelay(id);
       }
     }
     for (const [of, route] of routes) {
-      if (of === selfId || route.children.length === 0) {
+      if (of === selfId) {
+        continue;
+      }
+      const targets = sendingTargets(route.children, refusedIn(of));
+      // Tell this tree's source whether to keep sending. Only a peer with
+      // nobody left waiting on it may refuse (participation.ts): while
+      // somebody downstream still wants the screen, this peer carries it
+      // for them — and still does not draw it.
+      const refuse = mayRefuse(participationRef.current, targets);
+      const told = toldSourceRef.current.get(of);
+      if (route.source && (told?.to !== route.source.id || told.on !== refuse)) {
+        toldSourceRef.current.set(of, { to: route.source.id, on: refuse });
+        signalingRef.current?.send({
+          t: 'signal',
+          to: route.source.id,
+          data: makeScreenRefusal(of, refuse),
+        });
+      }
+      if (targets.length === 0) {
         continue;
       }
       let leg = relaysRef.current.get(of);
@@ -476,14 +520,14 @@ export function useRoomSession(options: JoinOptions) {
           parentTrack,
           leg.stream,
           relayEncoding(route),
-          route.children,
+          targets,
           pinned ?? screenCodecsRef.current,
         );
-        leg.controller?.sync(route.source.id, parentTrack, route.children);
+        leg.controller?.sync(route.source.id, parentTrack, targets);
       } else if (parentTrack && route.source) {
-        mesh.setTrackTargets(parentTrack, route.children);
+        mesh.setTrackTargets(parentTrack, targets);
         mesh.setTrackEncoding(parentTrack, relayEncoding(route));
-        leg.controller?.sync(route.source.id, parentTrack, route.children);
+        leg.controller?.sync(route.source.id, parentTrack, targets);
       }
     }
   }, [screenEncoding, relayEncoding, teardownRelay]);
@@ -856,6 +900,20 @@ export function useRoomSession(options: JoinOptions) {
             }
             return;
           }
+          const refusal = extractScreenRefusal(message.data);
+          if (refusal) {
+            // Somebody below stepped out of (or back into) a screen. It
+            // costs them nothing to say so twice, so this is idempotent.
+            const refused = refusedRef.current.get(refusal.of) ?? new Set<string>();
+            if (refusal.on) {
+              refused.add(message.from);
+            } else {
+              refused.delete(message.from);
+            }
+            refusedRef.current.set(refusal.of, refused);
+            syncScreenTree();
+            return;
+          }
           void meshRef.current?.handleSignal(message.from, message.data);
           return;
         }
@@ -921,6 +979,8 @@ export function useRoomSession(options: JoinOptions) {
             return next;
           });
           routesRef.current.delete(message.id);
+          refusedRef.current.delete(message.id);
+          toldSourceRef.current.delete(message.id);
           teardownRelay(message.id);
           if (message.id === selfIdRef.current) {
             dropLocalScreen();
@@ -1345,6 +1405,22 @@ export function useRoomSession(options: JoinOptions) {
   );
 
   /**
+   * Taking part, or not. Persists and then re-walks the screen trees: the
+   * walk is what tells each tree's source to stop or to start again, so
+   * turning screens back on needs no other bookkeeping. Tools need none of
+   * this — refusing one is the view not building its stage.
+   */
+  const updateParticipation = useCallback(
+    (next: Participation) => {
+      participationRef.current = next;
+      setParticipation(next);
+      saveParticipation(next);
+      syncScreenTree();
+    },
+    [syncScreenTree],
+  );
+
+  /**
    * Device change: persists, then swaps the live mic capture without
    * renegotiation (replaceTrack keeps the m-line; encodings and priority
    * ride along in the mesh's bookkeeping). The speaker side has no work
@@ -1649,6 +1725,7 @@ export function useRoomSession(options: JoinOptions) {
     camDenied,
     screenQuality,
     mediaSettings,
+    participation,
     audioDevices,
     peerLatency,
     signalRttMs,
@@ -1658,6 +1735,7 @@ export function useRoomSession(options: JoinOptions) {
     mesh: meshRef.current,
     setScreenQuality,
     updateMediaSettings,
+    updateParticipation,
     updateAudioDevices,
     sendChat,
     sendFile,

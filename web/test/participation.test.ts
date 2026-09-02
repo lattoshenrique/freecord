@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   DEFAULT_PARTICIPATION,
+  advanceStrain,
+  initialStrainState,
   extractScreenRefusal,
   loadParticipation,
   makeScreenRefusal,
@@ -106,5 +108,54 @@ describe('mayRefuse', () => {
 
   it('has nothing to say while the person takes part', () => {
     expect(mayRefuse({ screens: true, tools: true }, [])).toBe(false);
+  });
+});
+
+describe('advanceStrain', () => {
+  const crawling = { direction: 'receiving' as const, fps: 2, kbps: 40 };
+
+  it('waits out a dip before saying anything', () => {
+    const state = initialStrainState();
+    expect([1, 2, 3].map(() => advanceStrain(state, crawling))).toEqual([false, false, false]);
+    expect(advanceStrain(state, crawling)).toBe(true);
+  });
+
+  it('offers once and then leaves the person alone', () => {
+    const state = initialStrainState();
+    for (let i = 0; i < 4; i += 1) {
+      advanceStrain(state, crawling);
+    }
+    for (let i = 0; i < 10; i += 1) {
+      expect(advanceStrain(state, crawling)).toBe(false);
+    }
+  });
+
+  it('starts over when the picture recovers', () => {
+    const state = initialStrainState();
+    advanceStrain(state, crawling);
+    advanceStrain(state, crawling);
+    advanceStrain(state, { direction: 'receiving', fps: 24, kbps: 900 });
+    expect(state.crawling).toBe(0);
+  });
+
+  it('says nothing about a screen this person is sending', () => {
+    const state = initialStrainState();
+    for (let i = 0; i < 6; i += 1) {
+      expect(advanceStrain(state, { direction: 'sending', fps: 1, kbps: 40 })).toBe(false);
+    }
+  });
+
+  it('is not a stall watch: nothing arriving is not a slow link', () => {
+    const state = initialStrainState();
+    for (let i = 0; i < 6; i += 1) {
+      expect(advanceStrain(state, { direction: 'receiving', fps: 0, kbps: 0 })).toBe(false);
+    }
+  });
+
+  it('holds still when there is no screen at all', () => {
+    const state = initialStrainState();
+    advanceStrain(state, crawling);
+    expect(advanceStrain(state, null)).toBe(false);
+    expect(state.crawling).toBe(0);
   });
 });

@@ -125,3 +125,54 @@ export function sendingTargets(
 export function mayRefuse(participation: Participation, children: readonly string[]): boolean {
   return !participation.screens && children.length === 0;
 }
+
+/**
+ * When to offer the switch instead of waiting for somebody to find it.
+ *
+ * The evidence is the screen this person is RECEIVING: bytes are arriving
+ * and the picture is still crawling, which is the shape of a link that
+ * cannot carry what the room is sending. A dead path is not this — that is
+ * the stall watch's job (stall-watch.ts), and it has its own ladder.
+ *
+ * The offer is made once. A suggestion that returns every time the link
+ * dips is a nag, and the switch it points at is in the settings from then
+ * on; somebody who said no meant no.
+ */
+export interface StrainState {
+  /** Consecutive crawling samples (~2 s apart). */
+  crawling: number;
+  /** The one offer this session has already made. */
+  offered: boolean;
+}
+
+/** Below this the screen has stopped being a screen and is a slideshow. */
+const CRAWLING_FPS = 5;
+/** Samples before offering (~8 s at the 2 s cadence): a dip is not a verdict. */
+const CRAWLING_SAMPLES = 4;
+
+export function initialStrainState(): StrainState {
+  return { crawling: 0, offered: false };
+}
+
+/** One stats sample; mutates the state and says whether to offer now. */
+export function advanceStrain(
+  state: StrainState,
+  sample: { direction: 'sending' | 'receiving'; fps: number | null; kbps: number | null } | null,
+): boolean {
+  const crawling =
+    sample !== null &&
+    sample.direction === 'receiving' &&
+    sample.fps !== null &&
+    sample.fps < CRAWLING_FPS &&
+    (sample.kbps ?? 0) > 1;
+  if (!crawling) {
+    state.crawling = 0;
+    return false;
+  }
+  state.crawling += 1;
+  if (state.crawling < CRAWLING_SAMPLES || state.offered) {
+    return false;
+  }
+  state.offered = true;
+  return true;
+}

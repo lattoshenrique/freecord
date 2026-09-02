@@ -33,6 +33,8 @@ import SettingsMenu from './SettingsMenu';
 import ToolsMenu from './ToolsMenu';
 import ToolStage from './ToolStage';
 import { hasLiveTool, stagedToolOf } from '../tools/registry';
+import { useToolText, type RegisteredTool } from '../tools/contract';
+import { advanceStrain, initialStrainState } from '../lib/participation';
 import { applySinkId } from '../lib/audio-devices';
 import {
   CamIcon,
@@ -626,6 +628,29 @@ function Tile({
   );
 }
 
+/**
+ * The stage, for somebody who is not taking part in the tool that is on.
+ * It names what is playing right now — a standing refusal outlives the
+ * source, and nobody should have to accept blind what they said no to
+ * yesterday — and the way in is for this tool only, until it goes off.
+ */
+function DeclinedPlace({ tool, onJoin }: { tool: RegisteredTool; onJoin: () => void }) {
+  const { t } = useI18n();
+  const toolText = useToolText(tool);
+  return (
+    <div className="screen-stage stage-declined fade-in">
+      <div className="declined-place">
+        <tool.Icon />
+        <h2>{t('participation.toolOffTitle')}</h2>
+        <p>{t('participation.toolOffBody', { tool: toolText('name') })}</p>
+        <button type="button" className="state-cta" onClick={onJoin}>
+          {t('participation.toolJoinOnce', { tool: toolText('name') })}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function RoomView({
   room,
   options,
@@ -926,8 +951,37 @@ export default function RoomView({
   // Us, as a tool sees us: the roster's shape, so a tool can name people
   // without learning the room hook.
   const selfPeer = session.selfId ? { id: session.selfId, name: options.name } : null;
-  const stagedTool = stagedToolOf(session.tools);
+  const liveTool = stagedToolOf(session.tools);
+  /**
+   * Somebody who refused tools is let in again for one tool, until that
+   * tool goes off — the button that does it names what is playing now,
+   * because the room can change the source under a standing refusal.
+   */
+  const [toolPass, setToolPass] = useState<string | null>(null);
+  const toolRefused =
+    liveTool !== null && !session.participation.tools && toolPass !== liveTool.tool.id;
+  // The refusal is this viewer's: the tool stays on for the room, and the
+  // shelf key keeps its light (hasLiveTool, below, sees the whole room) so
+  // the way back in is where it always is.
+  const stagedTool = toolRefused ? null : liveTool;
+  /**
+   * The offer to stop receiving screens, made once, and only to somebody
+   * watching one crawl in (participation.ts). It is an offer: nothing is
+   * turned off without the person saying so.
+   */
+  const strainRef = useRef(initialStrainState());
+  const [offerScreensOff, setOfferScreensOff] = useState(false);
+  useEffect(() => {
+    if (advanceStrain(strainRef.current, session.screenStats)) {
+      setOfferScreensOff(true);
+    }
+  }, [session.screenStats]);
   const stagedToolId = stagedTool?.tool.id ?? null;
+  useEffect(() => {
+    if (toolPass !== null && !session.tools.has(toolPass)) {
+      setToolPass(null);
+    }
+  }, [session.tools, toolPass]);
   useEffect(() => {
     if (stagedToolId) {
       setPinned(null);
@@ -1032,7 +1086,13 @@ export default function RoomView({
       ? (session.mesh?.getPeerStreams(source.id).find((s) => s.id === source.streamId) ?? null)
       : null;
   };
-  const screenItems: ScreenItem[] = session.screens.map((share) => ({
+  // A refused screen is not drawn — and its bytes were already turned away
+  // at the source (participation.ts). Our own capture is not a screen we
+  // receive, so sharing keeps working while refusing.
+  const shownScreens = session.participation.screens
+    ? session.screens
+    : session.screens.filter((share) => share.id === session.selfId);
+  const screenItems: ScreenItem[] = shownScreens.map((share) => ({
     share,
     stream: streamOfScreen(share),
     mine: share.id === session.selfId,
@@ -1092,6 +1152,13 @@ export default function RoomView({
           ? null
           : followedPerson;
   const stageStream = stageScreen?.stream ?? null;
+  /**
+   * The place that says why the stage is not showing the tool. It only
+   * appears when nothing else wants the stage: a screen or a pin is real
+   * content this person did not refuse, and covering it would be worse
+   * than the silence it explains.
+   */
+  const toolDeclined = toolRefused && layout !== 'grid' && stageScreen === null && !pinnedLive;
   const onStage = watchOnStage || stageScreen !== null || stagePersonId !== null;
 
   // The hook's stats and stall watch follow whatever screen is on stage.
@@ -1462,7 +1529,10 @@ export default function RoomView({
               </div>
             </div>
           )}
-          {stagePersonId !== null && (
+          {toolDeclined && liveTool && (
+            <DeclinedPlace tool={liveTool.tool} onJoin={() => setToolPass(liveTool.tool.id)} />
+          )}
+          {stagePersonId !== null && !toolDeclined && (
             <div className="screen-stage stage-person fade-in">
               {stagePersonId === session.selfId
                 ? selfTile(undefined, pinnedLive !== null)
@@ -1657,6 +1727,32 @@ export default function RoomView({
       </main>
 
       <footer className="room-footer" ref={footerRef} aria-label={t('controls.dock')}>
+        {offerScreensOff && session.participation.screens && (
+          <div className="strain-offer" role="status">
+            <p>
+              <strong>{t('participation.slowTitle')}</strong> {t('participation.slowBody')}
+            </p>
+            <div className="strain-actions">
+              <button
+                type="button"
+                className="strain-accept"
+                onClick={() => {
+                  session.updateParticipation({ ...session.participation, screens: false });
+                  setOfferScreensOff(false);
+                }}
+              >
+                {t('participation.slowAccept')}
+              </button>
+              <button
+                type="button"
+                className="strain-dismiss"
+                onClick={() => setOfferScreensOff(false)}
+              >
+                {t('participation.slowDismiss')}
+              </button>
+            </div>
+          </div>
+        )}
         {session.camDenied && (
           <p className="cam-denied-note" role="status">
             {t('room.camDenied')}
@@ -1693,6 +1789,8 @@ export default function RoomView({
             onScreenQuality={session.setScreenQuality}
             settings={session.mediaSettings}
             onSettings={session.updateMediaSettings}
+            participation={session.participation}
+            onParticipation={session.updateParticipation}
             // In a browser the picker itself decides (Chromium offers tab or
             // system audio); only the desktop shell can rule it out upfront.
             screenAudioSupported={!isDesktopApp() || desktopSystemAudio()}

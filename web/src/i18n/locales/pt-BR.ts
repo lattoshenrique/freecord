@@ -195,6 +195,21 @@ export const ptBR: Catalog = {
   'settings.mic.profile': 'Perfil do microfone',
   'settings.language.hint':
     'Vale na hora e fica salvo neste dispositivo. Sem recarregar, sem reiniciar.',
+  'participation.title': 'O que chega até você',
+  'participation.screens.label': 'Telas dos outros',
+  'participation.screens.hint':
+    'Desligado, a tela não é enviada para cá — recusada na origem, não escondida depois de chegar. A sua continua saindo quando você compartilha.',
+  'participation.tools.label': 'O que a sala colocar no ar',
+  'participation.tools.hint':
+    'Desligado, o vídeo, a página e os scripts deles não carregam aqui. A sala continua assistindo; a tecla da estante te deixa entrar quando quiser.',
+  'participation.toolOffTitle': 'Você ficou de fora desta',
+  'participation.toolOffBody': 'A sala está em {tool}. Nada disso está carregando aqui.',
+  'participation.toolJoinOnce': 'Entrar em {tool} só desta vez',
+  'participation.slowTitle': 'Sua conexão está sofrendo',
+  'participation.slowBody':
+    'As telas dos outros são o mais pesado que chega. Desligar elas preserva as vozes.',
+  'participation.slowAccept': 'Desligar as telas',
+  'participation.slowDismiss': 'Manter',
   'settings.about.title': 'Sobre',
   'settings.close': 'Fechar configurações',
   'settings.sounds.title': 'Sons',

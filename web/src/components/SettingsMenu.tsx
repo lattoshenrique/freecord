@@ -28,6 +28,7 @@ import {
   type MediaSettings,
   type MicProfileId,
 } from '../lib/media-settings';
+import type { Participation } from '../lib/participation';
 import {
   listAudioDevices,
   onDeviceChange,
@@ -191,6 +192,8 @@ export default function SettingsMenu({
   onScreenQuality,
   settings,
   onSettings,
+  participation,
+  onParticipation,
   screenAudioSupported,
   audioDevices,
   onAudioDevices,
@@ -201,6 +204,9 @@ export default function SettingsMenu({
   onScreenQuality: (id: ScreenQualityId) => void;
   settings: MediaSettings;
   onSettings: (next: MediaSettings) => void;
+  /** What this person takes part in, and the way to change it (participation.ts). */
+  participation: Participation;
+  onParticipation: (next: Participation) => void;
   /** False where the platform can never deliver it (desktop shell outside Windows). */
   screenAudioSupported: boolean;
   /** Device prefs + callback; omit both to hide the device pickers. */
@@ -409,6 +415,22 @@ export default function SettingsMenu({
                   ))}
                 </select>
               </Field>
+            </Group>
+            <Group title={t('participation.title')}>
+              <SwitchRow
+                checked={participation.screens}
+                label={t('participation.screens.label')}
+                hint={t('participation.screens.hint')}
+                onToggle={() =>
+                  onParticipation({ ...participation, screens: !participation.screens })
+                }
+              />
+              <SwitchRow
+                checked={participation.tools}
+                label={t('participation.tools.label')}
+                hint={t('participation.tools.hint')}
+                onToggle={() => onParticipation({ ...participation, tools: !participation.tools })}
+              />
             </Group>
             <Group title={t('settings.sounds.title')}>
               <SwitchRow

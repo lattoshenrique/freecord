@@ -208,6 +208,21 @@ export const enUS = {
   'settings.screenAudio.title': 'Computer audio',
   'settings.mic.profile': 'Microphone profile',
   'settings.language.hint': 'Applies instantly and sticks on this device. No reload, no restart.',
+  'participation.title': 'What reaches you',
+  'participation.screens.label': "Other people's screens",
+  'participation.screens.hint':
+    'Off and the screen is never sent here — turned away at the source, not hidden after arriving. Yours still goes out when you share.',
+  'participation.tools.label': 'Whatever the room puts on',
+  'participation.tools.hint':
+    'Off and the video, the page and their scripts never load here. The room keeps watching; the shelf key still lets you in when you want.',
+  'participation.toolOffTitle': 'You sat this one out',
+  'participation.toolOffBody': 'The room is on {tool}. None of it is loading here.',
+  'participation.toolJoinOnce': 'Join {tool} this once',
+  'participation.slowTitle': 'Your connection is having a hard time',
+  'participation.slowBody':
+    "Other people's screens are the heaviest thing arriving. Turning them off keeps the voices.",
+  'participation.slowAccept': 'Turn screens off',
+  'participation.slowDismiss': 'Keep them',
   'settings.about.title': 'About',
   'settings.close': 'Close settings',
   'settings.sounds.title': 'Sounds',
