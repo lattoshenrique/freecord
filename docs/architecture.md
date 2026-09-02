@@ -90,6 +90,31 @@ src/
   player tells the room, a player falling behind fixes itself — which are
   told apart by comparing each reading against the wall time that passed.
 
+### What a tool is allowed to weigh
+
+"No media vendor, no third-party SDK" has a subject, and tools are where
+somebody will eventually test it. The promise is about a SERVICE in the
+media path — an account, credentials, a vendor who sees the room and can
+price it. It is not a ban on dependencies, or React would have broken it
+first.
+
+What is in the bundle today, and the reasoning to apply to the next one:
+
+- `hls.js` (Apache-2.0) arrived with the `video` tool. It reads an HLS
+  manifest and feeds the segments to Media Source Extensions in the page,
+  because most browsers will not play a manifest on their own. It talks to
+  nobody but the stream's own origin, has no account behind it, and does
+  not know this room exists.
+- It is loaded with `await import('hls.js')`, so it is a chunk of its own:
+  a room that never opens that tool never downloads it, and a room that
+  never plays an HLS source never downloads it either. That is the shape
+  a tool's dependency should have — the cost falls on the person who asked
+  for the feature, not on everybody who opens a room.
+- The line to hold is the one in the promise: nothing that phones home,
+  nothing that needs a key, nothing that carries the media. A parser that
+  runs in the page is a dependency; a service that receives the stream is
+  a vendor, and that is the thing this project refuses.
+
 ## Client (web/src/lib)
 
 - `protocol.ts` — mirror of the server's message types.
