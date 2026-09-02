@@ -1,0 +1,6 @@
+This commit also carried work from a parallel session (guest-rooms-18) that
+was staged in the shared index when it went out: web/src/components/RoomView.tsx
+(dock-sep spans) and web/src/styles.css (room padding, dock divider). Those hunks
+are not part of the name-shuffle change the message describes.
+
+Cause: git commit with no pathspec photographs the whole index.
