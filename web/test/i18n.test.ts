@@ -43,6 +43,20 @@ describe('resolve', () => {
     expect(resolve(zhCN, enUS, 'zh-CN', 'room.participants', { count: 3 })).toBe('3 人');
   });
 
+  it('draws one of the variants, and holds it for the rest of the page', () => {
+    const catalog = { 'empty.room': ['first line', 'second line', 'third line'] };
+    const drawn = resolve(catalog, catalog, 'en-US', 'empty.room');
+    expect(catalog['empty.room']).toContain(drawn);
+    // Stability matters more than the draw: React re-renders the empty room
+    // many times while it connects, and the line must not flicker.
+    expect(resolve(catalog, catalog, 'en-US', 'empty.room')).toBe(drawn);
+  });
+
+  it('interpolates inside a variant like it does inside a plain string', () => {
+    const catalog = { 'greet': ['hey {name}'] };
+    expect(resolve(catalog, catalog, 'en-US', 'greet', { name: 'Ana' })).toBe('hey Ana');
+  });
+
   it('falls back to English when a translation is missing', () => {
     expect(resolve({}, enUS, 'pt-BR', 'chat.title')).toBe('Room chat');
   });
@@ -55,14 +69,46 @@ describe('resolve', () => {
 describe('catalogs', () => {
   const keys = Object.keys(enUS);
 
+  /**
+   * Every phrasing a message can put on screen: one for a plain string, one
+   * per plural form, one per variant. Checking the whole set is the point —
+   * a single broken variant is a line the app really does show, one page load
+   * in three.
+   */
+  const texts = (message: unknown): string[] => {
+    if (typeof message === 'string') {
+      return [message];
+    }
+    if (Array.isArray(message)) {
+      return message as string[];
+    }
+    const forms = message as { one?: string; other: string };
+    return [forms.one, forms.other].filter((form): form is string => form !== undefined);
+  };
+
   it.each(Object.entries(CATALOGS))('%s translates every key', (_locale, catalog) => {
     expect(Object.keys(catalog).sort()).toEqual(keys.sort());
   });
 
   it.each(Object.entries(CATALOGS))('%s leaves no message empty', (_locale, catalog) => {
     for (const [key, message] of Object.entries(catalog)) {
-      const text = typeof message === 'string' ? message : message.other;
-      expect(text.trim(), key).not.toBe('');
+      for (const text of texts(message)) {
+        expect(text.trim(), key).not.toBe('');
+      }
+    }
+  });
+
+  it.each(Object.entries(CATALOGS))('%s offers a variant wherever English does', (_l, catalog) => {
+    for (const key of keys) {
+      const source = enUS[key as keyof typeof enUS];
+      if (!Array.isArray(source)) {
+        continue;
+      }
+      // A locale that answered a list with one string would show that one
+      // line forever while English rotates.
+      const translated = catalog[key as keyof typeof catalog];
+      expect(Array.isArray(translated), key).toBe(true);
+      expect((translated as string[]).length, key).toBeGreaterThan(1);
     }
   });
 
@@ -76,9 +122,13 @@ describe('catalogs', () => {
     };
     for (const key of keys) {
       // A dropped {name} or {count} silently prints a broken sentence.
-      expect(placeholders(catalog[key as keyof typeof catalog]), key).toEqual(
-        placeholders(enUS[key as keyof typeof enUS]),
-      );
+      const wanted = placeholders(enUS[key as keyof typeof enUS]);
+      expect(placeholders(catalog[key as keyof typeof catalog]), key).toEqual(wanted);
+      // Per phrasing too: a union would let one variant lose {name} while a
+      // sibling still carries it.
+      for (const text of texts(catalog[key as keyof typeof catalog])) {
+        expect(placeholders(text), `${key}: ${text}`).toEqual(wanted);
+      }
     }
   });
 });

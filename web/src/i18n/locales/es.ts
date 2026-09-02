@@ -25,8 +25,16 @@ export const esES: Catalog = {
   'home.roomName': 'Nombre de la sala',
   'home.roomNamePlaceholder': 'Nombre de la sala — o pega un enlace de invitación',
   'home.create': 'Crear sala',
-  'home.creating': 'Levantándola…',
-  'home.createFailed': 'La sala se negó a arrancar. Prueba otra vez.',
+  'home.creating': [
+    'Levantándola…',
+    'Reservando una sala…',
+    'Apartando un slug…',
+  ],
+  'home.createFailed': [
+    'La sala se negó a arrancar. Prueba otra vez.',
+    'No ha cuajado. Otro intento suele bastar.',
+    'La sala ha dicho que no. Inténtalo de nuevo.',
+  ],
   'home.join': 'Entrar a la sala',
   'home.joinHint': 'Eso es un enlace de invitación — el botón te mete directo.',
   'home.invalidInvite':
@@ -81,7 +89,11 @@ export const esES: Catalog = {
   'how.more.start': 'Crear una sala',
 
   'invite.copy': 'Invitar',
-  'invite.copied': '¡Copiado! Ve a pegarlo por ahí.',
+  'invite.copied': [
+    '¡Copiado! Ve a pegarlo por ahí.',
+    'Copiado. Lo tiene el portapapeles.',
+    'Copiado — ahora ve a por la gente.',
+  ],
   'invite.manualCopy': 'Copia el enlace de la sala:',
 
   'prejoin.title': 'Entrar en {room}',
@@ -99,24 +111,46 @@ export const esES: Catalog = {
   'prejoin.notFoundBody':
     'El enlace puede haber caducado — una sala vacía pasa por el recolector de basura a los quince minutos.',
   'prejoin.createNew': 'Crear una sala nueva',
-  'prejoin.errorTitle': 'Pues se ha roto',
+  'prejoin.errorTitle': [
+    'Pues se ha roto',
+    'En mi máquina funciona',
+    'No era el plan',
+  ],
   'prejoin.errorBody':
     'La sala no cargó. Recarga la página — lo arregla más veces de las que nos gustaría admitir.',
-  'prejoin.empty': 'Todavía no hay nadie: serías el proceso 1.',
+  'prejoin.empty': [
+    'Todavía no hay nadie: serías el proceso 1.',
+    'Sala vacía. Elige sitio, están todos libres.',
+    'Todavía no hay nadie. Cero pares, todo el ancho de banda.',
+    'Sigue vacía — la malla no tiene con quién entrelazarse.',
+  ],
   'prejoin.inRoom': { one: '{count} persona en la sala.', other: '{count} personas en la sala.' },
   'prejoin.joinRoom': 'Entrar en la sala',
   'prejoin.renameRoom': 'Renombrar la sala',
   'prejoin.renameFailed': 'El nombre nuevo no cuajó. Inténtalo otra vez.',
 
-  'room.loading': 'Arrancando la sala…',
-  'room.connecting': 'Intercambiando candidatos ICE…',
+  'room.loading': [
+    'Arrancando la sala…',
+    'Despertando la sala…',
+    'Calentando la malla…',
+  ],
+  'room.connecting': [
+    'Intercambiando candidatos ICE…',
+    'Presentando tu navegador a los demás…',
+    'Negociando con la malla…',
+    'Dándonos la mano, con educación…',
+  ],
   'room.participants': { one: '{count} participante', other: '{count} participantes' },
   'room.unnamed': 'Sala sin nombre',
   'room.you': 'tú',
   'room.someone': 'Alguien',
   'room.micMuted': 'Micro apagado',
   'room.deafened': 'Altavoces apagados — no oyes nada',
-  'room.leftTitle': 'Has salido de la sala. o7',
+  'room.leftTitle': [
+    'Has salido de la sala. o7',
+    'Desconectado. o7',
+    'Sesión terminada. o7',
+  ],
   'room.endedFull':
     'La sala está llena — veinte es el tope. Más allá, una malla deja de ser honesta.',
   'room.endedNotFound': 'Esta sala ya no está. Las salas vacías se cierran solas.',
@@ -212,7 +246,12 @@ export const esES: Catalog = {
   'controls.dock': 'Controles de la llamada',
 
   'chat.title': 'Chat de la sala',
-  'chat.empty': 'Aún no hay mensajes. Bip bop — saluda 👋',
+  'chat.empty': [
+    'Aún no hay mensajes. Bip bop — saluda 👋',
+    'Log vacío. Alguien tiene que escribir la primera línea 👋',
+    'Aquí no hay nada. Haz commit del primer mensaje 👋',
+    'Silencio. Bip bop — rómpelo 👋',
+  ],
   'chat.noKey':
     'Tu enlace vino sin la clave de esta sala, así que no puede salir nada. Pide el enlace original a quien te invitó — la clave viaja después del # y nunca llega a un servidor.',
   'chat.locked': 'Cifrada — y tu enlace vino sin la clave',
@@ -237,7 +276,11 @@ export const esES: Catalog = {
 
   'file.attach': 'Enviar un archivo',
   'file.direct': 'Va directo por un canal de datos — sin servidor, sin subida, sin bucket',
-  'file.noPeers': 'Todavía no hay nadie aquí a quien mandárselo.',
+  'file.noPeers': [
+    'Todavía no hay nadie aquí a quien mandárselo.',
+    'Sin pares no hay transferencia: invita a alguien primero.',
+    'Un archivo necesita quien lo reciba, y aquí no hay nadie.',
+  ],
   'file.tooLarge': 'Hasta {max} por archivo — más allá el navegador se rinde.',
   'file.offer': '{name} quiere enviarte un archivo',
   'file.to': 'para {name}',

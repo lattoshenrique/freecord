@@ -34,8 +34,16 @@ export const enUS = {
   'home.roomName': 'Room name',
   'home.roomNamePlaceholder': 'Room name — or paste an invite link',
   'home.create': 'Create room',
-  'home.creating': 'Spinning it up…',
-  'home.createFailed': 'The room refused to boot. Give it another go.',
+  'home.creating': [
+    'Spinning it up…',
+    'Allocating a room…',
+    'Reserving a slug…',
+  ],
+  'home.createFailed': [
+    'The room refused to boot. Give it another go.',
+    'That did not take. One more try usually does it.',
+    'The room said no. Try again.',
+  ],
   'home.join': 'Join room',
   'home.joinHint': 'That is an invite link — the button walks you straight in.',
   'home.invalidInvite':
@@ -90,7 +98,11 @@ export const enUS = {
   'how.more.start': 'Create a room',
 
   'invite.copy': 'Invite',
-  'invite.copied': 'Copied! Go paste it somewhere.',
+  'invite.copied': [
+    'Copied! Go paste it somewhere.',
+    'Copied. The clipboard has it.',
+    'Copied — now go get people.',
+  ],
   'invite.manualCopy': 'Copy the room link:',
 
   'prejoin.title': 'Join {room}',
@@ -108,24 +120,46 @@ export const enUS = {
   'prejoin.notFoundBody':
     'The link may have expired — an empty room garbage-collects itself after fifteen minutes.',
   'prejoin.createNew': 'Create a new room',
-  'prejoin.errorTitle': 'Well, that broke',
+  'prejoin.errorTitle': [
+    'Well, that broke',
+    'It worked on our machine',
+    'That did not go to plan',
+  ],
   'prejoin.errorBody':
     'The room did not load. Reload the page — that fixes it more often than we would like to admit.',
-  'prejoin.empty': 'Nobody here yet — you would be process 1.',
+  'prejoin.empty': [
+    'Nobody here yet — you would be process 1.',
+    'Empty room. Pick any seat, they are all free.',
+    'Nobody here yet. Zero peers, all the bandwidth.',
+    'Still empty — the mesh has nothing to mesh with.',
+  ],
   'prejoin.inRoom': { one: '{count} person in the room.', other: '{count} people in the room.' },
   'prejoin.joinRoom': 'Join the room',
   'prejoin.renameRoom': 'Rename the room',
   'prejoin.renameFailed': 'The new name did not stick. Try again.',
 
-  'room.loading': 'Booting the room…',
-  'room.connecting': 'Trading ICE candidates…',
+  'room.loading': [
+    'Booting the room…',
+    'Waking the room up…',
+    'Warming up the mesh…',
+  ],
+  'room.connecting': [
+    'Trading ICE candidates…',
+    'Introducing your browser to the others…',
+    'Negotiating with the mesh…',
+    'Shaking hands, politely…',
+  ],
   'room.participants': { one: '{count} participant', other: '{count} participants' },
   'room.unnamed': 'Unnamed room',
   'room.you': 'you',
   'room.someone': 'Someone',
   'room.micMuted': 'Mic off',
   'room.deafened': 'Speakers off — hearing nothing',
-  'room.leftTitle': 'You left the room. o7',
+  'room.leftTitle': [
+    'You left the room. o7',
+    'Disconnected. o7',
+    'Session over. o7',
+  ],
   'room.endedFull': 'The room is full — twenty is the cap. Past that a mesh stops being honest.',
   'room.endedNotFound': 'This room is gone. Empty rooms close themselves.',
   'room.endedClosed': 'The connection to the room dropped. It happens; the link still works.',
@@ -220,7 +254,12 @@ export const enUS = {
   'controls.dock': 'Call controls',
 
   'chat.title': 'Room chat',
-  'chat.empty': 'No messages yet. Blip bop — say hi 👋',
+  'chat.empty': [
+    'No messages yet. Blip bop — say hi 👋',
+    'Empty log. Someone has to write the first line 👋',
+    'Nothing here yet. Commit the first message 👋',
+    'Silence. Blip bop — break it 👋',
+  ],
   'chat.noKey':
     'Your link came without this room’s key, so nothing can go out. Ask whoever invited you for the original link — the key rides after the # and never reaches a server.',
   'chat.locked': 'Encrypted — and your link came without the key',
@@ -245,7 +284,11 @@ export const enUS = {
 
   'file.attach': 'Send a file',
   'file.direct': 'Straight to them over a data channel — no server, no upload, no bucket',
-  'file.noPeers': 'Nobody here to send it to yet.',
+  'file.noPeers': [
+    'Nobody here to send it to yet.',
+    'No peers, no transfer — invite someone first.',
+    'A file needs a receiver, and there is nobody here.',
+  ],
   'file.tooLarge': 'Up to {max} per file — past that the browser taps out.',
   'file.offer': '{name} wants to send you a file',
   'file.to': 'to {name}',

@@ -25,8 +25,16 @@ export const ptBR: Catalog = {
   'home.roomName': 'Nome da sala',
   'home.roomNamePlaceholder': 'Nome da sala — ou cole um link de convite',
   'home.create': 'Criar sala',
-  'home.creating': 'Subindo…',
-  'home.createFailed': 'A sala se recusou a subir. Tenta de novo.',
+  'home.creating': [
+    'Subindo…',
+    'Alocando uma sala…',
+    'Reservando um slug…',
+  ],
+  'home.createFailed': [
+    'A sala se recusou a subir. Tenta de novo.',
+    'Não colou. Mais uma tentativa costuma resolver.',
+    'A sala disse não. Tenta outra vez.',
+  ],
   'home.join': 'Entrar na sala',
   'home.joinHint': 'Isso é um link de convite — o botão te leva direto para dentro.',
   'home.invalidInvite':
@@ -81,7 +89,11 @@ export const ptBR: Catalog = {
   'how.more.start': 'Criar uma sala',
 
   'invite.copy': 'Convidar',
-  'invite.copied': 'Copiado! Agora cola em algum lugar.',
+  'invite.copied': [
+    'Copiado! Agora cola em algum lugar.',
+    'Copiado. Tá na área de transferência.',
+    'Copiado — agora vai buscar gente.',
+  ],
   'invite.manualCopy': 'Copie o link da sala:',
 
   'prejoin.title': 'Entrar em {room}',
@@ -99,24 +111,46 @@ export const ptBR: Catalog = {
   'prejoin.notFoundBody':
     'O link pode ter expirado — sala vazia é coletada como lixo depois de quinze minutos.',
   'prejoin.createNew': 'Criar uma nova sala',
-  'prejoin.errorTitle': 'Deu ruim',
+  'prejoin.errorTitle': [
+    'Deu ruim',
+    'Na minha máquina funciona',
+    'Não era esse o plano',
+  ],
   'prejoin.errorBody':
     'A sala não carregou. Recarrega a página — resolve mais vezes do que a gente gostaria de admitir.',
-  'prejoin.empty': 'Ninguém aqui ainda — você seria o processo 1.',
+  'prejoin.empty': [
+    'Ninguém aqui ainda — você seria o processo 1.',
+    'Sala vazia. Escolhe o lugar que quiser, tá tudo livre.',
+    'Ninguém aqui ainda. Zero pares, toda a banda pra você.',
+    'Continua vazia — a malha não tem com quem se entrelaçar.',
+  ],
   'prejoin.inRoom': { one: '{count} pessoa na sala.', other: '{count} pessoas na sala.' },
   'prejoin.joinRoom': 'Entrar na sala',
   'prejoin.renameRoom': 'Renomear a sala',
   'prejoin.renameFailed': 'O nome novo não colou. Tenta de novo.',
 
-  'room.loading': 'Subindo a sala…',
-  'room.connecting': 'Trocando candidatos ICE…',
+  'room.loading': [
+    'Subindo a sala…',
+    'Acordando a sala…',
+    'Esquentando a malha…',
+  ],
+  'room.connecting': [
+    'Trocando candidatos ICE…',
+    'Apresentando o seu navegador aos outros…',
+    'Negociando com a malha…',
+    'Apertando as mãos, educadamente…',
+  ],
   'room.participants': { one: '{count} participante', other: '{count} participantes' },
   'room.unnamed': 'Sala sem nome',
   'room.you': 'você',
   'room.someone': 'Alguém',
   'room.micMuted': 'Mic desligado',
   'room.deafened': 'Alto-falantes desligados — não está ouvindo nada',
-  'room.leftTitle': 'Você saiu da sala. o7',
+  'room.leftTitle': [
+    'Você saiu da sala. o7',
+    'Desconectado. o7',
+    'Sessão encerrada. o7',
+  ],
   'room.endedFull':
     'A sala está cheia — vinte é o teto. Acima disso a malha deixa de ser honesta.',
   'room.endedNotFound': 'Esta sala já era. Sala vazia fecha sozinha.',
@@ -212,7 +246,12 @@ export const ptBR: Catalog = {
   'controls.dock': 'Controles da chamada',
 
   'chat.title': 'Chat da sala',
-  'chat.empty': 'Nenhuma mensagem ainda. Blip bop — manda um oi 👋',
+  'chat.empty': [
+    'Nenhuma mensagem ainda. Blip bop — manda um oi 👋',
+    'Log vazio. Alguém tem que escrever a primeira linha 👋',
+    'Nada por aqui ainda. Commita a primeira mensagem 👋',
+    'Silêncio. Blip bop — quebra ele 👋',
+  ],
   'chat.noKey':
     'Seu link veio sem a chave desta sala, então não dá para enviar nada. Peça o link original a quem te convidou — a chave vem depois do # e nunca chega a um servidor.',
   'chat.locked': 'Criptografada — e o seu link veio sem a chave',
@@ -237,7 +276,11 @@ export const ptBR: Catalog = {
 
   'file.attach': 'Enviar um arquivo',
   'file.direct': 'Vai direto por um canal de dados — sem servidor, sem upload, sem bucket',
-  'file.noPeers': 'Ainda não tem ninguém aqui para receber.',
+  'file.noPeers': [
+    'Ainda não tem ninguém aqui para receber.',
+    'Sem pares, sem transferência — chama alguém primeiro.',
+    'Arquivo precisa de quem receba, e não tem ninguém aqui.',
+  ],
   'file.tooLarge': 'Até {max} por arquivo — acima disso o navegador desiste.',
   'file.offer': '{name} quer te enviar um arquivo',
   'file.to': 'para {name}',
