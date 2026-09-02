@@ -1,9 +1,9 @@
 /**
  * The shared player on the room's stage.
  *
- * Everyone runs their own YouTube player and the room agrees on three
- * things: which video, playing or not, and where. The rule that keeps
- * that agreement honest is the whole of this file:
+ * Everyone runs their own YouTube player and the room agrees on what is
+ * on, whether it is playing, where it is, and what comes next. The rule
+ * that keeps that agreement honest is the whole of this file:
  *
  *   a PERSON moving the player tells the room (setState);
  *   a PLAYER falling behind fixes itself (seek, silently).
@@ -13,17 +13,24 @@
  * everyone backwards, one tick at a time. So the sampler compares each
  * tick against how much wall-clock time actually passed — a player that
  * stalls drifts by less than a second per tick, while a person dragging
- * the bar jumps. Only a jump, or a play/pause that contradicts the room,
- * is reported (sync.ts).
+ * the bar jumps — and a player that has not yet arrived where the room is
+ * says nothing about position at all (sync.ts).
+ *
+ * Two things move the room on by themselves, and both are reported by
+ * whoever sees them first: a video ending (the queue advances) and a
+ * playlist walking to its next video (the room follows the index). Both
+ * are idempotent, and both are refused by a straggler whose item is no
+ * longer the room's (queue.ts).
  *
  * While we are the ones applying the room's state, sampling is suspended:
  * seekTo and playVideo fire the same events a person would.
  */
 import { useEffect, useRef, useState } from 'react';
 import type { ToolViewProps } from '../contract';
-import { CloseGlyph } from './icons';
+import { CloseGlyph, SkipGlyph } from './icons';
 import { PLAYER_STATE, createPlayer, type YouTubePlayer } from './player';
-import { positionAt, type WatchState } from './state';
+import { advance, mayAdvanceFrom, withListIndex } from './queue';
+import { positionAt, type WatchItem, type WatchState } from './state';
 import { DRIFT_TOLERANCE_SECONDS, decideSync } from './sync';
 import './stage.css';
 
@@ -40,6 +47,15 @@ const APPLY_QUIET_MS = 1200;
  * load which silently failed is retried while anybody still cares.
  */
 const SETTLE_TIMEOUT_MS = 10_000;
+
+/**
+ * What the player has to be told to load. A playlist's INDEX is not part
+ * of it: walking to another of its videos is a jump inside the thing that
+ * is already loaded, and reloading it there would start it over.
+ */
+function loadKeyOf(item: WatchItem): string {
+  return item.kind === 'video' ? `video:${item.video}` : `list:${item.list}`;
+}
 
 /**
  * Nothing on, nothing on stage. The player below is mounted only with a
@@ -74,8 +90,8 @@ function Player({
   const mineRef = useRef(mine);
   mineRef.current = mine;
 
-  /** The video the player has loaded — not necessarily the room's, yet. */
-  const loadedRef = useRef(state.video);
+  /** What the player has loaded — not necessarily the room's, yet. */
+  const loadedRef = useRef(loadKeyOf(state.now));
   /** Sampling is suspended until this moment (see APPLY_QUIET_MS). */
   const quietUntilRef = useRef(0);
   /**
@@ -112,16 +128,31 @@ function Player({
     if (!player) {
       return; // still loading; it is built on the room's state anyway
     }
+    const item = room.state.now;
     const target = positionAt(room.state, room.at);
-    if (room.state.video !== loadedRef.current) {
-      loadedRef.current = room.state.video;
+    if (loadKeyOf(item) !== loadedRef.current) {
+      loadedRef.current = loadKeyOf(item);
       setBlocked(false);
       quiet({ time: target, playing: room.state.playing });
-      if (room.state.playing) {
-        player.loadVideoById({ videoId: room.state.video, startSeconds: target });
+      if (item.kind === 'video') {
+        const load = room.state.playing ? player.loadVideoById : player.cueVideoById;
+        load.call(player, { videoId: item.video, startSeconds: target });
       } else {
-        player.cueVideoById({ videoId: room.state.video, startSeconds: target });
+        const load = room.state.playing ? player.loadPlaylist : player.cuePlaylist;
+        load.call(player, {
+          list: item.list,
+          listType: 'playlist',
+          index: item.index,
+          startSeconds: target,
+        });
       }
+      return;
+    }
+    if (item.kind === 'list' && player.getPlaylistIndex() !== item.index) {
+      // The room is on another of this playlist's videos: a jump inside
+      // what is already loaded, never a reload.
+      quiet({ time: target, playing: room.state.playing });
+      player.playVideoAt(item.index);
       return;
     }
     if (mineRef.current) {
@@ -144,8 +175,19 @@ function Player({
     quiet({ time: target, playing: room.state.playing });
   }
 
+  /** Whether this player's playlist has nothing after the video that just ended. */
+  function atEndOfList(player: YouTubePlayer): boolean {
+    try {
+      const list = player.getPlaylist();
+      const index = player.getPlaylistIndex();
+      return !list || list.length === 0 || index < 0 || index >= list.length - 1;
+    } catch {
+      return true;
+    }
+  }
+
   /**
-   * One reading of our player against the room's state — the rule at the
+   * One reading of our player against the room's state — the rules at the
    * top of this file, in code.
    */
   function sample(): void {
@@ -162,8 +204,38 @@ function Player({
     } catch {
       return; // the iframe is going away under us
     }
+    const item = room.state.now;
+
+    // A playlist walked to its next video on its own: the room follows
+    // whoever noticed first, and the ones that notice a second later send
+    // the same thing.
+    if (item.kind === 'list') {
+      let index = -1;
+      try {
+        index = player.getPlaylistIndex();
+      } catch {
+        index = -1;
+      }
+      if (index >= 0 && index !== item.index) {
+        settlingRef.current = false;
+        setStateRef.current(withListIndex(room.state, index));
+        return;
+      }
+    }
+
+    if (playerState === PLAYER_STATE.ended) {
+      // The end of a video, or of a whole playlist: the queue moves on.
+      // A straggler that gets here late finds the room already moved on
+      // and says nothing (queue.ts).
+      if (mayAdvanceFrom(room.state, item) && (item.kind === 'video' || atEndOfList(player))) {
+        settlingRef.current = false;
+        setStateRef.current(advance(room.state));
+      }
+      return;
+    }
+
     if (playerState === PLAYER_STATE.unstarted || playerState === PLAYER_STATE.cued) {
-      // Not started: a video still getting ready, or an autoplay the
+      // Not started: something still getting ready, or an autoplay the
       // browser refused. Nobody paused anything — so nothing is reported;
       // we ask our own player again and, if the browser keeps saying no,
       // its play button is right there.
@@ -173,6 +245,7 @@ function Player({
       }
       return;
     }
+
     const now = Date.now();
     const previous = sampleRef.current;
     // Buffering is still "playing" to the room: the video is on, this
@@ -205,7 +278,7 @@ function Player({
     // again, for good or ill.
     settlingRef.current = false;
     if (action.kind === 'report') {
-      setStateRef.current({ video: room.state.video, playing: action.playing, time: action.time });
+      setStateRef.current({ ...room.state, playing: action.playing, time: action.time });
       return;
     }
     if (action.kind === 'seek') {
@@ -232,7 +305,7 @@ function Player({
     quiet({ time: positionAt(room.state, room.at), playing: room.state.playing });
 
     void createPlayer(mount, {
-      videoId: room.state.video,
+      item: room.state.now,
       startSeconds: positionAt(room.state, room.at),
       autoplay: room.state.playing,
       onReady: (player) => {
@@ -248,9 +321,9 @@ function Player({
         applyRoom();
       },
       onStateChange: () => sample(),
-      // A video that cannot be played here (removed, private, embedding
-      // off) is not a broken room: say so, and the shelf's close key is
-      // there for whoever wants to move on.
+      // Something that cannot be played here (removed, private, embedding
+      // off) is not a broken room: say so, and the keys to move on or to
+      // close it are right there.
       onError: () => setBlocked(true),
     }).catch(() => setBlocked(true));
 
@@ -263,8 +336,8 @@ function Player({
       playerRef.current = null;
       mount.remove();
     };
-    // Mounted once per stage: a change of video is applied to the player
-    // that is already here, never by building a second one.
+    // Mounted once per stage: a change of what is on is applied to the
+    // player that is already here, never by building a second one.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -286,6 +359,8 @@ function Player({
     }
   }, [speakerOn]);
 
+  const queued = state.queue.length;
+
   return (
     <div className="screen-stage youtube-stage fade-in">
       {/*
@@ -294,29 +369,54 @@ function Player({
         close key kept landing on its settings gear.
       */}
       <div className="youtube-bar">
-        <span className="youtube-title">{t('stageLabel')}</span>
-        <button
-          type="button"
-          className="youtube-close"
-          aria-label={t('closeForAll')}
-          title={t('closeForAll')}
-          onClick={() => setState(null)}
-        >
-          <CloseGlyph />
-        </button>
+        <span className="youtube-title">
+          {t('stageLabel')}
+          {queued > 0 && <span className="youtube-queued">{t('queued', { count: queued })}</span>}
+        </span>
+        <span className="youtube-keys">
+          {queued > 0 && (
+            <button
+              type="button"
+              className="youtube-key"
+              aria-label={t('skip')}
+              title={t('skip')}
+              onClick={() => setState(advance(state))}
+            >
+              <SkipGlyph />
+            </button>
+          )}
+          <button
+            type="button"
+            className="youtube-key youtube-close"
+            aria-label={t('closeForAll')}
+            title={t('closeForAll')}
+            onClick={() => setState(null)}
+          >
+            <CloseGlyph />
+          </button>
+        </span>
       </div>
       <div className="youtube-frame" ref={hostRef} />
       {blocked && (
         <div className="youtube-blocked" role="status">
           <p>{t('blocked')}</p>
-          <a
-            className="youtube-blocked-link"
-            href={`https://www.youtube.com/watch?v=${state.video}`}
-            target="_blank"
-            rel="noreferrer noopener"
-          >
-            {t('openOnYouTube')}
-          </a>
+          <span className="youtube-blocked-keys">
+            {state.now.kind === 'video' && (
+              <a
+                className="youtube-blocked-link"
+                href={`https://www.youtube.com/watch?v=${state.now.video}`}
+                target="_blank"
+                rel="noreferrer noopener"
+              >
+                {t('openOnYouTube')}
+              </a>
+            )}
+            {queued > 0 && (
+              <button type="button" className="tool-open" onClick={() => setState(advance(state))}>
+                {t('skip')}
+              </button>
+            )}
+          </span>
         </div>
       )}
     </div>

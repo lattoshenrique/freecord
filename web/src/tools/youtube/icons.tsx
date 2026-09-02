@@ -28,6 +28,35 @@ export function YouTubeIcon() {
   );
 }
 
+/** Skip to the next thing the room lined up. */
+export function SkipGlyph() {
+  return (
+    <svg {...base}>
+      <path d="M6 5l9 7-9 7z" />
+      <path d="M18 5v14" />
+    </svg>
+  );
+}
+
+/** Put this one on now. */
+export function PlayGlyph() {
+  return (
+    <svg {...base}>
+      <path d="M7 4.5l12 7.5-12 7.5z" />
+    </svg>
+  );
+}
+
+/** A playlist, where a video would have had a thumbnail. */
+export function ListGlyph() {
+  return (
+    <svg {...base}>
+      <path d="M4 7h10M4 12h10M4 17h6" />
+      <path d="M17 11.5l4 2.5-4 2.5z" />
+    </svg>
+  );
+}
+
 export function CloseGlyph() {
   return (
     <svg {...base}>

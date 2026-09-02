@@ -15,6 +15,13 @@
   flex-direction: column;
 }
 
+/* The bar arrives after the frame it sits on, so the stage reads as one
+   thing being put up rather than two arriving at once. */
+.youtube-bar {
+  animation: rise-in var(--dur-pop, 0.22s) var(--ease, ease) both;
+  animation-delay: 0.06s;
+}
+
 /* The room's strip: what this is, and the key that ends it for everyone. */
 .youtube-bar {
   display: flex;
@@ -34,7 +41,19 @@
   color: var(--muted, #9aa3b2);
 }
 
-.youtube-close {
+/* How many things are lined up behind what is on. */
+.youtube-queued {
+  margin-left: 0.4rem;
+  color: var(--muted, #9aa3b2);
+  text-transform: none;
+}
+
+.youtube-keys {
+  display: inline-flex;
+  gap: 0.25rem;
+}
+
+.youtube-key {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -46,12 +65,28 @@
   border-radius: var(--hud-radius, 8px);
   color: var(--muted, #9aa3b2);
   cursor: pointer;
+  transition:
+    color var(--dur-quick, 0.15s) ease,
+    border-color var(--dur-quick, 0.15s) ease,
+    background var(--dur-quick, 0.15s) ease,
+    transform var(--dur-quick, 0.15s) var(--ease, ease);
 }
 
+.youtube-key:hover,
+.youtube-key:focus-visible {
+  color: var(--text, #e6e8ee);
+  border-color: var(--hud-border, rgba(255, 255, 255, 0.1));
+}
+
+/* Ending it for the room is the one key here that is not reversible. */
 .youtube-close:hover,
 .youtube-close:focus-visible {
   color: var(--danger, #e5484d);
   border-color: var(--danger, #e5484d);
+}
+
+.youtube-key:active {
+  transform: scale(0.92);
 }
 
 .youtube-frame {
@@ -79,6 +114,9 @@
   text-align: center;
   background: rgba(4, 6, 10, 0.82);
   color: var(--text, #e6e8ee);
+  /* YouTube's refusal arrives seconds into the play: it fades over the frame
+     instead of slamming a wall in front of a video everyone was watching. */
+  animation: fade-in var(--dur-panel, 0.26s) var(--ease, ease) both;
 }
 
 .youtube-blocked p {
@@ -87,9 +125,20 @@
   font-size: 0.9rem;
 }
 
+.youtube-blocked-keys {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
 .youtube-blocked-link {
   color: var(--text, #e6e8ee);
   font-size: 0.82rem;
   text-decoration: underline;
   text-underline-offset: 3px;
+  transition: color var(--dur-quick, 0.15s) ease;
+}
+
+.youtube-blocked-link:hover {
+  color: var(--accent-hover, #6a76f5);
 }

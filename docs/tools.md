@@ -84,9 +84,25 @@ file is the list of things a peer might try.
 | tools per room | 8 at once; past that the shelf says the room is full |
 
 The state is echoed to every peer on every change and rides in `welcome`.
-That is the budget it has to live inside: a cursor, a playlist, a
+That is the budget it has to live inside: a cursor, a queue, a
 scoreboard — not documents. A tool with real data to move should move it
 peer to peer over the existing file channel rather than through here.
+
+## Two people doing the same thing at once
+
+Last word wins is only safe if the moves are shaped for it. The YouTube
+tool's queue (`web/src/tools/youtube/queue.ts`) is the worked example:
+when a video ends, every player in the room reaches the end within a
+second of each other and every one of them tries to advance. That is fine
+— advancing past the item that is on lands on the same next item whoever
+does it — but a straggler that arrives late must not drag the room back
+to the film it already left, so it checks first that what IT was playing
+is still what the room has on.
+
+Write your moves as functions of the state you were handed, make them
+land in the same place when repeated, and refuse them when the state has
+moved past you. That, and not a lock, is what keeps twenty people from
+fighting over one shared value.
 
 ## Writing one
 

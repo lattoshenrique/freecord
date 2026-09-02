@@ -13,6 +13,8 @@
  */
 
 /** The player states YouTube reports; mirror of `YT.PlayerState`. */
+import type { WatchItem } from './state';
+
 export const PLAYER_STATE = {
   unstarted: -1,
   ended: 0,
@@ -32,13 +34,22 @@ export interface YouTubePlayer {
   getPlayerState(): number;
   loadVideoById(options: { videoId: string; startSeconds?: number }): void;
   cueVideoById(options: { videoId: string; startSeconds?: number }): void;
+  loadPlaylist(options: { list: string; listType: 'playlist'; index?: number; startSeconds?: number }): void;
+  cuePlaylist(options: { list: string; listType: 'playlist'; index?: number; startSeconds?: number }): void;
+  /** Where in its playlist the player is; -1 when it is not playing one. */
+  getPlaylistIndex(): number;
+  /** The playlist's video ids, so we can tell its last video from the rest. */
+  getPlaylist(): string[] | null;
+  /** Jumps to another of the playlist's videos. */
+  playVideoAt(index: number): void;
   mute(): void;
   unMute(): void;
   destroy(): void;
 }
 
 interface PlayerOptions {
-  videoId: string;
+  /** What to load: one video, or a position inside a playlist. */
+  item: WatchItem;
   startSeconds: number;
   autoplay: boolean;
   onReady: (player: YouTubePlayer) => void;
@@ -106,17 +117,21 @@ export async function createPlayer(
 ): Promise<YouTubePlayer> {
   const api = await loadYouTubeApi();
   return new Promise<YouTubePlayer>((resolve) => {
+    const { item } = options;
+    // The room's own controls are the shared ones; YouTube's are the
+    // familiar ones, and every move they make goes out to everybody.
+    const common = { playsinline: 1, rel: 0, modestbranding: 1, autoplay: options.autoplay ? 1 : 0 };
+    // A playlist is loaded as ITSELF and nothing else: `listType` + `list`
+    // alone. Adding a videoId, an index or a start next to them leaves the
+    // API with an iframe whose src it never fills in — which is a stage
+    // that stays black forever. Where in the playlist to be, and where in
+    // that video, is applied on ready like every other correction (Stage).
+    const config =
+      item.kind === 'video'
+        ? { videoId: item.video, playerVars: { ...common, start: Math.floor(options.startSeconds) } }
+        : { playerVars: { ...common, listType: 'playlist', list: item.list } };
     const player = new api.Player(element, {
-      videoId: options.videoId,
-      playerVars: {
-        // The room's own controls are the shared ones; YouTube's are the
-        // familiar ones, and every move they make goes out to everybody.
-        autoplay: options.autoplay ? 1 : 0,
-        start: Math.floor(options.startSeconds),
-        playsinline: 1,
-        rel: 0,
-        modestbranding: 1,
-      },
+      ...config,
       events: {
         onReady: () => {
           options.onReady(player);
@@ -129,13 +144,14 @@ export async function createPlayer(
   });
 }
 
-/** A video id, and where the pasted link said to start (0 if it did not). */
-export interface ParsedVideo {
-  video: string;
+/** What a pasted link turned out to be, and where it said to start. */
+export interface ParsedLink {
+  item: WatchItem;
   start: number;
 }
 
 const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
+const LIST_ID = /^[A-Za-z0-9_-]{13,42}$/;
 /** `1h2m3s`, `90s` or plain `90` — YouTube writes `t` every one of those ways. */
 const TIME = /^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s?)?$/;
 
@@ -152,17 +168,23 @@ function parseStart(value: string | null): number {
 }
 
 /**
- * The video in whatever someone pasted: a full watch URL, a share link, an
- * embed, a short, a live, or the bare id. Null when there is no video in
+ * What someone pasted: a full watch URL, a share link, an embed, a short,
+ * a live, a playlist, or a bare id. Null when there is nothing to play in
  * it — the field says so instead of the room being told to load nothing.
+ *
+ * A link that carries BOTH a video and a playlist (`watch?v=…&list=…`,
+ * what YouTube gives you for a video you opened from a playlist) is taken
+ * as the video. That is the thing the person was looking at when they
+ * copied it; a link meant as a playlist is the one that has no `v` at
+ * all, which is exactly what /playlist gives.
  */
-export function parseVideo(input: string): ParsedVideo | null {
+export function parseLink(input: string): ParsedLink | null {
   const text = input.trim();
   if (!text) {
     return null;
   }
   if (VIDEO_ID.test(text)) {
-    return { video: text, start: 0 };
+    return { item: { kind: 'video', video: text }, start: 0 };
   }
   let url: URL;
   try {
@@ -174,18 +196,24 @@ export function parseVideo(input: string): ParsedVideo | null {
   const start = parseStart(url.searchParams.get('t') ?? url.searchParams.get('start'));
   if (host === 'youtu.be') {
     const id = url.pathname.slice(1).split('/')[0] ?? '';
-    return VIDEO_ID.test(id) ? { video: id, start } : null;
+    return VIDEO_ID.test(id) ? { item: { kind: 'video', video: id }, start } : null;
   }
   if (host !== 'youtube.com' && host !== 'youtube-nocookie.com') {
     return null;
   }
   const fromQuery = url.searchParams.get('v');
   if (fromQuery && VIDEO_ID.test(fromQuery)) {
-    return { video: fromQuery, start };
+    return { item: { kind: 'video', video: fromQuery }, start };
+  }
+  const list = url.searchParams.get('list');
+  if (list && LIST_ID.test(list)) {
+    // A playlist starts at its beginning: which of its videos is which is
+    // the player's knowledge, not ours (state.ts).
+    return { item: { kind: 'list', list, index: 0 }, start: 0 };
   }
   // /embed/<id>, /shorts/<id>, /live/<id>, /v/<id>
   const [, section, id] = url.pathname.split('/');
   return section && id && ['embed', 'shorts', 'live', 'v'].includes(section) && VIDEO_ID.test(id)
-    ? { video: id, start }
+    ? { item: { kind: 'video', video: id }, start }
     : null;
 }

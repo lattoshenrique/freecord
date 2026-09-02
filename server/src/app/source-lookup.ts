@@ -21,6 +21,15 @@
  *   capped, and the whole thing is on a stopwatch.
  *
  * The parsing is in domain/sources.ts and has no idea any of this exists.
+ *
+ * One note on where the guard earns its keep. In production this runs on
+ * the Worker, which reaches the open internet from Cloudflare's edge with
+ * no private network of ours behind it, so the host blocklist is a belt
+ * beside braces. But this repository still ships a Dockerfile and a Node
+ * edge, and that path has been deployed for real (docs/architecture.md);
+ * inside a cloud VPC, 169.254.169.254 is not a curiosity, it is the
+ * metadata service. On that deployment the blocklist and the hand-walked
+ * redirects are the only thing standing there.
  */
 import {
   SOURCE_LIMITS,
@@ -139,7 +148,10 @@ async function readCapped(response: Response): Promise<string | null> {
     return '';
   }
   const reader = body.getReader();
-  const decoder = new TextDecoder('utf-8', { fatal: false });
+  // Bare, not configured: the Worker's TextDecoder types demand the whole
+  // option bag, and the defaults (utf-8, replacement characters over
+  // throwing) are exactly what a page of unknown encoding wants.
+  const decoder = new TextDecoder();
   const chunks: string[] = [];
   let read = 0;
   try {
