@@ -40,6 +40,7 @@ import {
   embedToFollow,
   framingAllowed,
   normalizeSourceUrl,
+  providerEmbedFor,
   rankCandidates,
 } from '../domain/sources.js';
 
@@ -72,8 +73,16 @@ const USER_AGENT = 'FreecordLinkReader/1.0 (+https://github.com/lattoshenrique/f
 export type LookupFailure =
   /** Not a link we will open at all (scheme, port, host, length). */
   | 'invalid_url'
-  /** It did not answer, answered badly, was far too big, or took too long. */
-  | 'unreachable';
+  /** It did not answer, was far too big, or took too long. */
+  | 'unreachable'
+  /**
+   * It answered, and the answer was no. A site is allowed to refuse a
+   * reader that names itself, and plenty do — which is a different thing
+   * from being unreachable, and has a different way out: the page can
+   * still be shown to the room as a frame, where each viewer arrives as
+   * themselves.
+   */
+  | 'refused';
 
 export type LookupResult = { ok: true; lookup: SourceLookup } | { ok: false; reason: LookupFailure };
 
@@ -85,6 +94,8 @@ interface Fetched {
   html: string;
   framable: boolean;
   contentType: string;
+  /** The site answered with something other than "here you go". */
+  refused: boolean;
 }
 
 /** One GET, its redirects walked by hand so each hop is checked again. */
@@ -124,24 +135,28 @@ async function readPage(url: string, fetchImpl: FetchLike, deadline: number): Pr
       target = next;
       continue;
     }
-    if (!response.ok) {
-      return null;
-    }
     const contentType = (response.headers.get('content-type') ?? '').toLowerCase();
     const framable = framingAllowed(
       response.headers.get('x-frame-options'),
       response.headers.get('content-security-policy'),
     );
+    if (!response.ok) {
+      // A refusal is still an answer, and it still carries the two
+      // headers that say whether the page may be framed. That is worth
+      // keeping: a site that turns a reader away at the door will often
+      // let a person in, and the frame is how a person goes in.
+      return { url: target, html: '', framable, contentType, refused: true };
+    }
     if (!/html|xml|json|text\/plain/.test(contentType)) {
       // Not a page. It may still be the video itself — a link with no
       // extension whose server says `video/mp4` is a perfectly good
       // source, and the caller decides that from the type.
-      return { url: target, html: '', framable, contentType };
+      return { url: target, html: '', framable, contentType, refused: false };
     }
     const html = await readCapped(response, contentType);
     return html === null
       ? null
-      : { url: target, html, framable, contentType };
+      : { url: target, html, framable, contentType, refused: false };
   }
   return null; // went round in circles
 }
@@ -265,29 +280,49 @@ export async function lookupSource(
     return { ok: false, reason: 'unreachable' };
   }
 
+  if (page.refused) {
+    // Nothing to read, but the door may still open for a person.
+    return page.framable
+      ? {
+          ok: true,
+          lookup: {
+            url: page.url,
+            candidates: [{ play: 'frame', url: page.url, found: 'link', framable: true }],
+            empty: false,
+          },
+        }
+      : { ok: false, reason: 'refused' };
+  }
+
   const typed = candidateFromType(page.url, page.contentType);
   if (typed) {
     return { ok: true, lookup: { url: page.url, candidates: [typed], empty: false } };
   }
 
   const candidates = candidatesFromHtml(page.html, page.url);
+  // The player a big platform hands out for its own pages, alongside
+  // whatever the page itself gave up.
+  const embed = providerEmbedFor(page.url);
+  if (embed && !candidates.some((candidate) => candidate.url === embed.url)) {
+    candidates.push(embed);
+  }
 
   // A player that lives one page further in. Very common, and the reason
   // a page can look empty while its video is right there.
-  const embed = embedToFollow(candidates, page.url);
-  if (embed) {
-    const inner = await readPage(embed, fetchImpl, deadline);
+  const nested = embedToFollow(candidates, page.url);
+  if (nested) {
+    const inner = await readPage(nested, fetchImpl, deadline);
     if (inner) {
       const innerTyped = candidateFromType(inner.url, inner.contentType);
       const found = innerTyped ? [innerTyped] : candidatesFromHtml(inner.html, inner.url);
-      const host = new URL(embed).hostname.replace(/^www\./, '');
+      const host = new URL(nested).hostname.replace(/^www\./, '');
       for (const candidate of found) {
         candidates.push({ ...candidate, via: host });
       }
       // Now we know whether that player may be framed, which decides
       // whether offering it is a picture or an empty rectangle.
       for (const candidate of candidates) {
-        if (candidate.url === embed) {
+        if (candidate.url === nested) {
           candidate.framable = inner.framable;
         }
       }

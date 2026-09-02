@@ -103,6 +103,53 @@ describe('reading the page', () => {
   });
 });
 
+describe('the players the big platforms hand out', () => {
+  it('offers the embed alongside what the page itself gave up', async () => {
+    // Vimeo's page yields real manifests, which give the room a shared
+    // clock; the embed always works and gives none. Both, and the person
+    // picks — which is what this tool is for.
+    const { fetchImpl } = web({
+      'https://vimeo.com/76979871': { body: '<video src="https://cdn.example/a.m3u8"></video>' },
+    });
+    const result = await lookupSource('https://vimeo.com/76979871', fetchImpl);
+    const urls = result.ok ? result.lookup.candidates.map((c) => c.url) : [];
+    expect(urls).toContain('https://cdn.example/a.m3u8');
+    expect(urls).toContain('https://player.vimeo.com/video/76979871');
+  });
+
+  it('knows the shapes the platforms use', async () => {
+    const cases: [string, string][] = [
+      ['https://www.dailymotion.com/video/x8mnh4k', 'https://geo.dailymotion.com/player.html?video=x8mnh4k'],
+      ['https://www.youtube.com/watch?v=dQw4w9WgXcQ', 'https://www.youtube.com/embed/dQw4w9WgXcQ'],
+      ['https://youtu.be/dQw4w9WgXcQ', 'https://www.youtube.com/embed/dQw4w9WgXcQ'],
+    ];
+    for (const [page, embed] of cases) {
+      const { fetchImpl } = web({ [page]: { body: '<h1>nothing readable</h1>' } });
+      const result = await lookupSource(page, fetchImpl);
+      const urls = result.ok ? result.lookup.candidates.map((c) => c.url) : [];
+      expect(urls, page).toContain(embed);
+    }
+  });
+});
+
+describe('the same stream signed four ways', () => {
+  it('is offered once, because four identical rows are not a choice', async () => {
+    const { fetchImpl } = web({
+      'https://site.example/v': {
+        body: `<script>
+          var a = "https://cdn.example/exp=1~one/playlist.m3u8";
+          var b = "https://cdn.example/exp=2~two/playlist.m3u8";
+          var c = "https://other.example/exp=3~three/playlist.m3u8";
+        </script>`,
+      },
+    });
+    const result = await lookupSource('https://site.example/v', fetchImpl);
+    const streams = result.ok ? result.lookup.candidates.filter((c) => c.play === 'hls') : [];
+    expect(streams).toHaveLength(2);
+    expect(streams.map((c) => c.label)).toEqual(['cdn.example', 'other.example']);
+  });
+});
+
 describe('the fallback that always works', () => {
   it('keeps its place however generous the page was', async () => {
     // A page offering a dozen files would otherwise push the one option
@@ -193,11 +240,25 @@ describe('when the page does not answer', () => {
     });
   });
 
-  it('and a page that answers with an error is no page at all', async () => {
+  it('turns a site that refuses a reader into a page a person can still open', async () => {
+    // A site is allowed to turn away a reader that names itself, and
+    // plenty do. The refusal still carries the headers that say whether
+    // the page may be framed — and inside a frame each viewer arrives as
+    // themselves, which is the whole point of that kind.
     const { fetchImpl } = web({ 'https://site.example/ep/1': { status: 403, body: 'no' } });
+    expect(await lookupSource('https://site.example/ep/1', fetchImpl)).toMatchObject({
+      ok: true,
+      lookup: { candidates: [{ play: 'frame', url: 'https://site.example/ep/1' }] },
+    });
+  });
+
+  it('says so plainly when the refusal closes that door too', async () => {
+    const { fetchImpl } = web({
+      'https://site.example/ep/1': { status: 403, body: 'no', headers: { 'x-frame-options': 'DENY' } },
+    });
     expect(await lookupSource('https://site.example/ep/1', fetchImpl)).toEqual({
       ok: false,
-      reason: 'unreachable',
+      reason: 'refused',
     });
   });
 

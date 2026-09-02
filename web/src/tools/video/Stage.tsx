@@ -27,7 +27,7 @@ import type { ToolViewProps } from '../contract';
 import { CloseGlyph, HandGlyph } from './icons';
 import { hostOf, twitchClipUrl } from './local';
 import { attachSource, liveEdgeOf, type SourceFailure } from './player';
-import { hasSharedClock, isFramableHere, positionAt, type VideoState } from './state';
+import { hasSharedClock, isFramableHere, positionAt, roomDrives, type VideoState } from './state';
 import { correctionFor, liveCorrectionFor } from './sync';
 import { mountTwitch, type TwitchPlayer } from './twitch';
 import './stage.css';
@@ -67,7 +67,10 @@ function Source(props: ToolViewProps<VideoState> & { state: VideoState }) {
       */}
       <div className="video-bar">
         <span className="video-title">{state.title ?? t('stageLabel')}</span>
-        {!hasSharedClock(state) && (
+        {/* Only what the room does NOT drive gets marked: a live channel
+            still answers the room's play, pause and speaker key, and
+            saying "each on their own" there was simply untrue. */}
+        {!roomDrives(state) && (
           <span className="video-chip">
             <HandGlyph />
             {t('ownClock')}

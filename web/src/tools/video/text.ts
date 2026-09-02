@@ -31,6 +31,8 @@ export const TEXT: ToolText = {
     lookupNote: 'To find the video, the page is fetched and read once. Nothing is stored.',
     invalidUrl: 'That is not a link this can open.',
     unreachable: 'That page did not answer.',
+    refused:
+      'That site would not let this read it. If you can open it yourself, press play there and paste the link its player uses.',
     nothingFound:
       'No video found in that page, and it will not open here either. If you can see it playing, copy the link the player itself uses and paste that.',
     chooseLabel: 'What the room watches',
@@ -45,6 +47,7 @@ export const TEXT: ToolText = {
     kindFrame: 'The page itself',
     kindEmbed: 'A player inside it',
     sharedClock: 'Shared clock',
+    liveTogether: 'Live, in step',
     ownClock: 'Each on their own',
     source: 'from {host}',
     via: 'through {host}',
@@ -78,6 +81,8 @@ export const TEXT: ToolText = {
       'Para achar o vídeo, a página é buscada e lida uma vez. Nada disso fica guardado.',
     invalidUrl: 'Esse não é um link que dê para abrir.',
     unreachable: 'Essa página não respondeu.',
+    refused:
+      'Esse site não deixou a leitura acontecer. Se você consegue abrir ele, aperte play lá e cole o link que o player dele usa.',
     nothingFound:
       'Não achei vídeo nessa página, e ela também não abre aqui. Se você consegue ver o vídeo tocando, copie o link que o próprio player usa e cole ele.',
     chooseLabel: 'O que a sala vai assistir',
@@ -92,6 +97,7 @@ export const TEXT: ToolText = {
     kindFrame: 'A própria página',
     kindEmbed: 'Um player dentro dela',
     sharedClock: 'Relógio compartilhado',
+    liveTogether: 'Ao vivo, juntos',
     ownClock: 'Cada um no seu',
     source: 'de {host}',
     via: 'por {host}',
@@ -124,6 +130,8 @@ export const TEXT: ToolText = {
     lookupNote: 'Para encontrar el video, la página se busca y se lee una vez. No se guarda nada.',
     invalidUrl: 'Ese no es un enlace que se pueda abrir.',
     unreachable: 'Esa página no respondió.',
+    refused:
+      'Ese sitio no dejó que lo leyéramos. Si puedes abrirlo tú, dale play ahí y pega el enlace que usa su reproductor.',
     nothingFound:
       'No encontré video en esa página, y tampoco se abre aquí. Si lo ves reproduciéndose, copia el enlace que usa el propio reproductor y pégalo.',
     chooseLabel: 'Lo que verá la sala',
@@ -138,6 +146,7 @@ export const TEXT: ToolText = {
     kindFrame: 'La página misma',
     kindEmbed: 'Un reproductor dentro de ella',
     sharedClock: 'Reloj compartido',
+    liveTogether: 'En vivo, a la vez',
     ownClock: 'Cada quien el suyo',
     source: 'de {host}',
     via: 'por {host}',
@@ -170,6 +179,7 @@ export const TEXT: ToolText = {
     lookupNote: '为了找到视频，这个页面会被抓取并读取一次。什么都不会保存。',
     invalidUrl: '这个链接打不开。',
     unreachable: '这个页面没有响应。',
+    refused: '这个站点不允许我们读取它。如果你能自己打开，请在那里按播放，然后把它的播放器用的链接贴过来。',
     nothingFound:
       '这个页面里没找到视频，它也无法在这里打开。如果你能看到视频在播放，请复制播放器自己用的那个链接，贴过来。',
     chooseLabel: '房间要看的内容',
@@ -184,6 +194,7 @@ export const TEXT: ToolText = {
     kindFrame: '页面本身',
     kindEmbed: '页面里的播放器',
     sharedClock: '共享进度',
+    liveTogether: '同步直播',
     ownClock: '各看各的',
     source: '来自 {host}',
     via: '经由 {host}',
@@ -213,6 +224,8 @@ export const TEXT: ToolText = {
     lookupNote: '動画を見つけるため、ページを一度だけ取得して読みます。何も保存しません。',
     invalidUrl: 'これは開けるリンクではありません。',
     unreachable: 'そのページは応答しませんでした。',
+    refused:
+      'そのサイトは読み取りを許可しませんでした。ご自分で開けるなら、そちらで再生を押し、プレーヤーが使っているリンクを貼ってください。',
     nothingFound:
       'そのページに動画は見つからず、ここで開くこともできません。再生されているのが見えているなら、プレーヤー自身が使っているリンクをコピーして貼ってください。',
     chooseLabel: '部屋で観るもの',
@@ -227,6 +240,7 @@ export const TEXT: ToolText = {
     kindFrame: 'ページそのもの',
     kindEmbed: 'ページ内のプレーヤー',
     sharedClock: '再生位置を共有',
+    liveTogether: 'ライブで足並みを',
     ownClock: '各自で操作',
     source: '{host} から',
     via: '{host} 経由',

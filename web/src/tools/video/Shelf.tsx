@@ -37,7 +37,10 @@ type Phase =
   | { kind: 'looking' }
   | { kind: 'picking' }
   | { kind: 'chose'; lookup: SourceLookup }
-  | { kind: 'failed'; message: 'invalidUrl' | 'unreachable' | 'nothingFound' | 'pickNothing' };
+  | {
+      kind: 'failed';
+      message: 'invalidUrl' | 'unreachable' | 'refused' | 'nothingFound' | 'pickNothing';
+    };
 
 export default function Shelf({ state, setState, dismiss, t }: ToolShelfProps<VideoState>) {
   const [link, setLink] = useState('');
@@ -87,7 +90,14 @@ export default function Shelf({ state, setState, dismiss, t }: ToolShelfProps<Vi
         return;
       }
       const code = error instanceof ApiError ? error.code : 'unreachable';
-      setPhase({ kind: 'failed', message: code === 'invalid_url' ? 'invalidUrl' : 'unreachable' });
+      // "It refused us" and "it did not answer" are different problems
+      // with different ways out, and the person is the one who has to
+      // take them.
+      setPhase({
+        kind: 'failed',
+        message:
+          code === 'invalid_url' ? 'invalidUrl' : code === 'refused' ? 'refused' : 'unreachable',
+      });
       fieldRef.current?.focus();
     }
   }
@@ -283,9 +293,11 @@ function Option({
           twitch: 'kindTwitch',
           frame: 'kindFrame',
         }[candidate.play];
-  // A clip is a frame in everything but name (Stage.tsx), so it must not
-  // promise a clock the room will not get.
-  const shared = candidate.play !== 'frame' && !candidate.live && !candidate.twitch?.clip;
+  // Three states, not two. A clip is a frame in everything but name
+  // (Stage.tsx), so it promises nothing; a live channel has no position
+  // to share but is still driven by the room; a file has both.
+  const drives = candidate.play !== 'frame' && !candidate.twitch?.clip;
+  const sync = !drives ? 'ownClock' : candidate.live ? 'liveTogether' : 'sharedClock';
   return (
     <label className={`video-option${checked ? ' is-chosen' : ''}`}>
       <input
@@ -308,8 +320,8 @@ function Option({
           {/* What the room actually gets. The one thing somebody would
               otherwise only learn after committing everybody to it. */}
           <span className="video-sync">
-            {shared ? <ClockGlyph /> : <HandGlyph />}
-            {t(shared ? 'sharedClock' : 'ownClock')}
+            {drives ? <ClockGlyph /> : <HandGlyph />}
+            {t(sync)}
           </span>
         </span>
       </span>

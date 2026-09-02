@@ -174,9 +174,24 @@ export function positionAt(state: VideoState, at: number, now: number = Date.now
 }
 
 /**
- * Whether the room can agree on a position at all. A frame is somebody
- * else's page and we cannot reach inside it; a broadcast has only ever
- * one position, which is now.
+ * Whether this is a player the ROOM drives — play, pause and the
+ * speaker key — as opposed to a rectangle we can only point at.
+ *
+ * This is a different question from `hasSharedClock`, and conflating the
+ * two told a lie on screen: a Twitch channel has no position to share,
+ * so it was labelled "each on their own", when in fact one person
+ * pressing pause pauses it for everybody and the room's speaker key
+ * silences it. Three states, not two — a shared position, a shared live
+ * edge, and somebody else's page.
+ */
+export function roomDrives(state: VideoState): boolean {
+  return state.play !== 'frame' && !state.twitch?.clip;
+}
+
+/**
+ * Whether the room can agree on a POSITION. A frame is somebody else's
+ * page and we cannot reach inside it; a broadcast has only ever one
+ * position, which is now.
  */
 export function hasSharedClock(state: VideoState): boolean {
   if (state.play === 'frame' || state.live) {

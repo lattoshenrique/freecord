@@ -377,6 +377,54 @@ export function candidateForUrl(url: string): VideoCandidate | null {
   return null;
 }
 
+/**
+ * The player a big platform hands out for one of its own pages.
+ *
+ * Offered ALONGSIDE whatever reading the page turns up, never instead of
+ * it: Vimeo's page yields real manifests, which give the room a shared
+ * clock, while the embed always works and gives none. Which of those a
+ * room wants is exactly the choice this tool exists to put in front of
+ * somebody, so it offers both and says what each costs.
+ */
+export function providerEmbedFor(pageUrl: string): VideoCandidate | null {
+  let url: URL;
+  try {
+    url = new URL(pageUrl);
+  } catch {
+    return null;
+  }
+  const host = url.hostname.toLowerCase().replace(/^www\./, '').replace(/^m\./, '');
+  const [, first = '', second = '', third = ''] = url.pathname.split('/');
+
+  if (host === 'vimeo.com' && /^\d{6,12}$/.test(first)) {
+    // An unlisted video carries its key as the second segment, and the
+    // embed will not play without it.
+    const key = /^[A-Za-z0-9]{6,20}$/.test(second) ? `?h=${second}` : '';
+    return { play: 'frame', url: `https://player.vimeo.com/video/${first}${key}`, found: 'link' };
+  }
+  if (host === 'player.vimeo.com' && first === 'video' && /^\d{6,12}$/.test(second)) {
+    return { play: 'frame', url: url.toString(), found: 'link' };
+  }
+  if (host === 'dailymotion.com' && first === 'video' && /^[A-Za-z0-9]{5,20}$/.test(second)) {
+    return { play: 'frame', url: `https://geo.dailymotion.com/player.html?video=${second}`, found: 'link' };
+  }
+  if (host === 'dai.ly' && /^[A-Za-z0-9]{5,20}$/.test(first)) {
+    return { play: 'frame', url: `https://geo.dailymotion.com/player.html?video=${first}`, found: 'link' };
+  }
+  if (host === 'youtube.com' || host === 'youtu.be' || host === 'youtube-nocookie.com') {
+    const id =
+      host === 'youtu.be'
+        ? first
+        : (url.searchParams.get('v') ??
+          (['embed', 'shorts', 'live', 'v'].includes(first) ? second : ''));
+    if (/^[A-Za-z0-9_-]{11}$/.test(id)) {
+      return { play: 'frame', url: `https://www.youtube.com/embed/${id}`, found: 'link' };
+    }
+  }
+  void third;
+  return null;
+}
+
 /* ------------------------------------------------------------------ *
  * Whether a page may be framed
  * ------------------------------------------------------------------ */
@@ -493,7 +541,8 @@ function qualityLabel(tag: string, url: string): string | undefined {
   if (size && /^\d{3,4}$/.test(size)) {
     return `${size}p`;
   }
-  const path = new URL(url, 'https://x.invalid').pathname;
+  const parsed = new URL(url, 'https://x.invalid');
+  const path = parsed.pathname;
   const numbered = /(?:^|[^\d])(240|360|480|540|576|720|1080|1440|2160)p?(?:[^\d]|$)/i.exec(path);
   if (numbered) {
     return `${numbered[1]}p`;
@@ -506,8 +555,18 @@ function qualityLabel(tag: string, url: string): string | undefined {
       return tier;
     }
   }
+  // `playlist.m3u8` four times over is four rows nobody can choose
+  // between. Where the file name is the same word every site uses, the
+  // host it comes from is the only thing that differs — so say that.
+  const file = path.split('/').pop() ?? '';
+  if (GENERIC_FILE.test(file) && parsed.hostname !== 'x.invalid') {
+    return parsed.hostname.replace(/^www\./, '');
+  }
   return undefined;
 }
+
+/** File names that name a format, not a video. */
+const GENERIC_FILE = /^(?:playlist|index|master|manifest|chunklist|stream|video|media)\.[a-z0-9]{2,4}$/i;
 
 /**
  * The label a player's configuration put beside a URL — `"label":"720p"`,
@@ -592,13 +651,21 @@ function candidateFor(
 const NOT_A_PLAYER =
   /(^|\.)(accounts\.google\.com|google\.com|googletagmanager\.com|google-analytics\.com|doubleclick\.net|googlesyndication\.com|facebook\.com|connect\.facebook\.net|disqus\.com|recaptcha\.net|hcaptcha\.com|adservice\..*|.*\.ads?\..*)$/i;
 
+/**
+ * Things that are not documents, however they got into a `src`. Real
+ * example, from one of the largest video sites there is: Dailymotion's
+ * page carries `<iframe src="/favicon.ico">`, and offering that as
+ * something to watch together was the whole of what we found there.
+ */
+const NOT_A_PAGE = /\.(?:ico|png|jpe?g|gif|webp|avif|svg|css|js|mjs|json|woff2?|ttf|map)$/i;
+
 function isPlayerHost(url: string): boolean {
   try {
-    const host = new URL(url).hostname.toLowerCase();
-    if (NOT_A_PLAYER.test(host)) {
+    const { hostname, pathname } = new URL(url);
+    if (NOT_A_PLAYER.test(hostname.toLowerCase()) || NOT_A_PAGE.test(pathname)) {
       return false;
     }
-    return !/\/(?:recaptcha|gtm|analytics|consent|cookie)/i.test(new URL(url).pathname);
+    return !/\/(?:recaptcha|gtm|analytics|consent|cookie)/i.test(pathname);
   } catch {
     return false;
   }
@@ -780,7 +847,31 @@ export function rankCandidates(candidates: readonly VideoCandidate[]): VideoCand
       live: previous.live ?? candidate.live,
     });
   }
-  return [...seen.values()]
+  // A page's scripts often carry the same stream signed several ways —
+  // Vimeo hands out four manifests for one video, two per CDN. They are
+  // different URLs and identical rows, and a list nobody can choose from
+  // is worse than a shorter one. Only guesses are collapsed: a `<source>`
+  // the page labelled is the page telling us they differ.
+  const distinct: VideoCandidate[] = [];
+  const shapes = new Set<string>();
+  for (const candidate of seen.values()) {
+    if (candidate.found === 'script') {
+      const host = ((): string => {
+        try {
+          return new URL(candidate.url).hostname;
+        } catch {
+          return candidate.url;
+        }
+      })();
+      const shape = `${candidate.play}:${host}:${candidate.label ?? ''}`;
+      if (shapes.has(shape)) {
+        continue;
+      }
+      shapes.add(shape);
+    }
+    distinct.push(candidate);
+  }
+  return distinct
     // A stable sort, so two candidates of equal standing stay in the order
     // the page put them in — which is the page's own idea of what matters.
     .sort(
