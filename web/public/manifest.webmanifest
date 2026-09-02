@@ -8,6 +8,10 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "handle_links": "preferred",
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  },
   "background_color": "#0b0d12",
   "theme_color": "#0b0d12",
   "categories": ["social", "productivity"],

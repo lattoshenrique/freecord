@@ -31,6 +31,9 @@ contextBridge.exposeInMainWorld('freecordDesktop', {
     // A window that can open a page and watch what it plays — the video
     // tool's answer to a site that builds its player after a click.
     videoPicker: true,
+    // The shell claims `freecord://` links and can hand one to the router
+    // instead of reloading the window on it (see deep-link.ts).
+    deepLinks: true,
   },
   window: {
     /** The bar is on screen. Until this arrives the shell assumes it is not. */
@@ -55,5 +58,19 @@ contextBridge.exposeInMainWorld('freecordDesktop', {
     pick: (url: string) => ipcRenderer.invoke('video:pick', url),
     /** Closing the window is the cancellation; this is the other way. */
     cancel: () => ipcRenderer.send('video-pick:done', false),
+  },
+  deepLink: {
+    /**
+     * "Send me links instead of reloading me." Until this arrives the shell
+     * loads the link into the window, which works on any page and is the
+     * fallback a page that never runs still gets.
+     */
+    ready: () => ipcRenderer.send('deep-link:ready'),
+    /** A room to open, as an absolute URL on this origin. Returns the unsubscribe. */
+    onOpen: (handler: (url: unknown) => void) => {
+      const listener = (_event: unknown, url: unknown) => handler(url);
+      ipcRenderer.on('deep-link:open', listener);
+      return () => ipcRenderer.removeListener('deep-link:open', listener);
+    },
   },
 });

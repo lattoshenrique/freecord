@@ -480,6 +480,19 @@ export const enUS = {
   'install.settings.hint':
     'Install Freecord as an app: the same rooms in a window of their own, without the browser around them.',
 
+  /*
+   * Opening a room link in the desktop app.
+   *
+   * A browser cannot be asked whether an app is installed, so this is a
+   * choice somebody makes rather than something the page works out (see
+   * lib/deep-link.ts). That is why the copy is plain here: the line has to
+   * say what the button will do, because nothing on screen can promise it
+   * worked.
+   */
+  'deepLink.open': 'Open this room in the desktop app',
+  'deepLink.opening': 'Opening in the desktop app…',
+  'deepLink.stay': 'Stay in the browser',
+
   'language.picker': 'Language',
 } as const;
 

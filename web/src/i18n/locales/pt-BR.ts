@@ -479,5 +479,10 @@ export const ptBR: Catalog = {
   'install.settings.hint':
     'Instale o Freecord como app: as mesmas salas em uma janela só delas, sem o navegador em volta.',
 
+  /* Abrir o link da sala no app de computador — ver lib/deep-link.ts. */
+  'deepLink.open': 'Abrir esta sala no app de computador',
+  'deepLink.opening': 'Abrindo no app de computador…',
+  'deepLink.stay': 'Continuar no navegador',
+
   'language.picker': 'Idioma',
 };

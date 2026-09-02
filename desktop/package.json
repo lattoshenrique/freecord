@@ -52,6 +52,15 @@
     ],
     "npmRebuild": false,
     "afterPack": "build/after-pack.cjs",
+    "protocols": [
+      {
+        "name": "Freecord room link",
+        "role": "Viewer",
+        "schemes": [
+          "freecord"
+        ]
+      }
+    ],
     "mac": {
       "target": [
         {

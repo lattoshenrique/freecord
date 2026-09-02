@@ -21,6 +21,12 @@ import TitleBar from './components/TitleBar';
  * when this module is (see lib/pwa.ts).
  */
 import { registerServiceWorker } from './lib/pwa';
+/*
+ * A room link the desktop shell was asked to open, routed instead of
+ * reloaded. Renders nothing, and in a browser it does nothing — the platform
+ * hands an installed page its own links without being asked (lib/deep-link.ts).
+ */
+import { useDeepLinkRouting } from './lib/deep-link';
 import './styles.css';
 // After styles.css: the hero names have to win any tie with the sheets they
 // name, and they are the last word on how a screen change moves.
@@ -32,6 +38,12 @@ import './hero.css';
  */
 function RouteFallback() {
   return <main className="centered" />;
+}
+
+/** The link listener, which has to sit under the router to be able to route. */
+function DeepLinks() {
+  useDeepLinkRouting();
+  return null;
 }
 
 // Content pages: they should not weigh on the bundle of someone creating a room.
@@ -47,6 +59,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <I18nProvider>
       <BrowserRouter>
         <RouteMeta />
+        <DeepLinks />
         <TitleBar />
         <Suspense fallback={<RouteFallback />}>
           <Routes>

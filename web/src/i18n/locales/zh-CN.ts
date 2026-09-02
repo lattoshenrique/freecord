@@ -458,5 +458,10 @@ export const zhCN: Catalog = {
   'install.settings.title': '添加到主屏幕',
   'install.settings.hint': '把 Freecord 装成应用：同样的房间，独立窗口，四周没有浏览器。',
 
+  /* 在桌面应用中打开房间链接——见 lib/deep-link.ts。 */
+  'deepLink.open': '在桌面应用中打开这个房间',
+  'deepLink.opening': '正在桌面应用中打开…',
+  'deepLink.stay': '留在浏览器中',
+
   'language.picker': '语言',
 };

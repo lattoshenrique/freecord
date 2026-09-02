@@ -9,6 +9,7 @@ import Avatar from '../components/Avatar';
 import AvatarParade from '../components/AvatarParade';
 import Brand from '../components/Brand';
 import MeshBackground from '../components/MeshBackground';
+import OpenInApp from '../components/OpenInApp';
 import RoomView from '../components/RoomView';
 import { CamIcon, CamOffIcon, MicIcon, MicOffIcon, ShuffleIcon } from '../components/icons';
 import type { JoinOptions } from '../lib/use-room';
@@ -415,6 +416,10 @@ export default function RoomPage() {
           <button type="submit" className="join-cta" disabled={!name.trim()}>
             {t('prejoin.joinRoom')}
           </button>
+
+          {/* The same room, one line down, in the app instead — for anyone
+              who has it. Nothing is detected: see components/OpenInApp.tsx. */}
+          <OpenInApp />
         </form>
       </main>
     );

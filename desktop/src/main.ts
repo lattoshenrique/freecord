@@ -43,6 +43,13 @@ import {
   type Locale,
   type StringKey,
 } from './i18n';
+import {
+  attachDeepLinks,
+  deepLinkFromArgv,
+  deepLinkTarget,
+  installDeepLinks,
+  registerScheme,
+} from './deep-link';
 import { openVideoPicker } from './video-picker';
 import { startUpdater } from './updater';
 import { attachWindowChrome, installWindowChrome } from './window-chrome';
@@ -354,7 +361,35 @@ function configureSession(): void {
  * Window and menu
  * ------------------------------------------------------------------ */
 
-function createWindow(): BrowserWindow {
+/**
+ * Opens a `freecord://` link in the window that is already there. Assigned on
+ * ready; until then a link has nowhere to go and waits in `pendingLink`.
+ */
+let openDeepLink: ((raw: string) => void) | null = null;
+/** A link that arrived before there was a window — macOS does that routinely. */
+let pendingLink: string | null = null;
+
+/** Hands a link to the window, or makes the window it needs. */
+function handleDeepLink(raw: string): void {
+  if (!openDeepLink) {
+    // Before ready, which on macOS is where a link that launched the app
+    // arrives: it waits, and opens the first window on the room itself.
+    pendingLink = raw;
+    return;
+  }
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    // macOS again: closing the window does not quit the app, and a link that
+    // arrives then has nowhere to land until we build one.
+    const target = deepLinkTarget(raw, APP_URL);
+    if (target) {
+      mainWindow = createWindow(target);
+    }
+    return;
+  }
+  openDeepLink(raw);
+}
+
+function createWindow(startUrl: string = APP_URL): BrowserWindow {
   const win = new BrowserWindow({
     width: 1280,
     height: 820,
@@ -427,7 +462,11 @@ function createWindow(): BrowserWindow {
   // interfaces, so ICE can offer real host candidates for direct connections.
   win.webContents.setWebRTCIPHandlingPolicy('default');
 
-  void win.loadURL(APP_URL);
+  // A room link may reach this window at any moment; this is the half that
+  // forgets the page's promise to route one when the page goes away.
+  attachDeepLinks(win);
+
+  void win.loadURL(startUrl);
   return win;
 }
 
@@ -480,13 +519,30 @@ function buildMenu(): void {
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  app.on('second-instance', () => {
+  // Windows and Linux launch a whole second process for a `freecord://` link
+  // and it lands here, in the instance that holds the lock, with the URL at
+  // the end of its arguments.
+  app.on('second-instance', (_event, argv) => {
+    // The window comes forward either way: somebody just tried to open this
+    // app, and a link we do not recognize is no reason to ignore them.
     if (mainWindow) {
       if (mainWindow.isMinimized()) {
         mainWindow.restore();
       }
       mainWindow.focus();
     }
+    const link = deepLinkFromArgv(argv);
+    if (link) {
+      handleDeepLink(link);
+    }
+  });
+
+  // macOS has no second process: it delivers the link to the running app, and
+  // at cold start it does so *before* `whenReady` — which is why this listener
+  // is out here and the link can wait.
+  app.on('open-url', (event, url) => {
+    event.preventDefault();
+    handleDeepLink(url);
   });
 
   void app.whenReady().then(() => {
@@ -505,8 +561,30 @@ if (!app.requestSingleInstanceLock()) {
         return isAppUrl(url) || url.startsWith(STATIC_URL);
       },
     });
+    registerScheme();
+    const opener = installDeepLinks({
+      appUrl: APP_URL,
+      window: () => mainWindow,
+      isTrusted: (contents) =>
+        contents === mainWindow?.webContents && isAppUrl(contents.getURL()),
+    });
     buildMenu();
-    mainWindow = createWindow();
+
+    // A link that started the app opens the window straight on the room,
+    // rather than loading the home and navigating off it a moment later. On
+    // Windows and Linux it is in our own arguments; on macOS `open-url` has
+    // already fired and left it in `pendingLink`.
+    const startLink = pendingLink ?? deepLinkFromArgv(process.argv);
+    pendingLink = null;
+    const start = startLink ? deepLinkTarget(startLink, APP_URL) : null;
+    mainWindow = createWindow(start ?? APP_URL);
+    // Only now is there a window to open one in — and a link may have arrived
+    // while it was being built.
+    openDeepLink = opener;
+    if (pendingLink) {
+      opener(pendingLink);
+      pendingLink = null;
+    }
     // The page updates on every deploy; this keeps the shell itself fresh.
     // First check ~10 s after ready — it never competes with startup.
     startUpdater(APP_URL, t, () => mainWindow);

@@ -463,5 +463,10 @@ export const jaJP: Catalog = {
   'install.settings.hint':
     'Freecord をアプリとしてインストール：同じ部屋を、独立したウィンドウで、まわりのブラウザなしで。',
 
+  /* ルームのリンクをデスクトップアプリで開く — lib/deep-link.ts を参照。 */
+  'deepLink.open': 'このルームをデスクトップアプリで開く',
+  'deepLink.opening': 'デスクトップアプリで開いています…',
+  'deepLink.stay': 'ブラウザーのままにする',
+
   'language.picker': '言語',
 };

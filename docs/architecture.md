@@ -373,6 +373,52 @@ shell declares `windowChrome`, and a shell whose page never reports one back
 puts the menu bar in — a frameless window nobody can close is the one outcome
 neither side may ship.
 
+### Opening a link where the person already is
+
+The link *is* the product: it gets pasted into somebody else's chat and
+clicked there. Installing anything must not make that link worse, so no half
+of this changes what a link is — the address stays an ordinary
+`https://…/r/<slug>#k=…` that works in any browser. All that changes is who
+answers it, and there are two answers, arriving from opposite directions.
+
+**The installed page answers on its own.** The manifest says `handle_links:
+"preferred"` and `launch_handler: { client_mode: "navigate-existing" }`, and
+the platform does the rest: an installed PWA is in scope for its own links,
+so a room link opens in the app window instead of a tab, and in the window
+that is *already* open rather than a second one. Two windows in one room
+would be two participants sharing one microphone.
+
+**The desktop app has to be chosen**, because a browser cannot be asked
+whether an app is installed — every honest way to find that out is a
+fingerprint. So the shell claims a scheme of its own, `freecord://r/<slug>`
+(`desktop/src/deep-link.ts`, declared to the installers as `build.protocols`),
+and the doorstep offers it: press it once, and the browser is told to open a
+`freecord://` link. The app comes forward, or nothing at all happens, and
+either way the tab stays where it was — which is why it is a button somebody
+presses and never a redirect that happens to them. The answer is remembered
+in this browser, so the *next* room link goes straight to the app, and the way
+back out is on screen the whole time (`web/src/components/OpenInApp.tsx`).
+
+A link arrives from outside the app, which is what makes the shell's half
+careful. It never carries a URL, only a path: whatever arrives is reduced to a
+path, matched against the routes the app actually has, and the destination is
+then built against `APP_URL` — there is no input that makes the window load a
+page we do not serve, because the origin is not in the link at all. The
+fragment rides along verbatim, since `#k=…` is the chat key and a room without
+it opens unreadable; the query string is dropped. macOS delivers the link
+through `open-url` (often before the app is ready, so it waits), Windows and
+Linux put it in a second process's `argv` and it reaches the instance holding
+the single-instance lock.
+
+The last piece is what the link does once it is inside. Loading it into the
+window always works and is the fallback — but inside the app that is a full
+reload of a live client, a call dropped and rejoined to reach a room the
+router could have opened in a frame. So the page says it is listening
+(`deepLinks` on the same capability surface as the title bar), and until it
+does the shell assumes it is not: an old build, our own offline page, or a
+page whose script never ran all mean "reload", which is the outcome that
+cannot fail.
+
 The shell also updates itself (`desktop/src/updater.ts`, zero dependencies):
 it polls the same `/api/downloads` catalog the website serves, and applies
 per platform as honestly as unsigned binaries allow — Windows installs the

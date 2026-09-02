@@ -60,9 +60,26 @@ export interface DesktopBridge {
     windowChrome?: unknown;
     trafficLights?: unknown;
     videoPicker?: unknown;
+    deepLinks?: unknown;
   };
   window?: Partial<Record<keyof DesktopWindowApi, unknown>>;
   video?: Partial<Record<keyof DesktopVideoPicker, unknown>>;
+  deepLink?: Partial<Record<keyof DesktopDeepLinks, unknown>>;
+}
+
+/**
+ * Room links arriving from outside the app.
+ *
+ * The shell claims `freecord://` with the system; this is how a page that is
+ * already running gets one, instead of the window being reloaded on it. A
+ * shell built before this existed simply has none of it, and opens links the
+ * way it always did (desktop/src/deep-link.ts).
+ */
+export interface DesktopDeepLinks {
+  /** "I will route links myself." Until it lands, the shell reloads instead. */
+  ready(): void;
+  /** A room to open, as an absolute URL. Returns the unsubscribe. */
+  onOpen(handler: (url: unknown) => void): () => void;
 }
 
 /**
@@ -130,6 +147,24 @@ export function videoPicker(bridge = desktopBridge()): DesktopVideoPicker | null
     return null;
   }
   return api as unknown as DesktopVideoPicker;
+}
+
+/**
+ * The link channel, or null when there is nothing on the other end: a
+ * browser, or a shell from before the app claimed a scheme of its own. Same
+ * shape as the two above, and for the same reason — the two halves ship
+ * separately, so neither may assume the other's version.
+ */
+export function deepLinks(bridge = desktopBridge()): DesktopDeepLinks | null {
+  if (bridge?.capabilities?.deepLinks !== true) {
+    return null;
+  }
+  const api = bridge.deepLink;
+  const calls = ['ready', 'onOpen'] as const;
+  if (!api || calls.some((call) => typeof api[call] !== 'function')) {
+    return null;
+  }
+  return api as unknown as DesktopDeepLinks;
 }
 
 /** True where the platform keeps its own buttons and the bar makes room. */

@@ -416,6 +416,40 @@
   cursor: default;
 }
 
+/*
+ * The line under the button: the same room, in the desktop app. Quiet on
+ * purpose — the way in is the button above it, and this is an alternative
+ * for the people who already know they want it.
+ */
+.join-app {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.4rem;
+  margin: 0.9rem 0 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+.join-app-link {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.join-app-link:hover {
+  color: var(--text);
+}
+
 @media (max-width: 420px) {
   .join-devices {
     flex-direction: column;

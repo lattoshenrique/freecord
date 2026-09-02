@@ -480,5 +480,10 @@ export const esES: Catalog = {
   'install.settings.hint':
     'Instala Freecord como app: las mismas salas en una ventana propia, sin el navegador alrededor.',
 
+  /* Abrir el enlace de la sala en la app de escritorio — ver lib/deep-link.ts. */
+  'deepLink.open': 'Abrir esta sala en la app de escritorio',
+  'deepLink.opening': 'Abriendo en la app de escritorio…',
+  'deepLink.stay': 'Seguir en el navegador',
+
   'language.picker': 'Idioma',
 };
