@@ -16,8 +16,6 @@ web/src/tools/
   registry.ts        the tools this build ships — one line each
   youtube/           the first tool, and the worked example
   video/             the second, and the example of needing a route
-  spotify/           the third, and the example of a tool that drives
-                     nothing: the room shares the link, not the player
 ```
 
 ## The contract
@@ -140,7 +138,7 @@ fighting over one shared value.
 
 The stage holds one thing at a time: the tool whose state changed most
 recently wins it, and a viewer who pins a screen or a person takes it back
-for themselves. Known rough edge, now that there are three tools with
+for themselves. Known rough edge, now that there are two tools with
 stages: turning one on displaces the others with nothing on screen saying
 so. The displaced tool keeps running and its row in the shelf still says
 it is on, but the room is not told which one it is looking at. If your

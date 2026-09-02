@@ -138,7 +138,7 @@ localhost. `CORS_ORIGIN` restricts the origin in production.
 - Call settings live in a dialog: microphone profile (voice or studio),
   camera quality, computer audio in the share, sounds, language, and the
   desktop app download for the visitor's own OS.
-- A **tool shelf** in the dock, three tools so far. **YouTube**: paste a
+- A **tool shelf** in the dock, two tools so far. **YouTube**: paste a
   link and it opens for the room — everyone's own player, one shared
   timeline. Anyone plays, pauses or skips, and whoever joins late lands
   where the room already is. There is a shared **queue** behind what is
@@ -147,11 +147,6 @@ localhost. `CORS_ORIGIN` restricts the origin in production.
   room follows, and when it runs out the queue takes over. **Video**: the
   same idea for a page that is not YouTube — paste the page, the edge
   reads what is playable in it, and the room watches what you pick.
-  **Spotify**: a song, a record or a playlist put on for everybody, with a
-  queue anyone can add to and jump around. It touches nothing of
-  Spotify's — no key, no account, no player of theirs driven from here —
-  so the room agrees on what is on rather than on the second it is at, and
-  each person presses play on their own copy.
 - Tools are a **plugin contract**, not a feature list: a tool is a folder
   that gets one shared value the whole room reads and writes, and the
   server carries it without knowing what it means — so a new tool needs no
