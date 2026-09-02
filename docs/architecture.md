@@ -69,6 +69,16 @@ src/
   `deafened` rosters so a late joiner sees the same badges. A disabled
   audio track keeps flowing as silence, so nothing on the mesh could tell
   the others a mic was off — the server has to.
+- Watching together (`watch` → `watch-state`, plus a `watch` field in
+  `welcome`) is room state for the same reason: a peer joining ten minutes
+  into the film has nobody to ask. The server keeps the video id, whether
+  it is playing, and the position stamped with its OWN clock — and projects
+  the position forward on the way out, so every client is told where the
+  video is *now* by the one clock all of them share and nobody has to trust
+  anybody else's. The video never touches the server: each browser embeds
+  YouTube's player and only the agreement travels. See
+  `server/src/domain/watch.ts` and, for how a person's seek is told apart
+  from a slow connection's buffering, `web/src/lib/watch-sync.ts`.
 
 ## Client (web/src/lib)
 

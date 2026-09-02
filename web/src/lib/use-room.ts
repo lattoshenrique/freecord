@@ -86,6 +86,35 @@ interface RelayLeg {
   controller: ScreenRelayController | null;
 }
 
+/**
+ * What the room is watching together, as this client last heard it
+ * (protocol.ts, `watch-state`). `time` is the position at `at` on THIS
+ * machine's clock: the server projects the position on the way out, so
+ * the only arithmetic left here is the time since it arrived.
+ */
+export interface WatchRoom {
+  video: string;
+  playing: boolean;
+  time: number;
+  /** Local clock when the state arrived — the base for projecting it. */
+  at: number;
+  /**
+   * This client caused the change. Its player is already there, so the
+   * correction pass leaves it alone (a round trip's worth of seeking
+   * would jump the very player that just moved).
+   */
+  mine: boolean;
+}
+
+/**
+ * Where the room's video is at `now`: a paused one sits where it was
+ * left, a playing one has moved on since the state arrived. The mirror of
+ * the server's projectWatch, for the time this side of the wire.
+ */
+export function watchPosition(state: WatchRoom, now: number = Date.now()): number {
+  return state.playing ? state.time + Math.max(0, now - state.at) / 1000 : state.time;
+}
+
 export interface ChatMessage {
   from: PeerInfo;
   text: string;
@@ -187,6 +216,8 @@ export function useRoomSession(options: JoinOptions) {
   const [screenSources, setScreenSources] = useState<
     Map<string, { id: string; streamId: string } | null>
   >(new Map());
+  /** What the room is watching together; null when the tool is closed. */
+  const [watch, setWatchRoom] = useState<WatchRoom | null>(null);
   /** The screen the view has on stage — its stats and stall watch follow it. */
   const [watchedScreenId, setWatchedScreenId] = useState<string | null>(null);
   const watchScreen = useCallback((id: string | null) => setWatchedScreenId(id), []);
@@ -627,6 +658,9 @@ export function useRoomSession(options: JoinOptions) {
               teardownRelay(id);
             }
           }
+          setWatchRoom(
+            message.watch ? { ...message.watch, at: Date.now(), mine: false } : null,
+          );
           const cameraRoster = new Set(message.cameras);
           setCameras(cameraRoster);
           setDeafened(new Set(message.deafened));
@@ -936,6 +970,13 @@ export function useRoomSession(options: JoinOptions) {
           camDeniedTimerRef.current = setTimeout(() => setCamDenied(false), CAM_DENIED_MS);
           return;
         }
+        case 'watch-state':
+          setWatchRoom(
+            message.watch
+              ? { ...message.watch, at: Date.now(), mine: message.by === selfIdRef.current }
+              : null,
+          );
+          return;
         case 'pong':
           lastPongRef.current = Date.now();
           setSignalRttMs(Math.max(0, Math.round(Date.now() - message.ts)));
@@ -1505,6 +1546,24 @@ export function useRoomSession(options: JoinOptions) {
     setScreens((current) => current.filter((share) => share.id !== selfIdRef.current));
   }, [dropLocalScreen]);
 
+  /**
+   * Says what the room should be watching: a video with its position, or
+   * `video: null` to close it for everyone. Nothing is applied locally —
+   * the state that comes back from the server is the one the whole room
+   * (this client included) plays from, so nobody can drift into a private
+   * idea of where the video is.
+   */
+  const setWatch = useCallback((video: string | null, playing: boolean, time: number) => {
+    signalingRef.current?.send({
+      t: 'watch',
+      video,
+      playing,
+      // The server drops a position it cannot store; rounding here keeps a
+      // player's stray float from being that reason.
+      time: Math.max(0, Math.round(time * 1000) / 1000),
+    });
+  }, []);
+
   const leave = useCallback(() => {
     setStatus({ kind: 'ended', reason: 'left' });
     // A deliberate goodbye skips the server's resume grace.
@@ -1550,6 +1609,7 @@ export function useRoomSession(options: JoinOptions) {
     peerLatency,
     signalRttMs,
     screenStats,
+    watch,
     mesh: meshRef.current,
     setScreenQuality,
     updateMediaSettings,
@@ -1565,6 +1625,7 @@ export function useRoomSession(options: JoinOptions) {
     toggleCam,
     startScreenShare,
     stopScreenShare,
+    setWatch,
     leave,
   };
 }

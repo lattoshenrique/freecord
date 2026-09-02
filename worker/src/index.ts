@@ -23,6 +23,7 @@ import {
   type RoomCompany,
 } from '../../server/src/domain/room-stats.js';
 import { computeScreenTree } from '../../server/src/domain/screen-tree.js';
+import { projectWatch, type WatchState } from '../../server/src/domain/watch.js';
 import {
   EMPTY_DESKTOP_CATALOG,
   desktopDownloadUrl,
@@ -116,6 +117,11 @@ type Cameras = string[];
 type Deafened = string[];
 /** Peers with their microphone off (`mute`) — same storage discipline. */
 type Muted = string[];
+/**
+ * What the room is watching together — storage key 'watch', absent while
+ * nobody has the tool open (server/src/domain/watch.ts).
+ */
+type Watch = WatchState;
 
 /**
  * Name of the one instance of StatsDurableObject. A single object holds the
@@ -287,6 +293,9 @@ export class RoomDurableObject {
       cameras: await this.cameras(),
       deafened: await this.deafened(),
       muted: await this.muted(),
+      // Late to the film: the position is projected to right now, so the
+      // newcomer seeks once and is where everyone else is.
+      watch: projectWatch(await this.watch(), Date.now()),
     });
     this.broadcast({ t: 'peer-joined', peer: { id: peerId, name } }, peerId);
     // Screen share in progress: the newcomer needs a route, and the tree changes.
@@ -369,6 +378,9 @@ export class RoomDurableObject {
       cameras: await this.cameras(),
       deafened: await this.deafened(),
       muted: await this.muted(),
+      // Late to the film: the position is projected to right now, so the
+      // newcomer seeks once and is where everyone else is.
+      watch: projectWatch(await this.watch(), Date.now()),
     });
     for (const held of pending) {
       this.send(server, held);
@@ -423,6 +435,20 @@ export class RoomDurableObject {
         if (text) {
           this.broadcast({ t: 'chat', from: { id: peerId, name }, text, ts: Date.now() });
         }
+        return;
+      }
+      case 'watch': {
+        // No lock and no host: the shelf's video belongs to the room, and
+        // whoever touches it last says where it is. Closing (`video: null`)
+        // is the same message with nothing in it.
+        const watch: Watch | null = message.video
+          ? { video: message.video, playing: message.playing, time: message.time, at: Date.now() }
+          : null;
+        await this.putWatch(watch);
+        // Echoed to the sender too: its player is the one that moved, but
+        // a client that guessed wrong (a seek the player rounded) must end
+        // up on the room's number, not on its own.
+        this.broadcast({ t: 'watch-state', watch: projectWatch(watch, Date.now()), by: peerId });
         return;
       }
       case 'screen-request': {
@@ -879,6 +905,17 @@ export class RoomDurableObject {
     delete relays[peerId];
     for (const sharerId of Object.keys(relays)) {
       delete relays[sharerId]![peerId];
+    }
+  }
+
+  private async watch(): Promise<Watch | null> {
+    return (await this.ctx.storage.get<Watch>('watch')) ?? null;
+  }
+  private async putWatch(watch: Watch | null): Promise<void> {
+    if (watch) {
+      await this.ctx.storage.put('watch', watch);
+    } else {
+      await this.ctx.storage.delete('watch');
     }
   }
 

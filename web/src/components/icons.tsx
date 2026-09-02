@@ -330,3 +330,24 @@ export function PinIcon() {
     </svg>
   );
 }
+
+/** The tool shelf in the dock: what the room can bring in besides people. */
+export function ToolboxIcon() {
+  return (
+    <svg {...base}>
+      <path d="M3 9h18v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z" />
+      <path d="M9 9V6a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3" />
+      <path d="M3 13h6v2h6v-2h6" />
+    </svg>
+  );
+}
+
+/** The first tool: a screen with a play head, drawn like the others. */
+export function YouTubeIcon() {
+  return (
+    <svg {...base}>
+      <rect x="2.5" y="5" width="19" height="14" rx="3.5" />
+      <path d="M10.5 9.2v5.6l4.6-2.8z" />
+    </svg>
+  );
+}

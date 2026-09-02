@@ -136,6 +136,12 @@ and its installers are built by GitHub Actions on a `desktop-v*` tag.
   dead ICE path: a frozen tile must heal without F5.
 - The room link is the credential: unguessable random slug, no accounts.
   Anyone in the room can rename it (`PATCH /api/rooms/:slug`, both edges).
+- The tool shelf in the dock is **room state, not a private window**: a
+  video someone opens plays for everybody, anyone controls it, and closing
+  it closes it for the room — the same shape as a screen share. The server
+  holds only the video id, the playing flag and the position (its own clock
+  stamps it, `domain/watch.ts`); the video itself is YouTube's player in
+  each browser and never passes through us.
 - Chat is ephemeral and sealed, and it rides the mesh: text goes peer to peer
   on its own data channel, and through the server only for a seat whose
   channel is not up (joining, resuming, or a peer that can never connect

@@ -27,6 +27,8 @@ import { bodyBudget, excerptOf, type ChatQuote } from '../lib/chat-body';
 import InviteButton from './InviteButton';
 import Logo from './Logo';
 import SettingsMenu from './SettingsMenu';
+import ToolsMenu from './ToolsMenu';
+import WatchStage from './WatchStage';
 import { applySinkId } from '../lib/audio-devices';
 import {
   CamIcon,
@@ -46,6 +48,7 @@ import {
   ReplyIcon,
   ScreenIcon,
   SlidersIcon,
+  ToolboxIcon,
 } from './icons';
 import { SpeakerIcon, SpeakerOffIcon } from './icons';
 
@@ -648,6 +651,8 @@ export default function RoomView({
   const [fileNote, setFileNote] = useState<string | null>(null);
   const [unread, setUnread] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  /** The tool shelf over the dock; what it opens is the room's, not ours. */
+  const [toolsOpen, setToolsOpen] = useState(false);
   const [badgeAt, setBadgeAt] = useState<{ left: number; top: number } | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const messagesRef = useRef<HTMLDivElement>(null);
@@ -886,6 +891,17 @@ export default function RoomView({
     };
   }, [status.kind]);
 
+  // A video opening for the room clears whatever this viewer had pinned:
+  // the pin was a choice made when the video did not exist yet, and
+  // keeping it would leave one person staring at a tile while the room
+  // watches something else — with nothing on screen to say why.
+  const openVideo = session.watch?.video ?? null;
+  useEffect(() => {
+    if (openVideo) {
+      setPinned(null);
+    }
+  }, [openVideo]);
+
   const stageRef = useRef<HTMLDivElement>(null);
   const screenVideoRef = useRef<HTMLVideoElement>(null);
   const fullscreen = useFullscreen(stageRef, screenVideoRef);
@@ -939,6 +955,12 @@ export default function RoomView({
         }
         case 'l':
           switchLayout();
+          return;
+        case 't':
+          // The shelf takes the keyboard as it opens (its field is the
+          // only thing to type into), so the key must not be typed into it.
+          event.preventDefault();
+          setToolsOpen((open) => !open);
           return;
         case 'c':
           // The composer takes focus as the panel opens; without this the
@@ -1017,11 +1039,20 @@ export default function RoomView({
     pinnedLive?.kind === 'screen'
       ? (screenItems.find((item) => item.share.id === pinnedLive.id) ?? null)
       : null;
+  // The room's video owns the stage while it is open: of everything in
+  // here, it is the one thing somebody deliberately put on for everyone.
+  // A pin is what overrules it — "I want to look at that instead" — and
+  // it is closed for the room from the shelf or the stage's own key.
+  const watchOnStage = session.watch !== null && pinnedLive === null;
   // A pinned screen whose stream has not arrived yet leaves the stage empty until it has.
   const stageScreen =
-    layout === 'grid' ? null : pinnedLive ? (pinnedScreen?.stream ? pinnedScreen : null) : followedScreen;
+    watchOnStage || layout === 'grid'
+      ? null
+      : pinnedLive
+        ? (pinnedScreen?.stream ? pinnedScreen : null)
+        : followedScreen;
   const stagePersonId =
-    layout === 'grid'
+    watchOnStage || layout === 'grid'
       ? null
       : pinnedLive?.kind === 'person'
         ? pinnedLive.id
@@ -1029,7 +1060,7 @@ export default function RoomView({
           ? null
           : followedPerson;
   const stageStream = stageScreen?.stream ?? null;
-  const onStage = stageScreen !== null || stagePersonId !== null;
+  const onStage = watchOnStage || stageScreen !== null || stagePersonId !== null;
 
   // The hook's stats and stall watch follow whatever screen is on stage.
   const watchedId = stageScreen?.share.id ?? null;
@@ -1272,6 +1303,14 @@ export default function RoomView({
       {/* The stage is the page's main content: a landmark to jump to. */}
       <main className="room-body">
         <div className="stage-area">
+          {watchOnStage && session.watch && (
+            <WatchStage
+              watch={session.watch}
+              muted={!session.speakerOn}
+              onChange={(video, playing, time) => session.setWatch(video, playing, time)}
+              onClose={() => session.setWatch(null, false, 0)}
+            />
+          )}
           {stageStream && (
             <div
               className={`screen-stage fade-in ${fullscreen.active ? 'is-fullscreen' : ''}`}
@@ -1533,6 +1572,14 @@ export default function RoomView({
         <span className="visually-hidden" role="status">
           {!chatOpen && unread > 0 ? `${unread} ${t('chat.unread', { count: unread })}` : ''}
         </span>
+        {toolsOpen && (
+          <ToolsMenu
+            watch={session.watch}
+            onOpenVideo={(video, start) => session.setWatch(video, true, start)}
+            onCloseVideo={() => session.setWatch(null, false, 0)}
+            onDismiss={() => setToolsOpen(false)}
+          />
+        )}
         {settingsOpen && (
           <SettingsMenu
             screenQuality={session.screenQuality}
@@ -1620,6 +1667,21 @@ export default function RoomView({
               <ScreenIcon />
             </button>
           )}
+          {/* The shelf sits with the screen key: both are things you put
+              INTO the room, as opposed to what your own devices do. */}
+          <button
+            type="button"
+            className={`control ${toolsOpen || session.watch ? 'control-active' : ''}`}
+            aria-haspopup="dialog"
+            aria-expanded={toolsOpen}
+            aria-label={t('controls.tools')}
+            aria-keyshortcuts="t"
+            data-key="T"
+            title={`${t('controls.tools')} · T`}
+            onClick={() => setToolsOpen((open) => !open)}
+          >
+            <ToolboxIcon />
+          </button>
           <button
             type="button"
             className={`control ${settingsOpen ? 'control-active' : ''}`}

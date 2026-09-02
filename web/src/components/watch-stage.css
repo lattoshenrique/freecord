@@ -1,0 +1,90 @@
+/*
+ * The shared player on stage. It borrows .screen-stage's frame (black
+ * box, hairline, rounded corners) so a video and a shared screen sit in
+ * the room the same way, and adds only what an iframe needs: something to
+ * fill, and a place to say so when YouTube refuses to play here.
+ */
+
+.watch-stage {
+  display: flex;
+  flex-direction: column;
+}
+
+/* The room's strip: what this is, and the key that ends it for everyone. */
+.watch-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.3rem 0.35rem 0.3rem 0.7rem;
+  background: var(--hud-bg, rgba(11, 14, 20, 0.72));
+  border-bottom: 1px solid var(--hud-border, rgba(255, 255, 255, 0.1));
+}
+
+.watch-title {
+  font-family: var(--mono, monospace);
+  font-size: 0.72rem;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--muted, #9aa3b2);
+}
+
+.watch-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.8rem;
+  height: 1.8rem;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--hud-radius, 8px);
+  color: var(--muted, #9aa3b2);
+  cursor: pointer;
+}
+
+.watch-close:hover,
+.watch-close:focus-visible {
+  color: var(--danger, #e5484d);
+  border-color: var(--danger, #e5484d);
+}
+
+.watch-frame {
+  flex: 1;
+  min-height: 0;
+}
+
+.watch-frame,
+.watch-frame iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.watch-blocked {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 1.5rem;
+  text-align: center;
+  background: rgba(4, 6, 10, 0.82);
+  color: var(--text, #e6e8ee);
+}
+
+.watch-blocked p {
+  margin: 0;
+  max-width: 28rem;
+  font-size: 0.9rem;
+}
+
+.watch-blocked-link {
+  color: var(--text, #e6e8ee);
+  font-size: 0.82rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}

@@ -11,6 +11,7 @@ import {
   type ServerMessage,
 } from '../domain/room.js';
 import { computeScreenTree } from '../domain/screen-tree.js';
+import { isPosition, isVideoId, projectWatch } from '../domain/watch.js';
 import type { RoomRegistry } from './room-registry.js';
 
 function broadcast(room: Room, message: ServerMessage, exceptId?: string): void {
@@ -146,6 +147,9 @@ export class SignalingSession {
       cameras: [...room.cameras],
       deafened: [...room.deafened],
       muted: [...room.muted],
+      // Late to the film: the position is projected to right now, so the
+      // newcomer seeks once and is where everyone else is.
+      watch: projectWatch(room.watch, Date.now()),
     });
   }
 
@@ -190,6 +194,23 @@ export class SignalingSession {
           from: { id: this.peerId, name: this.name },
           text,
           ts: Date.now(),
+        });
+        return;
+      }
+      case 'watch': {
+        // No lock and no host: the shelf's video belongs to the room, and
+        // whoever touches it last says where it is. Closing (`video: null`)
+        // is the same message with nothing in it.
+        room.watch = message.video
+          ? { video: message.video, playing: message.playing, time: message.time, at: Date.now() }
+          : null;
+        // Echoed to the sender too: its player is the one that moved, but
+        // a client that guessed wrong (a seek the player rounded) must end
+        // up on the room's number, not on its own.
+        broadcast(room, {
+          t: 'watch-state',
+          watch: projectWatch(room.watch, Date.now()),
+          by: this.peerId,
         });
         return;
       }
@@ -413,6 +434,18 @@ export function parseClientMessage(raw: unknown): ClientMessage | null {
         message.streamId.length <= 128
         ? { t: 'screen-relay', of: message.of, streamId: message.streamId }
         : null;
+    case 'watch': {
+      // The id is echoed to the whole room, so its shape is checked here
+      // rather than trusted: what comes out of this must be loadable by a
+      // player and nothing else.
+      const video = message.video ?? null;
+      if (video !== null && !isVideoId(video)) {
+        return null;
+      }
+      return typeof message.playing === 'boolean' && isPosition(message.time)
+        ? { t: 'watch', video, playing: message.playing, time: message.time }
+        : null;
+    }
     case 'screen-stop':
       return { t: 'screen-stop' };
     case 'camera-request':

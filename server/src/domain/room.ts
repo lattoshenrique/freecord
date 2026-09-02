@@ -4,6 +4,8 @@
  * screen at a time, expiration).
  */
 
+import type { WatchProjection, WatchState } from './watch.js';
+
 export interface PeerInfo {
   id: string;
   name: string;
@@ -80,6 +82,12 @@ export interface Room {
    * sharer peerId → (relay peerId → streamId it forwards to its children).
    */
   screenRelays: Map<string, Map<string, string>>;
+  /**
+   * What the room is watching together (domain/watch.ts). Absent while
+   * nobody has opened the tool — a room only grows the field the first
+   * time someone puts a video on.
+   */
+  watch?: WatchState | null;
   /** When the room became empty, for expiration. */
   emptyAt: number | null;
 }
@@ -258,6 +266,11 @@ export type ServerMessage =
       deafened: string[];
       /** Who has their microphone off (see `mute`). */
       muted: string[];
+      /**
+       * What the room is watching, position already brought up to date;
+       * null when nobody has the tool open (see domain/watch.ts).
+       */
+      watch: WatchProjection | null;
     }
   | { t: 'peer-joined'; peer: PeerInfo }
   | { t: 'peer-left'; id: string }
@@ -290,6 +303,12 @@ export type ServerMessage =
       source: { id: string; streamId: string } | null;
       quality: ScreenQuality;
     }
+  /**
+   * The room's shared video changed: someone opened one, played, paused,
+   * jumped, or closed it (`watch` null). `time` is where the video is as
+   * this message leaves the server, so a receiver seeks to it directly.
+   */
+  | { t: 'watch-state'; watch: WatchProjection | null; by: string }
   /** Ping echo: the client measures signaling latency with `ts`. */
   | { t: 'pong'; ts: number }
   | { t: 'error'; code: 'room_not_found' | 'room_full' | 'invalid_name' | 'resume_invalid' };
@@ -315,6 +334,13 @@ export type ClientMessage =
    * change; the room is told so the tile can show it.
    */
   | { t: 'mute'; on: boolean }
+  /**
+   * Whoever touches the shared player says what the room should be
+   * watching: a video id with its position, or `video: null` to close it
+   * for everyone. There is no host — the tool belongs to the room, like
+   * the screen slots, and the last word wins.
+   */
+  | { t: 'watch'; video: string | null; playing: boolean; time: number }
   /**
    * Deliberate goodbye: leave immediately instead of holding the seat for
    * a resume. A bare transport close is treated as an accident.

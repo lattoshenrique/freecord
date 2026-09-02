@@ -33,6 +33,18 @@ export function cameraSlotsFor(participantCount: number): number {
   return participantCount <= 16 ? 3 : 2;
 }
 
+/**
+ * What the room is watching together — mirror of the server's
+ * WatchProjection (server/src/domain/watch.ts). The position is where the
+ * video was as the message left the server, so a receiver seeks to it.
+ */
+export interface WatchProjection {
+  /** YouTube video id; see lib/youtube.ts for how a pasted link becomes one. */
+  video: string;
+  playing: boolean;
+  time: number;
+}
+
 /** An ICE server handed out by the edge (STUN/TURN, ephemeral credentials). */
 export interface IceServerConfig {
   urls: string[];
@@ -58,6 +70,8 @@ export type ServerMessage =
       deafened: string[];
       /** Who has their microphone off (see `mute`). */
       muted: string[];
+      /** What the room is watching, or null when nobody opened the tool. */
+      watch: WatchProjection | null;
     }
   | { t: 'peer-joined'; peer: PeerInfo }
   | { t: 'peer-left'; id: string }
@@ -87,6 +101,12 @@ export type ServerMessage =
       source: { id: string; streamId: string } | null;
       quality: ScreenQualityId;
     }
+  /**
+   * The room's shared video changed: someone opened one, played, paused,
+   * jumped, or closed it (`watch` null). `by` is who touched it — the
+   * actor's own player is already there and must not be corrected.
+   */
+  | { t: 'watch-state'; watch: WatchProjection | null; by: string }
   /** Ping echo: the client measures signaling latency with `ts`. */
   | { t: 'pong'; ts: number }
   | { t: 'error'; code: 'room_not_found' | 'room_full' | 'invalid_name' | 'resume_invalid' };
@@ -111,6 +131,12 @@ export type ClientMessage =
    * change; the room is told so the tile can show it.
    */
   | { t: 'mute'; on: boolean }
+  /**
+   * Whoever touches the shared player says what the room should be
+   * watching: a video id with its position, or `video: null` to close it
+   * for everyone. There is no host — the last word wins.
+   */
+  | { t: 'watch'; video: string | null; playing: boolean; time: number }
   /**
    * Deliberate goodbye: leave immediately instead of holding the seat for
    * a resume. A bare transport close is treated as an accident.
