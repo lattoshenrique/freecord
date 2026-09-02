@@ -229,7 +229,6 @@ export const esES: Catalog = {
   'file.status.declinedCount': { one: '{count} rechazó', other: '{count} rechazaron' },
 
   'latency.signal': 'Latencia con el servidor de señalización',
-  'latency.peer': 'Latencia directa con {name}',
 
   // Community page — English source lives in en-US.ts, owned by its author.
   'community.back':

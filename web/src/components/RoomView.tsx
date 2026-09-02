@@ -37,58 +37,20 @@ import {
 } from './icons';
 import { SpeakerIcon, SpeakerOffIcon } from './icons';
 
-/** Faixas de latência: verde conversa bem, âmbar arrasta, vermelho atrapalha. */
-function latencyGrade(ms: number): 'good' | 'fair' | 'poor' {
-  return ms < 100 ? 'good' : ms < 250 ? 'fair' : 'poor';
-}
-
-function LatencyChip({ ms, title }: { ms: number | null; title: string }) {
-  if (ms === null) {
-    return null;
-  }
-  return (
-    <span className={`latency-chip latency-${latencyGrade(ms)}`} title={title}>
-      {ms} ms
-    </span>
-  );
-}
-
 function formatBitrate(kbps: number): string {
   return kbps >= 1000 ? `${(kbps / 1000).toFixed(1)} Mb/s` : `${kbps} kb/s`;
 }
 
-/** What is actually going out or coming in — not what was asked for. */
+/**
+ * Which way the screen is flowing — the word, and only the word: the numbers
+ * behind it (res, fps, bitrate, rtt) are the HUD's job at the top of the
+ * screen, and printing them twice made the stage read as a dashboard.
+ */
 function ScreenStatsBar({ stats }: { stats: ScreenStats }) {
   const { t } = useI18n();
-  const parts: string[] = [];
-  if (stats.width && stats.height) {
-    parts.push(`${stats.width}×${stats.height}`);
-  }
-  if (stats.fps !== null) {
-    parts.push(`${Math.round(stats.fps)} fps`);
-  }
-  if (stats.kbps !== null) {
-    parts.push(formatBitrate(stats.kbps));
-  }
-  if (stats.relayMode !== null) {
-    // Debug telemetry, not copy: which forwarding path this relay's
-    // children ride (encoded passthrough vs re-encode).
-    parts.push(stats.relayMode);
-  }
-  if (parts.length === 0 && stats.rttMs === null) {
-    return null;
-  }
   return (
     <span className="screen-stats">
       {stats.direction === 'sending' ? t('screen.sending') : t('screen.receiving')}
-      {parts.length > 0 && ` · ${parts.join(' · ')}`}
-      {stats.rttMs !== null && (
-        <>
-          {' · '}
-          <span className={`latency-dot latency-${latencyGrade(stats.rttMs)}`} aria-hidden />
-          {stats.rttMs} ms
-        </>
-      )}
     </span>
   );
 }
@@ -382,8 +344,6 @@ function Tile({
   speaking,
   cameraOn,
   stream,
-  latencyMs,
-  latencyTitle,
   style,
   sinkId,
 }: {
@@ -402,10 +362,6 @@ function Tile({
    */
   cameraOn: boolean;
   stream: MediaStream | null;
-  /** Peer-to-peer RTT from getStats(). The self tile has none: the hop to the
-   * signaling server is not latency between people, so it is not shown. */
-  latencyMs?: number | null;
-  latencyTitle?: string;
   style?: React.CSSProperties;
   /** Playback device for a remote peer's audio; self tiles pass none. */
   sinkId?: string | null;
@@ -414,7 +370,6 @@ function Tile({
   const showVideo = cameraOn && stream !== null && hasLiveVideo(stream);
   return (
     <div className="tile" data-speaking={speaking ? 'true' : undefined} style={style}>
-      {latencyTitle !== undefined && <LatencyChip ms={latencyMs ?? null} title={latencyTitle} />}
       {showVideo ? (
         <MediaView
           stream={stream}
@@ -923,8 +878,6 @@ export default function RoomView({
                   speaking={speaking.has(peer.id)}
                   cameraOn={session.cameras.has(peer.id)}
                   stream={cameraStream}
-                  latencyMs={session.peerLatency.get(peer.id)?.rttMs ?? null}
-                  latencyTitle={t('latency.peer', { name: peer.name })}
                   style={tileStyle}
                   sinkId={session.audioDevices.speakerId}
                 />

@@ -30,7 +30,7 @@ import {
 } from './icons';
 
 /** Ceiling for the auto-grow: past this the field scrolls. */
-const MAX_HEIGHT_PX = 132;
+const MAX_HEIGHT_PX = 148;
 
 /** Text styles, then inline snippets, then blocks — separated in the toolbar. */
 const TOOL_GROUPS: Array<
@@ -181,7 +181,11 @@ export default function ChatComposer({
       return;
     }
     area.style.height = 'auto';
-    area.style.height = `${Math.min(area.scrollHeight, MAX_HEIGHT_PX)}px`;
+    const wanted = area.scrollHeight;
+    area.style.height = `${Math.min(wanted, MAX_HEIGHT_PX)}px`;
+    // A scrollbar only once the text truly outgrows the ceiling: on Windows an
+    // always-on one paints a track with arrow buttons inside the field.
+    area.style.overflowY = wanted > MAX_HEIGHT_PX ? 'auto' : 'hidden';
   }, [value]);
 
   useLayoutEffect(() => {
@@ -298,13 +302,51 @@ export default function ChatComposer({
           </button>
         </div>
       )}
-      {formatOpen && (
-        <div className="chat-toolbar" role="toolbar" aria-label={t('chat.toolbar')}>
-          {TOOL_GROUPS.map((group, index) => (
+      {/* Every key lives on its own row: the field below keeps the full width. */}
+      <div className="chat-toolbar" role="toolbar" aria-label={t('chat.toolbar')}>
+        <button
+          type="button"
+          className={`chat-tool ${formatOpen ? 'chat-tool-on' : ''}`}
+          title={t('chat.format')}
+          aria-label={t('chat.format')}
+          aria-pressed={formatOpen}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => setFormatOpen((open) => !open)}
+        >
+          <FormatIcon />
+        </button>
+        {onAttach && (
+          <button
+            type="button"
+            className="chat-tool"
+            title={`${t('file.attach')} · ${t('file.direct')}`}
+            aria-label={t('file.attach')}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={onAttach}
+          >
+            <AttachIcon />
+          </button>
+        )}
+        <div className="chat-emoji-wrap" ref={emojiRef}>
+          <button
+            type="button"
+            className="chat-tool"
+            title={t('chat.emoji')}
+            aria-label={t('chat.emoji')}
+            aria-haspopup="true"
+            aria-expanded={emojiOpen}
+            // mousedown would steal focus from the textarea, and the selection with it.
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => setEmojiOpen((open) => !open)}
+          >
+            <EmojiIcon />
+          </button>
+          {emojiOpen && <EmojiPicker onPick={insertEmoji} />}
+        </div>
+        {formatOpen &&
+          TOOL_GROUPS.map((group, index) => (
             <Fragment key={index}>
-              {index > 0 && (
-                <span className="chat-toolbar-sep" role="separator" aria-orientation="vertical" />
-              )}
+              <span className="chat-toolbar-sep" role="separator" aria-orientation="vertical" />
               {group.map(({ action, labelKey, shortcut, Icon }) => {
                 const label = t(labelKey);
                 const sample = SYNTAX[action](label.toLowerCase());
@@ -325,8 +367,7 @@ export default function ChatComposer({
               })}
             </Fragment>
           ))}
-        </div>
-      )}
+      </div>
       <form
         className="chat-form"
         onSubmit={(event) => {
@@ -334,29 +375,6 @@ export default function ChatComposer({
           onSend();
         }}
       >
-        <button
-          type="button"
-          className={`chat-tool chat-form-tool ${formatOpen ? 'chat-form-tool-on' : ''}`}
-          title={t('chat.format')}
-          aria-label={t('chat.format')}
-          aria-pressed={formatOpen}
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => setFormatOpen((open) => !open)}
-        >
-          <FormatIcon />
-        </button>
-        {onAttach && (
-          <button
-            type="button"
-            className="chat-tool chat-form-tool"
-            title={`${t('file.attach')} · ${t('file.direct')}`}
-            aria-label={t('file.attach')}
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={onAttach}
-          >
-            <AttachIcon />
-          </button>
-        )}
         <textarea
           ref={areaRef}
           className="chat-input"
@@ -369,22 +387,6 @@ export default function ChatComposer({
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
         />
-        <div className="chat-emoji-wrap" ref={emojiRef}>
-          <button
-            type="button"
-            className="chat-tool chat-emoji-toggle"
-            title={t('chat.emoji')}
-            aria-label={t('chat.emoji')}
-            aria-haspopup="true"
-            aria-expanded={emojiOpen}
-            // mousedown would steal focus from the textarea, and the selection with it.
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() => setEmojiOpen((open) => !open)}
-          >
-            <EmojiIcon />
-          </button>
-          {emojiOpen && <EmojiPicker onPick={insertEmoji} />}
-        </div>
         <button type="submit" className="chat-send" aria-label={t('chat.send')} disabled={!value.trim()}>
           <SendIcon />
         </button>

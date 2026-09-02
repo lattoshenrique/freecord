@@ -227,7 +227,6 @@ export const zhCN: Catalog = {
   'file.status.declinedCount': { other: '{count} 人拒绝' },
 
   'latency.signal': '到信令服务器的延迟',
-  'latency.peer': '与 {name} 的直连延迟',
 
   // Community page — English source lives in en-US.ts, owned by its author.
   'community.back':
