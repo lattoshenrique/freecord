@@ -3,11 +3,13 @@ import { Link, useNavigate } from 'react-router-dom';
 import { createRoom } from '../api';
 import { APP_BUILD, APP_VERSION } from '../lib/build-info';
 import { generateRoomKey } from '../lib/chat-crypto';
+import { heroTransition } from '../lib/hero-transition';
 import { looksLikeInvite, parseInvite } from '../lib/invite';
 import { DownloadButton } from '../components/DownloadCard';
 import LanguagePicker from '../components/LanguagePicker';
 import Brand from '../components/Brand';
 import MeshBackground from '../components/MeshBackground';
+import { preloadRoomPage } from './room-route';
 import { useI18n } from '../i18n';
 import './home.css';
 
@@ -89,6 +91,17 @@ export default function HomePage() {
     };
   }, []);
 
+  /*
+   * The room's code, fetched while the page sits still. It is the biggest
+   * chunk in the app and the one thing this screen is for, so by the time
+   * the button is pressed it is already here — and the way in can be one
+   * move instead of a blank frame with the mark flying into it.
+   */
+  useEffect(() => {
+    const warm = window.setTimeout(() => void preloadRoomPage(), 600);
+    return () => window.clearTimeout(warm);
+  }, []);
+
   // Recomputed on every keystroke: the button below reads what the field
   // holds and offers to join or to create accordingly.
   const invite = parseInvite(displayName);
@@ -97,7 +110,8 @@ export default function HomePage() {
     event.preventDefault();
     if (invite) {
       // The fragment carries the chat key — hand it over untouched.
-      navigate(`/r/${invite.slug}${invite.hash}`);
+      await preloadRoomPage();
+      heroTransition(() => navigate(`/r/${invite.slug}${invite.hash}`));
       return;
     }
     if (looksLikeInvite(displayName)) {
@@ -116,7 +130,18 @@ export default function HomePage() {
       // The chat key lives in the fragment: shared by copying the link,
       // never sent to the server.
       const roomKey = generateRoomKey();
-      navigate(roomKey ? `/r/${room.slug}#k=${roomKey}` : `/r/${room.slug}`);
+      await preloadRoomPage();
+      /*
+       * The room rides along in the history entry: the doorstep opens on it
+       * instead of asking the server for a room it has known for one
+       * millisecond, which is also what leaves the mark, the name and the
+       * button somewhere to fly to rather than a spinner.
+       */
+      heroTransition(() =>
+        navigate(roomKey ? `/r/${room.slug}#k=${roomKey}` : `/r/${room.slug}`, {
+          state: { room },
+        }),
+      );
     } catch {
       setError(t('home.createFailed'));
       setCreating(false);

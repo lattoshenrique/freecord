@@ -950,8 +950,14 @@ export default function RoomView({
   }
 
   if (status.kind === 'connecting') {
+    // A espera carrega a marca, o nome da sala e o rosto de quem entra: são
+    // as três coisas que vêm voando da soleira, e num spinner puro elas
+    // chegavam ao nada. As classes -waiting- são estilizadas em hero.css.
     return (
       <main className="centered fade-in">
+        <Logo size={44} className="room-waiting-mark" />
+        <h1 className="room-waiting-name">{room.displayName || t('room.unnamed')}</h1>
+        <Avatar name={options.name} className="room-waiting-avatar" />
         <div className="spinner" aria-hidden />
         <p>{t('room.connecting')}</p>
       </main>

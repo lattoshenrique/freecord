@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ApiError, getRoom, renameRoom, type RoomSummary } from '../api';
 import { roomKeyFromHash } from '../lib/chat-crypto';
+import { heroTransition } from '../lib/hero-transition';
 import { randomNickname } from '../lib/identity';
 import { useI18n } from '../i18n';
 import Avatar from '../components/Avatar';
@@ -18,11 +19,29 @@ type Phase =
   | { kind: 'prejoin'; room: RoomSummary }
   | { kind: 'joined'; room: RoomSummary; options: JoinOptions };
 
+/**
+ * A room the home just created and handed over in the history entry. The
+ * doorstep opens on it directly: asking the server about a room this tab has
+ * known for one millisecond costs a round trip and a spinner, and the spinner
+ * is the one thing the way in must not have — the mark, the name and the
+ * button are mid-flight, and they need the doorstep to land on.
+ *
+ * Anything else — a pasted invite, a reload, a link from outside — has no
+ * such entry and takes the ordinary path.
+ */
+function handedOver(state: unknown, slug: string | undefined): RoomSummary | null {
+  const room = (state as { room?: RoomSummary } | null)?.room;
+  return room && room.slug === slug ? room : null;
+}
+
 export default function RoomPage() {
   const { t } = useI18n();
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
-  const [phase, setPhase] = useState<Phase>({ kind: 'loading' });
+  const handed = handedOver(useLocation().state, slug);
+  const [phase, setPhase] = useState<Phase>(
+    handed ? { kind: 'prejoin', room: handed } : { kind: 'loading' },
+  );
   // A guest arrives already named: typing is a correction, not a toll gate.
   const [name, setName] = useState(randomNickname);
   // Both off. Joining a call already talking, or already on camera, is how
@@ -40,30 +59,35 @@ export default function RoomPage() {
   const discardRef = useRef(false);
 
   useEffect(() => {
-    if (!slug) {
+    if (!slug || handed) {
       return;
     }
     let cancelled = false;
     getRoom(slug)
       .then((room) => {
         if (!cancelled) {
-          setPhase({ kind: 'prejoin', room });
+          // The mark is on the loading screen and on the doorstep both: one
+          // move carries it from the middle of the first to the top of the
+          // second, and the rest of the doorstep arrives under it.
+          heroTransition(() => setPhase({ kind: 'prejoin', room }));
         }
       })
       .catch((error: unknown) => {
         if (cancelled) {
           return;
         }
-        setPhase(
-          error instanceof ApiError && error.status === 404
-            ? { kind: 'not_found' }
-            : { kind: 'error' },
+        heroTransition(() =>
+          setPhase(
+            error instanceof ApiError && error.status === 404
+              ? { kind: 'not_found' }
+              : { kind: 'error' },
+          ),
         );
       });
     return () => {
       cancelled = true;
     };
-  }, [slug]);
+  }, [slug, handed]);
 
   if (!slug) {
     return null;
@@ -72,6 +96,9 @@ export default function RoomPage() {
   if (phase.kind === 'loading') {
     return (
       <main className="centered">
+        {/* The one thing carried over from the screen you came from: the
+            spinner is the only news here, so the mark holds the middle. */}
+        <Brand className="home-logo" size={44} name={false} />
         <div className="spinner" />
         <p>{t('room.loading')}</p>
       </main>
@@ -142,21 +169,49 @@ export default function RoomPage() {
             if (!trimmed) {
               return;
             }
-            setPhase({
-              kind: 'joined',
-              room,
-              options: {
-                slug,
-                name: trimmed,
-                micEnabled,
-                camEnabled,
-                // The chat key rides the fragment, which never reaches the server.
-                roomKey: roomKeyFromHash(window.location.hash),
-              },
-            });
+            // The same move once more: the mark and the room's name fly to
+            // the title panel they will sit in for the rest of the call, and
+            // the doorstep dissolves behind them.
+            heroTransition(() =>
+              setPhase({
+                kind: 'joined',
+                room,
+                options: {
+                  slug,
+                  name: trimmed,
+                  micEnabled,
+                  camEnabled,
+                  // The chat key rides the fragment, which never reaches the server.
+                  roomKey: roomKeyFromHash(window.location.hash),
+                },
+              }),
+            );
           }}
         >
-          <Link to="/" className="join-brand" aria-label={t('prejoin.backHome')}>
+          <Link
+            to="/"
+            className="join-brand"
+            aria-label={t('prejoin.backHome')}
+            onClick={(event: React.MouseEvent<HTMLAnchorElement>) => {
+              /*
+               * The way back is the way in, played backwards. Only for a
+               * plain click: a middle click or a cmd-click is asking for a
+               * new tab, where there is nothing to carry anything to.
+               */
+              if (
+                event.defaultPrevented ||
+                event.button !== 0 ||
+                event.metaKey ||
+                event.ctrlKey ||
+                event.shiftKey ||
+                event.altKey
+              ) {
+                return;
+              }
+              event.preventDefault();
+              heroTransition(() => navigate('/'));
+            }}
+          >
             <Brand size={24} />
           </Link>
 
@@ -279,6 +334,12 @@ export default function RoomPage() {
     <RoomView
       room={phase.room}
       options={phase.options}
+      /*
+       * Plainly, with no hero: the way in is one move because the same three
+       * things are on every screen of it, and leaving is not that. Flying
+       * the room back into the field it was opened from would replay the
+       * arrival backwards, which is not what walking out feels like.
+       */
       onLeft={() => navigate('/')}
     />
   );

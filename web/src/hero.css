@@ -1,0 +1,194 @@
+/*
+ * The way in: home → doorstep → room, as one continuous move.
+ *
+ * Three screens, and the same three things on all of them — the mark, the
+ * room's name, the one lit button. So they are not redrawn on each screen:
+ * they fly. The browser photographs both sides of a screen change and gives
+ * every named element a group of its own to travel in; this file does
+ * nothing but say which elements those are and how fast they move.
+ * lib/hero-transition.ts is the switch that starts it.
+ *
+ * Kept out of styles.css by the same convention as home.css and prejoin.css:
+ * a self-contained block cannot be clobbered by another session editing the
+ * global sheet. It reaches into those files by class name only, and only to
+ * name things — nothing here changes how any screen looks standing still.
+ */
+
+/* ---- what flies ---- */
+
+/*
+ * The mark: 88px in the middle of the home, 44px on a state card, 24px on
+ * the doorstep, 22px in the room's title panel. One thing, four sizes, and
+ * never two of them on screen at once — which is what lets them share a name.
+ */
+.start-brand .logo,
+.join-brand .logo,
+.home-logo .logo,
+.room-waiting-mark,
+.room-logo {
+  view-transition-name: hero-mark;
+}
+
+/* The name beside it, for as long as there is room for it. In the room there
+   is not: it stays on the doorstep and fades out where it stood. */
+.start-brand .brand-name,
+.join-brand .brand-name {
+  view-transition-name: hero-name;
+}
+
+/*
+ * The room's name, from the line it is typed on to the title of the room it
+ * opened. The line carries a pasted invite just as often as a name, and the
+ * move reads the same either way: what was written becomes where you are.
+ */
+.start-line,
+.join-room-name,
+.room-waiting-name,
+.room-header h1 {
+  view-transition-name: hero-room;
+}
+
+/* The lit button, which is the same button twice: the one that opens the
+   room, and the one that walks you in. */
+.start-form button,
+.join-cta {
+  view-transition-name: hero-cta;
+}
+
+/*
+ * You. The face drawn on the doorstep waits out the connection and then
+ * takes its own seat in the room — the tile marked as yours, which is the
+ * only one with a "· you" after the name. Nothing else on the way in is a
+ * picture of a person, so it is the piece the eye actually follows.
+ *
+ * With a camera on there is no drawn face to land on: your own picture is
+ * there instead, and the avatar bows out where it stood.
+ */
+.join-avatar,
+.room-waiting-avatar,
+.tile:has(.tile-you) .tile-avatar {
+  view-transition-name: hero-avatar;
+}
+
+/* ---- how they move ---- */
+
+/*
+ * Half a second, on the ease the rest of the app moves on: long enough to
+ * follow a mark across the screen, short enough that Enter still feels like
+ * Enter. The pair inside each group cross-fades over the same window, so the
+ * old and the new are never both half-there.
+ */
+::view-transition-group(hero-mark),
+::view-transition-group(hero-name),
+::view-transition-group(hero-room),
+::view-transition-group(hero-cta),
+::view-transition-group(hero-avatar),
+::view-transition-old(hero-mark),
+::view-transition-new(hero-mark),
+::view-transition-old(hero-name),
+::view-transition-new(hero-name),
+::view-transition-old(hero-room),
+::view-transition-new(hero-room),
+::view-transition-old(hero-cta),
+::view-transition-new(hero-cta),
+::view-transition-old(hero-avatar),
+::view-transition-new(hero-avatar) {
+  animation-duration: 0.5s;
+  animation-timing-function: var(--ease);
+}
+
+/*
+ * Everything that is not a hero: the screen it belonged to steps back a
+ * hair as it goes, the one arriving settles forward. Both run over the same
+ * window — a gap between them would show the bare canvas through, since the
+ * two are blended, not stacked.
+ */
+::view-transition-old(root) {
+  animation: hero-leave 0.36s var(--ease) both;
+}
+
+::view-transition-new(root) {
+  animation: hero-arrive 0.36s var(--ease) both;
+}
+
+@keyframes hero-leave {
+  to {
+    opacity: 0;
+    transform: scale(0.99);
+  }
+}
+
+@keyframes hero-arrive {
+  from {
+    opacity: 0;
+    transform: scale(1.01);
+  }
+}
+
+/* ---- once the screens are carrying it ---- */
+
+/*
+ * The brand introduces itself once, on the screen you land on: the mark
+ * builds itself and walks into place, the letters arrive one at a time
+ * (brand.css). After the first flight it has nothing left to say — it is
+ * the same mark and the same word, in flight, and a piece that re-enters at
+ * the spot its own snapshot is already sitting on reads as a stutter. The
+ * flag is set for good in lib/hero-transition.ts.
+ *
+ * Collapsing an animation to its last keyframe is how the reduced-motion
+ * rule in styles.css leaves the same pieces at rest, and every one of these
+ * is written to end at rest for exactly that reason — logo.css says so in
+ * as many words. Only the mark's opening is collapsed: the packet on the
+ * ring and the heartbeats are what it does for the rest of its life, they
+ * loop, and a mark that has already arrived is not missing them.
+ */
+[data-hero-settled] .logo .logo-peer,
+[data-hero-settled] .logo .logo-negotiating,
+[data-hero-settled] .logo .logo-mesh,
+[data-hero-settled] .brand[data-march='true'] .logo,
+[data-hero-settled] .brand-letter,
+[data-hero-settled] .join-brand,
+[data-hero-settled] .join-room-name,
+[data-hero-settled] .join-cta,
+[data-hero-settled] .room-title {
+  animation-delay: 0s !important;
+  animation-duration: 0.01ms !important;
+}
+
+/* ---- the wait, which is the doorstep one step further in ---- */
+
+/*
+ * Connecting to a room is the one moment on the way in with nothing to do
+ * and nothing to decide, and it used to be a bare spinner: everything flying
+ * off the doorstep arrived at nothing and faded. So the wait holds the same
+ * three things — the mark, the room, and the face going in — in the same
+ * order and at the same sizes they left in. Only the spinner is new, and
+ * only the spinner says anything is happening.
+ *
+ * The markup is the `connecting` branch of RoomView; every line below is
+ * about that screen and nothing else, which is why it lives here.
+ */
+
+.room-waiting-mark {
+  filter: drop-shadow(0 6px 18px rgba(88, 101, 242, 0.35));
+}
+
+/* The room's name at the size it had on the doorstep, so it crosses over as
+   a move and not as a resize. It shrinks once, into the room's own title. */
+.room-waiting-name {
+  margin: 0;
+  max-width: min(30rem, 100%);
+  font-size: clamp(1.9rem, 5vw, 2.9rem);
+  line-height: 1.1;
+  letter-spacing: var(--track-display, -0.03em);
+  overflow-wrap: anywhere;
+}
+
+/* The same face, at the same size, as the one on the doorstep. */
+.room-waiting-avatar {
+  width: 6.5rem;
+  height: 6.5rem;
+  border-radius: 30%;
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow);
+}

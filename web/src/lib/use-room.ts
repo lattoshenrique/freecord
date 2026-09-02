@@ -19,6 +19,7 @@ import { decodeChatBody, encodeChatBody, type ChatQuote } from './chat-body';
 import { ChatChannels, normalizeChatText } from './chat-channel';
 import { importRoomKey, openChat, sealChat } from './chat-crypto';
 import { FileTransfers, type FileTransfer } from './file-transfer';
+import { heroTransition } from './hero-transition';
 import { Mesh, type TrackEncoding } from './mesh';
 import { playJoinChime, playLeaveChime } from './notification-sound';
 import { Signaling } from './signaling';
@@ -243,6 +244,8 @@ export function useRoomSession(options: JoinOptions) {
   /** A camera-request is in flight: swallow double-clicks until it answers. */
   const camPendingRef = useRef(false);
   const camDeniedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** The door has opened once. A later welcome is a reconnection, not an arrival. */
+  const arrivedRef = useRef(false);
   const lastPongRef = useRef(0);
   /** Our route in each screen's forwarding tree, by sharer id (our own share included). */
   const routesRef = useRef(new Map<string, ScreenRoute>());
@@ -728,7 +731,20 @@ export function useRoomSession(options: JoinOptions) {
             signalingRef.current?.send({ t: 'camera-request' });
           }
           lastPongRef.current = Date.now();
-          setStatus({ kind: 'connected' });
+          if (arrivedRef.current) {
+            // A resume: the room was already on screen and never left it.
+            setStatus({ kind: 'connected' });
+          } else {
+            /*
+             * The last leg of the way in. The waiting screen is holding the
+             * mark, the room's name and the guest's own face exactly where
+             * they landed from the doorstep; this is the move that carries
+             * them the rest of the way — the face into its own tile, the
+             * name into the room's title. See web/src/hero.css.
+             */
+            arrivedRef.current = true;
+            heroTransition(() => setStatus({ kind: 'connected' }));
+          }
           return;
         }
         case 'peer-joined':
