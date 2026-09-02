@@ -41,6 +41,11 @@ export const ptBR: Catalog = {
     'Isso é meio link de convite. Cola inteiro, com # e tudo — a chave da sala mora depois do #.',
   'home.community': 'Comunidade',
 
+  'home.rooms': {
+    one: '{total} sala já aconteceu por aqui.',
+    other: '{total} salas já aconteceram por aqui.',
+  },
+
   'home.hero.titleA': 'Uma sala é',
   'home.hero.titleB': 'só um link.',
   'home.footer.downloads': 'Downloads',

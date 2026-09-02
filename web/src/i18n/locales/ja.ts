@@ -39,6 +39,8 @@ export const jaJP: Catalog = {
   'home.invalidInvite': 'それは招待リンクの半分です。# ごと丸ごと貼ってください — ルームの鍵は # のうしろにあります。',
   'home.community': 'コミュニティ',
 
+  'home.rooms': { other: 'これまでに {total} 件のルームがここで開かれました。' },
+
   'home.hero.titleA': 'ルームは',
   'home.hero.titleB': 'リンクひとつ。',
   'home.footer.downloads': 'ダウンロード',

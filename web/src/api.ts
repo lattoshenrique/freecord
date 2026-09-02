@@ -83,6 +83,15 @@ export function renameRoom(slug: string, displayName: string): Promise<RoomSumma
   });
 }
 
+/**
+ * The one public number about other people's rooms: how many of them held
+ * company (two or more) past the twenty-minute mark. An aggregate and
+ * nothing else — see server/src/domain/room-stats.ts.
+ */
+export function getStats(): Promise<{ rooms: number }> {
+  return request('/api/stats');
+}
+
 /** Desktop app catalog — the edge resolves which Release is the latest. */
 export function getDownloads(): Promise<DesktopCatalog> {
   return request('/api/downloads');

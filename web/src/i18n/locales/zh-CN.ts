@@ -39,6 +39,8 @@ export const zhCN: Catalog = {
   'home.invalidInvite': '这只是邀请链接的一半。整条粘贴，# 也要 —— 房间密钥就住在 # 后面。',
   'home.community': '社区',
 
+  'home.rooms': { other: '到目前为止，这里已经开过 {total} 个房间。' },
+
   'home.hero.titleA': '一个房间，',
   'home.hero.titleB': '就是一个链接。',
   'home.footer.downloads': '下载',

@@ -50,6 +50,16 @@ export const enUS = {
     'That is half an invite link. Paste the whole thing, hash and all — the room key lives after the #.',
   'home.community': 'Community',
 
+  /*
+   * The counter under the button. `{total}` is the number already formatted
+   * for the locale, so it carries the thousands separator; `count` is passed
+   * alongside it, unformatted, because that is what picks the plural form.
+   */
+  'home.rooms': {
+    one: '{total} room has happened here so far.',
+    other: '{total} rooms have happened here so far.',
+  },
+
   'home.hero.titleA': 'A room is',
   'home.hero.titleB': 'just a link.',
   'home.footer.downloads': 'Downloads',

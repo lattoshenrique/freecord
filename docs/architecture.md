@@ -543,6 +543,33 @@ candidates for a same-seat welcome (`signaling.ts`, outbox — offers are
 deliberately not held, since a stale offer arriving after a fresh one would
 put the peer on an ICE generation that no longer exists).
 
+### The one number that outlives a room
+
+A room leaves nothing behind except one increment on a counter, and only if it
+was a room where something happened: **two people or more, together for twenty
+minutes** (`server/src/domain/room-stats.ts`). A clock runs only while the head
+count is at least two, so a link opened and abandoned is worth nothing and two
+eleven-minute stretches add up. Each room reports itself **once**, ever.
+
+Where the total lives follows the edge. On the Worker, a second Durable Object
+(`StatsDurableObject`, one instance) holds a single integer — no slug, no name,
+no timestamp, nothing that could be read back into a room. On the Node edge it
+is a field on the registry, in memory, and it starts over with the process.
+Both answer `GET /api/stats`, and the home page draws the number under the
+button (hidden while it is zero).
+
+Two rules it obeys, both learned the hard way:
+
+- **It schedules nothing.** The mark is twenty minutes away and the sweep the
+  room already runs comes every ~17 s, so the crossing is found on an alarm
+  that was coming anyway. A Durable Object has one alarm for everything
+  (screen locks, zombies, expiry); a counter is the last thing that should
+  move it.
+- **It is an aggregate or it is nothing.** Keeping *which* room, or when, would
+  be persistent metadata about rooms — which is exactly what the promise on
+  /community says does not exist. A number that only goes up says how much the
+  thing is used and nothing about who used it.
+
 ### A leg that dies quietly
 
 Three watches, because the mesh has no referee and a `RTCPeerConnection`

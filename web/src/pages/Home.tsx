@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
-import { createRoom } from '../api';
+import { createRoom, getStats } from '../api';
 import { APP_BUILD, APP_VERSION } from '../lib/build-info';
 import { generateRoomKey } from '../lib/chat-crypto';
 import { heroTransition } from '../lib/hero-transition';
@@ -32,7 +32,7 @@ const REPO = 'https://github.com/lattoshenrique/freecord';
  * slower, and this same page is what the desktop app opens on.
  */
 export default function HomePage() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
   const mirrorRef = useRef<HTMLSpanElement>(null);
@@ -43,6 +43,8 @@ export default function HomePage() {
   const [atEnd, setAtEnd] = useState(true);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Rooms that have happened here: null until the number arrives.
+  const [rooms, setRooms] = useState<number | null>(null);
 
   /**
    * The block caret only tells the truth at the end of the line: anywhere
@@ -101,6 +103,31 @@ export default function HomePage() {
   useEffect(() => {
     const warm = window.setTimeout(() => void preloadRoomPage(), 600);
     return () => window.clearTimeout(warm);
+  }, []);
+
+  /*
+   * The one thing this page says about anyone else: how many rooms have
+   * held company past the twenty-minute mark. It queues behind the room's
+   * code — a number under the button is worth nothing next to the button
+   * working — and a request that fails simply leaves the line unsaid.
+   */
+  useEffect(() => {
+    let live = true;
+    const ask = window.setTimeout(() => {
+      void getStats()
+        .then((stats) => {
+          if (live) {
+            setRooms(stats.rooms);
+          }
+        })
+        .catch(() => {
+          // No number is a missing line, not an error to show anyone.
+        });
+    }, 900);
+    return () => {
+      live = false;
+      window.clearTimeout(ask);
+    };
   }, []);
 
   // Recomputed on every keystroke: the button below reads what the field
@@ -234,6 +261,15 @@ export default function HomePage() {
 
           {/* The second thing to do here, drawn as text: the room comes first. */}
           <DownloadButton />
+
+          {/* Proof of life, and the only number on the page: rooms that
+              happened. Absent until it has one to show — a counter reading
+              zero is worse than no counter. */}
+          {rooms !== null && rooms > 0 ? (
+            <p className="start-count">
+              {t('home.rooms', { count: rooms, total: new Intl.NumberFormat(locale).format(rooms) })}
+            </p>
+          ) : null}
         </div>
 
         <footer className="start-foot">

@@ -41,6 +41,11 @@ export const esES: Catalog = {
     'Eso es medio enlace de invitación. Pégalo entero, con # incluido — la clave de la sala vive después del #.',
   'home.community': 'Comunidad',
 
+  'home.rooms': {
+    one: 'Hasta ahora {total} sala ha pasado por aquí.',
+    other: 'Hasta ahora {total} salas han pasado por aquí.',
+  },
+
   'home.hero.titleA': 'Una sala es',
   'home.hero.titleB': 'solo un enlace.',
   'home.footer.downloads': 'Descargas',

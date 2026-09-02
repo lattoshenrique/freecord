@@ -308,6 +308,18 @@
   color: var(--danger);
 }
 
+/*
+ * The count of rooms that happened: the quietest thing on the screen, under
+ * the download line. Tabular figures so it does not jitter when it grows.
+ */
+.start-count {
+  color: var(--muted);
+  font-size: 0.78rem;
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+  animation: fade-in 0.6s var(--ease) both;
+}
+
 /* A line of text under the lit button: present, secondary. */
 .download-button {
   color: var(--muted);
