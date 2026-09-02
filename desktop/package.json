@@ -1,7 +1,7 @@
 {
   "name": "@freecord/desktop",
   "private": true,
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Freecord desktop app (Electron)",
   "homepage": "https://freecord.lattoshenrique.workers.dev",
   "repository": {
