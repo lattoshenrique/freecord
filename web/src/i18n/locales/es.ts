@@ -47,11 +47,11 @@ export const esES: Catalog = {
 
   'how.chat.title': 'El chat va sellado, y es temporal',
   'how.chat.body':
-    'Los mensajes se cifran en tu navegador con la clave que venía en el enlace, así que el servidor retransmite un texto que no puede leer. No se guarda nada: cuando la sala se cierra, la conversación se va con ella.',
+    'Los mensajes se cifran en tu navegador con la clave que venía en el enlace y van directos a los otros navegadores, como la voz; el servidor solo retransmite uno cuando falta un camino directo, y retransmite un texto que no puede leer. Los archivos ni siquiera pasan por él. No se guarda nada: cuando la sala se cierra, la conversación se va con ella.',
 
-  'how.screen.title': 'Una pantalla a la vez, retransmitida en árbol',
+  'how.screen.title': 'Hasta tres pantallas a la vez, cada una retransmitida en árbol',
   'how.screen.body':
-    'El servidor bloquea la pantalla compartida en una sola persona, y libera el bloqueo aunque se le caiga la conexión. El vídeo no va de quien comparte a todo el mundo: llega a tres pares, y cada uno lo reenvía a otros tres, así la subida de nadie crece con la sala.',
+    'El servidor concede como máximo tres plazas de pantalla, y libera una en segundos si se le cae la conexión a quien comparte. Una pantalla no va de quien comparte a todo el mundo: llega a tres pares, y cada uno la reenvía a otros tres, así la subida de nadie crece con la sala. Cada pantalla compartida tiene su propio árbol.',
 
   'how.limits.title': 'Las reglas que sigue la sala',
   'how.limits.body':
@@ -179,6 +179,7 @@ export const esES: Catalog = {
   'controls.layout': 'Diseño: {name}. Pulsa L para cambiar',
   'room.pinned': 'Fijo en el escenario',
   'room.pinHint': 'Clic para fijar en el escenario',
+  'room.unpin': 'Desfijar: el escenario vuelve a seguir la sala',
   'controls.quality': 'Calidad de la pantalla compartida',
   'controls.openChat': 'Abrir chat',
   'controls.closeChat': 'Cerrar chat',

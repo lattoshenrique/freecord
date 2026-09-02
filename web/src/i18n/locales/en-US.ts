@@ -50,11 +50,11 @@ export const enUS = {
 
   'how.chat.title': 'The chat is sealed, and temporary',
   'how.chat.body':
-    'Messages are encrypted in your browser with the key that came in the link, so the server relays text it cannot read. Nothing is stored: when the room closes, the conversation goes with it.',
+    'Messages are encrypted in your browser with the key that came in the link, and travel straight to the other browsers like the voice does; the server only passes one along when a direct path is missing, and it relays text it cannot read. Files never touch it at all. Nothing is stored: when the room closes, the conversation goes with it.',
 
-  'how.screen.title': 'One screen at a time, relayed as a tree',
+  'how.screen.title': 'Up to three screens at once, each relayed as a tree',
   'how.screen.body':
-    'Screen sharing is locked to one person on the server, and the lock is released even if that person’s connection drops. The video does not go from the sharer to everyone: it reaches three peers, and each of them forwards it to three more, so nobody’s upload grows with the room.',
+    'The server grants at most three screen slots, and frees one within seconds if its sharer’s connection drops. A screen does not go from the sharer to everyone: it reaches three peers, and each of them forwards it to three more, so nobody’s upload grows with the room. Each shared screen has a tree of its own.',
 
   'how.limits.title': 'The rules the room lives by',
   'how.limits.body':
@@ -183,6 +183,7 @@ export const enUS = {
   'controls.layout': 'Layout: {name}. Press L to switch',
   'room.pinned': 'Kept on stage',
   'room.pinHint': 'Click to keep on stage',
+  'room.unpin': 'Unpin: let the stage follow the room',
   'controls.quality': 'Screen sharing quality',
   'controls.openChat': 'Open chat',
   'controls.closeChat': 'Close chat',

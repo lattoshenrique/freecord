@@ -46,11 +46,11 @@ export const ptBR: Catalog = {
 
   'how.chat.title': 'O chat é lacrado e temporário',
   'how.chat.body':
-    'As mensagens são cifradas no seu navegador com a chave que veio no link, então o servidor repassa um texto que não consegue ler. Nada é guardado: quando a sala fecha, a conversa vai junto.',
+    'As mensagens são cifradas no seu navegador com a chave que veio no link e vão direto para os outros navegadores, como a voz; o servidor só repassa uma quando falta um caminho direto, e repassa um texto que não consegue ler. Arquivos nem passam por ele. Nada é guardado: quando a sala fecha, a conversa vai junto.',
 
-  'how.screen.title': 'Uma tela por vez, repassada em árvore',
+  'how.screen.title': 'Até três telas ao mesmo tempo, cada uma repassada em árvore',
   'how.screen.body':
-    'O compartilhamento de tela fica travado em uma pessoa no servidor, e a trava é liberada mesmo se a conexão dela cair. O vídeo não vai de quem compartilha para todo mundo: ele chega a três pares, e cada um repassa para outros três, então o upload de ninguém cresce junto com a sala.',
+    'O servidor concede no máximo três vagas de tela, e libera uma em segundos se a conexão de quem compartilha cair. Uma tela não vai de quem compartilha para todo mundo: ela chega a três pares, e cada um repassa para outros três, então o upload de ninguém cresce junto com a sala. Cada tela compartilhada tem uma árvore só sua.',
 
   'how.limits.title': 'As regras que a sala segue',
   'how.limits.body':
@@ -178,6 +178,7 @@ export const ptBR: Catalog = {
   'controls.layout': 'Layout: {name}. Tecle L para trocar',
   'room.pinned': 'Fixo no palco',
   'room.pinHint': 'Clique para fixar no palco',
+  'room.unpin': 'Desafixar: o palco volta a seguir a sala',
   'controls.quality': 'Qualidade do compartilhamento de tela',
   'controls.openChat': 'Abrir chat',
   'controls.closeChat': 'Fechar chat',

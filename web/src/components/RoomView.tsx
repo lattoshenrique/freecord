@@ -528,6 +528,16 @@ export default function RoomView({
   const { t, locale } = useI18n();
   const session = useRoomSession(options);
   const speaking = useSpeaking(session);
+  // Whoever spoke last, others before ourselves: the spotlight follows
+  // them when no screen is shared and nothing is pinned.
+  const [lastSpeaker, setLastSpeaker] = useState<string | null>(null);
+  useEffect(() => {
+    const voices = [...speaking];
+    const current = voices.find((id) => id !== session.selfId) ?? voices[0] ?? null;
+    if (current !== null) {
+      setLastSpeaker(current);
+    }
+  }, [speaking, session.selfId]);
   const [chatOpen, setChatOpen] = useState(false);
   // Layout and focus are this person's own view of the room: what they
   // pinned stays on stage; otherwise the stage follows the newest screen,
@@ -819,19 +829,39 @@ export default function RoomView({
       : pinned.id === session.selfId || session.peers.some((p) => p.id === pinned.id))
       ? pinned
       : null;
-  // Follow the newest screen, someone else's before our own.
-  const followed = [...screenItems].reverse().find((item) => !item.mine) ?? screenItems.at(-1) ?? null;
-  const stageCandidate =
+  const cameraOn = (id: string) => (id === session.selfId ? session.camOn : session.cameras.has(id));
+  // What the spotlight follows when nothing is pinned: the newest screen
+  // (someone else's before our own, once its stream is here), else whoever
+  // spoke last, else a face with the camera on (others first), else the
+  // first other person, else ourselves — the stage is never empty.
+  const withStream = [...screenItems].reverse().filter((item) => item.stream !== null);
+  const followedScreen = withStream.find((item) => !item.mine) ?? withStream[0] ?? null;
+  const speakerLive =
+    lastSpeaker !== null &&
+    (lastSpeaker === session.selfId || session.peers.some((p) => p.id === lastSpeaker))
+      ? lastSpeaker
+      : null;
+  const followedPerson =
+    speakerLive ??
+    session.peers.find((p) => cameraOn(p.id))?.id ??
+    (session.camOn ? session.selfId : null) ??
+    session.peers[0]?.id ??
+    session.selfId;
+  const pinnedScreen =
+    pinnedLive?.kind === 'screen'
+      ? (screenItems.find((item) => item.share.id === pinnedLive.id) ?? null)
+      : null;
+  // A pinned screen whose stream has not arrived yet leaves the stage empty until it has.
+  const stageScreen =
+    layout === 'grid' ? null : pinnedLive ? (pinnedScreen?.stream ? pinnedScreen : null) : followedScreen;
+  const stagePersonId =
     layout === 'grid'
       ? null
-      : pinnedLive?.kind === 'screen'
-        ? (screenItems.find((item) => item.share.id === pinnedLive.id) ?? null)
-        : pinnedLive?.kind === 'person'
+      : pinnedLive?.kind === 'person'
+        ? pinnedLive.id
+        : pinnedLive?.kind === 'screen' || followedScreen
           ? null
-          : followed;
-  // A screen whose stream has not arrived yet stays in the strip until it has.
-  const stageScreen = stageCandidate?.stream ? stageCandidate : null;
-  const stagePersonId = layout === 'spotlight' && pinnedLive?.kind === 'person' ? pinnedLive.id : null;
+          : followedPerson;
   const stageStream = stageScreen?.stream ?? null;
   const onStage = stageScreen !== null || stagePersonId !== null;
 
@@ -942,8 +972,17 @@ export default function RoomView({
 
   const tileStyle = !onStage && grid.size ? { width: grid.size.width, height: grid.size.height } : undefined;
   const selfPinned = pinnedLive?.kind === 'person' && pinnedLive.id === session.selfId;
+  // Tiles in the strip and the grid: screens first (rendered before this
+  // list), then faces with the camera on, then the rest; ourselves first
+  // within each group.
+  type Person = { id: string; name: string; self?: boolean };
+  const people: Person[] = [
+    { id: session.selfId ?? 'self', name: options.name, self: true },
+    ...session.peers,
+  ].sort((a, b) => Number(cameraOn(b.id)) - Number(cameraOn(a.id)));
   const selfTile = (onSelect: (() => void) | undefined, pinnedTile: boolean) => (
     <Tile
+      key="self"
       name={options.name}
       isSelf
       micOff={!session.micOn}
@@ -1029,6 +1068,16 @@ export default function RoomView({
                 videoRef={screenVideoRef}
               />
               <div className="screen-actions">
+                <button
+                  type="button"
+                  className="screen-action screen-pin"
+                  aria-pressed={pinnedLive !== null}
+                  title={pinnedLive ? t('room.unpin') : t('room.pinHint')}
+                  aria-label={pinnedLive ? t('room.unpin') : t('room.pinHint')}
+                  onClick={() => stageScreen && togglePin({ kind: 'screen', id: stageScreen.share.id })}
+                >
+                  <PinIcon />
+                </button>
                 {pip.supported && (
                   <button
                     type="button"
@@ -1070,11 +1119,23 @@ export default function RoomView({
           {stagePersonId !== null && (
             <div className="screen-stage stage-person fade-in">
               {stagePersonId === session.selfId
-                ? selfTile(undefined, true)
+                ? selfTile(undefined, pinnedLive !== null)
                 : (() => {
                     const peer = session.peers.find((p) => p.id === stagePersonId);
-                    return peer ? peerTile(peer, undefined, true) : null;
+                    return peer ? peerTile(peer, undefined, pinnedLive !== null) : null;
                   })()}
+              <div className="screen-actions">
+                <button
+                  type="button"
+                  className="screen-action screen-pin"
+                  aria-pressed={pinnedLive !== null}
+                  title={pinnedLive ? t('room.unpin') : t('room.pinHint')}
+                  aria-label={pinnedLive ? t('room.unpin') : t('room.pinHint')}
+                  onClick={() => togglePin({ kind: 'person', id: stagePersonId })}
+                >
+                  <PinIcon />
+                </button>
+              </div>
             </div>
           )}
           <div className={onStage ? 'tiles tiles-strip' : 'tiles tiles-grid'} ref={grid.ref}>
@@ -1090,19 +1151,19 @@ export default function RoomView({
                   onSelect={() => togglePin({ kind: 'screen', id: item.share.id })}
                 />
               ))}
-            {stagePersonId !== session.selfId &&
-              selfTile(
-                () => session.selfId && togglePin({ kind: 'person', id: session.selfId }),
-                selfPinned,
-              )}
-            {session.peers
-              .filter((peer) => peer.id !== stagePersonId)
-              .map((peer) =>
-                peerTile(
-                  peer,
-                  () => togglePin({ kind: 'person', id: peer.id }),
-                  pinnedLive?.kind === 'person' && pinnedLive.id === peer.id,
-                ),
+            {people
+              .filter((person) => person.id !== stagePersonId)
+              .map((person) =>
+                person.self
+                  ? selfTile(
+                      () => session.selfId && togglePin({ kind: 'person', id: session.selfId }),
+                      selfPinned,
+                    )
+                  : peerTile(
+                      person,
+                      () => togglePin({ kind: 'person', id: person.id }),
+                      pinnedLive?.kind === 'person' && pinnedLive.id === person.id,
+                    ),
               )}
           </div>
         </div>

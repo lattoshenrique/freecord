@@ -1827,6 +1827,11 @@ button {
   opacity: 0.85;
 }
 
+/* The stage's pin: lit while the viewer holds the stage on this. */
+.screen-pin[aria-pressed='true'] {
+  color: var(--accent);
+}
+
 /* A person on stage: their tile fills the stage, keeping the 16:9 frame. */
 .screen-stage.stage-person {
   display: grid;

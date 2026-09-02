@@ -23,6 +23,15 @@ test.describe('many screens, focus and layouts', () => {
     handles = await joinMany(browser, slug, 3);
     const [alice, bob, carol] = handles;
 
+    // Before any share, the layout switch is already meaningful: spotlight
+    // puts a person on stage (never empty), grid shows everyone equal.
+    await expect(carol.page.locator('.stage-person')).toHaveCount(1, { timeout: 20_000 });
+    await carol.page.keyboard.press('l');
+    await expect(carol.page.locator('.stage-person')).toHaveCount(0);
+    await expect(carol.page.locator('.tiles-grid .tile')).toHaveCount(3);
+    await carol.page.keyboard.press('l');
+    await expect(carol.page.locator('.stage-person')).toHaveCount(1);
+
     await screenShareButton(alice.page).click();
     const landed = await carol.page
       .locator('.screen-video')
@@ -66,9 +75,23 @@ test.describe('many screens, focus and layouts', () => {
     await expect(carol.page.locator('.stage-person')).toContainText(bob.name);
     await expect(carol.page.locator('.tile-screen')).toHaveCount(2);
 
-    // The sharer stops: their screen leaves every strip.
+    // Unpin from the stage itself: the stage goes back to following the
+    // newest screen, and the person returns to the strip.
+    await carol.page.locator('.stage-person .screen-pin').click();
+    await expect(carol.page.locator('.stage-person')).toHaveCount(0);
+    await expect(carol.page.locator('.screen-label')).toContainText(bob.name);
+    await expect(carol.page.locator('.tile:not(.tile-screen)')).toHaveCount(3);
+    // The stage's pin holds a followed screen too, and releases it again.
+    await carol.page.locator('.screen-stage .screen-pin').click();
+    await expect(carol.page.locator('.screen-stage .screen-pin')).toHaveAttribute('aria-pressed', 'true');
+    await carol.page.locator('.screen-stage .screen-pin').click();
+    await expect(carol.page.locator('.screen-stage .screen-pin')).toHaveAttribute('aria-pressed', 'false');
+
+    // A sharer stops: their screen is gone everywhere; the one left stays
+    // on stage, so the strip holds people only.
     await screenShareButton(alice.page).click();
-    await expect(carol.page.locator('.tile-screen')).toHaveCount(1, { timeout: 20_000 });
-    await expect(carol.page.locator('.tile-screen')).toContainText(bob.name);
+    await expect(carol.page.locator('.tile-screen')).toHaveCount(0, { timeout: 20_000 });
+    await expect(carol.page.locator('.screen-label')).toContainText(bob.name);
+    await expect(carol.page.locator('.tile:not(.tile-screen)')).toHaveCount(3);
   });
 });
