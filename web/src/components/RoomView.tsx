@@ -459,6 +459,7 @@ function Tile({
   deafened,
   silenced,
   speaking,
+  level,
   cameraOn,
   stream,
   latencyMs,
@@ -476,6 +477,8 @@ function Tile({
   /** OUR speakers are off: this tile's audio is muted locally. */
   silenced?: boolean;
   speaking: boolean;
+  /** This person's loudness right now (see useSpeaking): the avatar's mouth. */
+  level?: () => number;
   /**
    * The room's word, not the track's: a remote track stays `enabled` on the
    * receiver even after the sender turns its camera off (black frames keep
@@ -501,6 +504,33 @@ function Tile({
 }) {
   const { t } = useI18n();
   const showVideo = cameraOn && stream !== null && hasLiveVideo(stream);
+  // The mouth follows the voice. While this person is speaking and the
+  // avatar is the face, a frame loop reads their loudness and writes it to
+  // the drawing as --mouth (0 shut, 1 wide), which the mouth's transform
+  // in CSS scales by. It goes straight to the element: sixty writes a
+  // second are nothing to the DOM and far too many for a React state.
+  // The level attacks at once and lets go slowly, so a syllable opens the
+  // mouth and the gap after it closes it without a flicker.
+  const avatarRef = useRef<SVGSVGElement>(null);
+  const levelRef = useRef(level);
+  levelRef.current = level;
+  useEffect(() => {
+    const avatar = avatarRef.current;
+    if (!speaking || showVideo || !avatar) return;
+    let frame = 0;
+    let mouth = 0;
+    const loop = () => {
+      const raw = levelRef.current?.() ?? 0;
+      mouth = raw > mouth ? raw : mouth * 0.82;
+      avatar.style.setProperty('--mouth', mouth.toFixed(3));
+      frame = requestAnimationFrame(loop);
+    };
+    frame = requestAnimationFrame(loop);
+    return () => {
+      cancelAnimationFrame(frame);
+      avatar.style.removeProperty('--mouth');
+    };
+  }, [speaking, showVideo]);
   return (
     <div
       className="tile"
@@ -532,7 +562,13 @@ function Tile({
         />
       ) : (
         <>
-          <Avatar name={name} className="tile-avatar" />
+          <Avatar
+            ref={avatarRef}
+            name={name}
+            className="tile-avatar"
+            micOff={micOff}
+            deafened={deafened}
+          />
           {!isSelf && stream && <AudioSink stream={stream} sinkId={sinkId} muted={silenced} />}
         </>
       )}
@@ -570,7 +606,7 @@ export default function RoomView({
 }) {
   const { t, locale } = useI18n();
   const session = useRoomSession(options);
-  const speaking = useSpeaking(session);
+  const { speaking, levelOf } = useSpeaking(session);
   // Whoever spoke last, others before ourselves: the spotlight follows
   // them when no screen is shared and nothing is pinned.
   const [lastSpeaker, setLastSpeaker] = useState<string | null>(null);
@@ -1046,6 +1082,7 @@ export default function RoomView({
       micOff={!session.micOn}
       deafened={!session.speakerOn}
       speaking={session.selfId !== null && speaking.has(session.selfId)}
+      level={() => (session.selfId === null ? 0 : levelOf(session.selfId))}
       cameraOn={session.camOn}
       stream={session.localMedia && session.camOn ? session.localMedia : null}
       latencyMs={selfRttMs}
@@ -1067,6 +1104,7 @@ export default function RoomView({
         deafened={session.deafened.has(peer.id)}
         silenced={!session.speakerOn}
         speaking={speaking.has(peer.id)}
+        level={() => levelOf(peer.id)}
         cameraOn={session.cameras.has(peer.id)}
         stream={cameraStream}
         latencyMs={session.peerLatency.get(peer.id)?.rttMs ?? null}

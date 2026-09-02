@@ -658,12 +658,13 @@ select {
 
 /*
  * The face talks too. With the camera off the avatar is the person, so its
- * mouth — the lowest row of the glyph, marked by the Avatar component —
- * opens and shuts in the uneven rhythm of a sentence, and the whole head
- * leans a little with it. Only transforms move: the tile keeps its size,
- * and the head's swing stays well inside the frame. The mouth cells scale
- * about their own centre (transform-box) so each tooth opens in place
- * instead of sliding off the grid.
+ * mouth — marked by the Avatar component — opens with the voice: the tile
+ * writes the speaker's loudness to the drawing as --mouth (see Tile in
+ * RoomView), and the mouth's height follows it, shut between words and
+ * wide on a shout. The whole head leans a little while they talk. Only
+ * transforms move: the tile keeps its size, and the head's swing stays
+ * well inside the frame. The features scale about their own centre
+ * (transform-box) so the mouth opens in place instead of sliding off.
  */
 .tile[data-speaking='true'] .tile-avatar {
   border-color: var(--accent);
@@ -671,8 +672,8 @@ select {
   animation: avatar-talking 1.4s ease-in-out infinite;
 }
 
-.tile-avatar rect[data-part='mouth'],
-.tile-avatar rect[data-part='eye'] {
+.tile-avatar [data-part='mouth'],
+.tile-avatar [data-part='eye'] {
   transform-box: fill-box;
   transform-origin: center;
 }
@@ -682,7 +683,7 @@ select {
  * mid-sentence looks switched off between them. Shut for a tenth of the
  * cycle, on a delay the Avatar component varies per name.
  */
-.tile-avatar rect[data-part='eye'] {
+.tile-avatar [data-part='eye'] {
   animation: avatar-blink 4.2s ease-in-out infinite;
 }
 
@@ -700,28 +701,35 @@ select {
   }
 }
 
-.tile[data-speaking='true'] .tile-avatar rect[data-part='mouth'] {
-  animation: avatar-mouth 0.7s ease-in-out infinite;
+/* A short transition smooths the sixty-a-second writes into a motion; the
+   level itself already decays, so this only has to hide the steps. */
+.tile[data-speaking='true'] .tile-avatar [data-part='mouth'] {
+  transform: scaleY(calc(0.3 + var(--mouth, 0) * 2.2)) scaleX(calc(1 + var(--mouth, 0) * 0.15));
+  transition: transform 60ms linear;
 }
 
-@keyframes avatar-mouth {
+/*
+ * Asleep (mic and speakers both off): the z's drift up and away from the
+ * temple, fading as they go, one on the heels of the last. The drawing
+ * lays all three on the same spot and the Avatar component staggers them.
+ */
+.tile-avatar [data-part='zzz'] {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: avatar-zzz 3s ease-out infinite both;
+}
+
+@keyframes avatar-zzz {
   0% {
-    transform: scaleY(1);
+    opacity: 0;
+    transform: translate(0, 0) scale(0.6);
   }
-  22% {
-    transform: scaleY(0.35) scaleX(1.12);
-  }
-  40% {
-    transform: scaleY(1.1);
-  }
-  58% {
-    transform: scaleY(0.55) scaleX(1.06);
-  }
-  74% {
-    transform: scaleY(1.2) scaleX(0.96);
+  15% {
+    opacity: 1;
   }
   100% {
-    transform: scaleY(1);
+    opacity: 0;
+    transform: translate(16px, -24px) scale(1.3);
   }
 }
 

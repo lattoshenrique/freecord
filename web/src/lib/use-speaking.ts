@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 /**
- * Who is audibly speaking, as a set of participant ids (self included).
+ * Who is audibly speaking, as a set of participant ids (self included), and
+ * how loud each of them is right now, for the face that mouths along.
  *
  * One shared AudioContext with an AnalyserNode per participant, polled on
  * a coarse interval — no per-frame work, no extra decoding: the analyser
@@ -70,15 +71,39 @@ function rms(analyser: AnalyserNode, buffer: Uint8Array<ArrayBuffer>): number {
   return Math.sqrt(sum / buffer.length);
 }
 
-export function useSpeaking(inputs: SpeakingInputs): ReadonlySet<string> {
+export interface Speaking {
+  speaking: ReadonlySet<string>;
+  /**
+   * This person's loudness at this instant, 0 (quiet) to 1 (shouting),
+   * read straight from the analyser: no state, no render. Meant for a
+   * per-frame loop that runs only while `speaking` has them.
+   */
+  levelOf: (id: string) => number;
+}
+
+/** RMS at which the level reads 0, and at which it reads 1. */
+const LEVEL_FLOOR = 0.015;
+const LEVEL_CEILING = 0.14;
+
+export function useSpeaking(inputs: SpeakingInputs): Speaking {
   const inputsRef = useRef(inputs);
   inputsRef.current = inputs;
   const [speaking, setSpeaking] = useState<ReadonlySet<string>>(new Set());
+  const probesRef = useRef(new Map<string, Probe>());
+  const bufferRef = useRef<Uint8Array<ArrayBuffer> | null>(null);
+
+  const levelOf = useCallback((id: string) => {
+    const probe = probesRef.current.get(id);
+    const buffer = bufferRef.current;
+    if (!probe || !buffer) return 0;
+    const value = (rms(probe.analyser, buffer) - LEVEL_FLOOR) / (LEVEL_CEILING - LEVEL_FLOOR);
+    return Math.min(1, Math.max(0, value));
+  }, []);
 
   useEffect(() => {
     let ctx: AudioContext | null = null;
     let buffer: Uint8Array<ArrayBuffer> | null = null;
-    const probes = new Map<string, Probe>();
+    const probes = probesRef.current;
 
     const dropProbe = (id: string) => {
       probes.get(id)?.source.disconnect();
@@ -123,6 +148,7 @@ export function useSpeaking(inputs: SpeakingInputs): ReadonlySet<string> {
             }
             ctx = new Ctor();
             buffer = new Uint8Array(FFT_SIZE);
+            bufferRef.current = buffer;
           }
           const analyser = ctx.createAnalyser();
           analyser.fftSize = FFT_SIZE;
@@ -162,9 +188,10 @@ export function useSpeaking(inputs: SpeakingInputs): ReadonlySet<string> {
         probe.source.disconnect();
       }
       probes.clear();
+      bufferRef.current = null;
       void ctx?.close().catch(() => undefined);
     };
   }, []);
 
-  return speaking;
+  return { speaking, levelOf };
 }

@@ -1,86 +1,108 @@
-import { useMemo } from 'react';
-import { AVATAR_GRID, avatarFrom, hashString } from '../lib/identity';
+import { useMemo, type CSSProperties, type Ref } from 'react';
+import { AVATAR_SIZE, avatarFrom, hashString } from '../lib/identity';
 
 /**
- * The guest's identicon: a symmetric glyph on a two-tone ground, both derived
- * from the name (see lib/identity.ts). It carries no size of its own — the
- * caller's class does — so the same component fits a room tile that scales
- * with its container and the big avatar on the pre-join card.
+ * The guest's face: a little mascot on a two-tone ground, both derived from
+ * the name (see lib/identity.ts). It carries no size of its own — the caller's
+ * class does — so the same component fits a room tile that scales with its
+ * container and the big avatar on the pre-join card.
  */
-export default function Avatar({ name, className }: { name: string; className?: string }) {
-  const { hue, cells } = useMemo(() => avatarFrom(name), [name]);
-  // The lowest lit row is the mouth: the speaking styles open and close it
-  // while the rest of the face holds still. Every glyph has one — avatarFrom
-  // never draws fewer than four cells.
-  const mouthRow = useMemo(() => {
-    let last = 0;
-    cells.forEach((on, index) => {
-      if (on) last = Math.floor(index / AVATAR_GRID);
-    });
-    return last;
-  }, [cells]);
-  // The eyes: the highest row above the mouth with a lit cell off the centre
-  // column, and that cell plus its mirror. The glyph is symmetric, so the
-  // pair is always level. A glyph with no such row simply has no eyes.
-  const eyes = useMemo(() => {
-    for (let row = 0; row < mouthRow; row++) {
-      for (let col = 0; col < Math.floor(AVATAR_GRID / 2); col++) {
-        if (cells[row * AVATAR_GRID + col]) {
-          return [row * AVATAR_GRID + col, row * AVATAR_GRID + (AVATAR_GRID - 1 - col)];
-        }
-      }
-    }
-    return [];
-  }, [cells, mouthRow]);
+export default function Avatar({
+  name,
+  className,
+  micOff,
+  deafened,
+  ref,
+}: {
+  name: string;
+  className?: string;
+  /** Microphone off: the mouth is zipped. */
+  micOff?: boolean;
+  /** Speakers off: earmuffs on. */
+  deafened?: boolean;
+  /** The room's tiles drive the mouth through it (see RoomView's Tile). */
+  ref?: Ref<SVGSVGElement>;
+}) {
+  const { ground, palette: fills, shapes } = useMemo(
+    () => avatarFrom(name, { micOff, deafened }),
+    [name, micOff, deafened],
+  );
   // Blinks fall out of step across a room: each face waits its own while.
   const blinkDelay = `${-((hashString(name) >>> 3) % 4000)}ms`;
   // Derived from the name, not from useId(): the gradient is the same drawing
   // for the same name, and the id must survive going into a url() reference.
   const gradientId = `avatar-${hashString(name).toString(36)}`;
 
+  let zees = 0;
   return (
     <svg
+      ref={ref}
       className={className}
-      // One cell of margin on every side: without it the glyph collides with
-      // the rounded frame the caller draws around it.
-      viewBox={`-1 -1 ${AVATAR_GRID + 2} ${AVATAR_GRID + 2}`}
+      viewBox={`0 0 ${AVATAR_SIZE} ${AVATAR_SIZE}`}
       preserveAspectRatio="xMidYMid slice"
       aria-hidden="true"
     >
       <defs>
-        <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor={`hsl(${hue} 62% 44%)`} />
-          <stop offset="100%" stopColor={`hsl(${(hue + 42) % 360} 68% 58%)`} />
+        <linearGradient id={gradientId} x1={ground.x1} y1={ground.y1} x2={ground.x2} y2={ground.y2}>
+          <stop offset="0%" stopColor={ground.from} />
+          <stop offset="100%" stopColor={ground.to} />
         </linearGradient>
       </defs>
-      <rect
-        x="-1"
-        y="-1"
-        width={AVATAR_GRID + 2}
-        height={AVATAR_GRID + 2}
-        fill={`url(#${gradientId})`}
-      />
-      {cells.map((on, index) =>
-        on ? (
-          <rect
+      <rect x="0" y="0" width={AVATAR_SIZE} height={AVATAR_SIZE} fill={`url(#${gradientId})`} />
+      {shapes.map((shape, index) => {
+        // --cell is the drawing order: a caller that animates the mascot
+        // arriving staggers the shapes by it. data-shape marks the shapes
+        // that arrive, as opposed to the ground. The z's of a sleeper are
+        // drawn on top of each other and set off one after another.
+        if (shape.part === 'zzz') zees += 1;
+        const common = {
+          'data-shape': '',
+          'data-part': shape.part,
+          style: {
+            '--cell': index,
+            ...(shape.part === 'eye' ? { animationDelay: blinkDelay } : null),
+            ...(shape.part === 'zzz' ? { animationDelay: `${(zees - 1) * 1000}ms` } : null),
+          } as CSSProperties,
+        };
+        if (shape.kind === 'rect') {
+          return (
+            <rect
+              key={index}
+              x={shape.x}
+              y={shape.y}
+              width={shape.w}
+              height={shape.h}
+              rx={shape.rx}
+              fill={fills[shape.fill]}
+              {...common}
+            />
+          );
+        }
+        if (shape.kind === 'ellipse') {
+          return (
+            <ellipse
+              key={index}
+              cx={shape.cx}
+              cy={shape.cy}
+              rx={shape.rx}
+              ry={shape.ry}
+              fill={fills[shape.fill]}
+              {...common}
+            />
+          );
+        }
+        return (
+          <path
             key={index}
-            x={index % AVATAR_GRID}
-            y={Math.floor(index / AVATAR_GRID)}
-            width="1"
-            height="1"
-            rx="0.26"
-            fill="rgba(255, 255, 255, 0.9)"
-            data-part={
-              eyes.includes(index)
-                ? 'eye'
-                : Math.floor(index / AVATAR_GRID) === mouthRow
-                  ? 'mouth'
-                  : undefined
-            }
-            style={eyes.includes(index) ? { animationDelay: blinkDelay } : undefined}
+            d={shape.d}
+            fill={shape.fill ? fills[shape.fill] : 'none'}
+            stroke={shape.stroke ? fills[shape.stroke] : undefined}
+            strokeWidth={shape.width}
+            strokeLinecap="round"
+            {...common}
           />
-        ) : null,
-      )}
+        );
+      })}
     </svg>
   );
 }

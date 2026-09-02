@@ -335,7 +335,11 @@ export default function RoomPage() {
           </p>
 
           <div className="join-identity">
-            <Avatar name={name} className={`join-avatar${swap === 'in' ? ' swap-in' : ''}`} />
+            <Avatar
+              name={name}
+              micOff={!micEnabled}
+              className={`join-avatar${swap === 'in' ? ' swap-in' : ''}`}
+            />
             <div className="join-name">
               <input
                 ref={nameRef}
