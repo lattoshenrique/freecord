@@ -85,7 +85,7 @@ export interface DesktopDeepLinks {
 /**
  * Opening a page in a window of its own to see what it plays.
  *
- * The web half of the video tool can read a page, but not run it: a site
+ * The web half of the watch tool can read a page, but not run it: a site
  * that builds its player only after somebody clicks hands a fetcher
  * nothing. The shell can — it opens the page for real, the person presses
  * play, and it writes down the media the page then asks for

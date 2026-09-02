@@ -242,7 +242,7 @@ let pickingWindow = false;
 /**
  * The page's way of asking for a window that can watch a site play.
  *
- * The video tool can read a page's markup from the edge, but a site that
+ * The watch tool can read a page's markup from the edge, but a site that
  * builds its player only after a click hands a reader nothing. Here the
  * page is opened for real and we write down the media it asks for
  * (video-picker.ts). Two guards, both worth stating: only the app's own
