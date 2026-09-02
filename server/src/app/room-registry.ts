@@ -1,5 +1,11 @@
 import { randomBytes } from 'node:crypto';
 import {
+  NO_COMPANY,
+  countable,
+  withPeerCount,
+  type RoomCompany,
+} from '../domain/room-stats.js';
+import {
   ROOM_LIMITS,
   RoomFullError,
   RoomNotFoundError,
@@ -28,6 +34,10 @@ export interface RoomSummary {
  */
 export class RoomRegistry {
   private readonly rooms = new Map<string, Room>();
+  /** Company clock per live room (domain/room-stats.ts), keyed by slug. */
+  private readonly company = new Map<string, RoomCompany>();
+  /** Rooms that have held company long enough to count, since boot. */
+  private counted = 0;
   private readonly now: () => number;
 
   constructor(now: () => number = Date.now) {
@@ -50,6 +60,7 @@ export class RoomRegistry {
       screenRelays: new Map(),
       emptyAt: this.now(),
     });
+    this.company.set(slug, NO_COMPANY);
     return { slug, displayName, participantCount: 0 };
   }
 
@@ -100,6 +111,7 @@ export class RoomRegistry {
       pending: [],
     });
     room.emptyAt = null;
+    this.settle(slug);
     return { room, peerId };
   }
 
@@ -200,7 +212,50 @@ export class RoomRegistry {
     if (room.peers.size === 0) {
       room.emptyAt = this.now();
     }
+    this.settle(slug);
     return room;
+  }
+
+  /**
+   * How many rooms have counted as rooms that happened.
+   *
+   * In memory, like the rooms themselves: this edge is one process and the
+   * number starts over with it. The durable total is the Worker's
+   * (see StatsDurableObject) — production is the Worker.
+   */
+  get countedRooms(): number {
+    return this.counted;
+  }
+
+  /**
+   * Sweep hook: a room that crossed the mark while nobody joined or left
+   * has nothing else to notice it. Company changes are folded in as they
+   * happen; this is what turns a long, quiet conversation into a count.
+   */
+  tallyCompany(): void {
+    for (const slug of this.company.keys()) {
+      this.settle(slug);
+    }
+  }
+
+  /** Folds the room's head count into its clock, and counts it if it is due. */
+  private settle(slug: string): void {
+    const room = this.rooms.get(slug);
+    const before = this.company.get(slug);
+    if (!room || !before) {
+      return;
+    }
+    const now = this.now();
+    // Detached seats still count as people: their media may still be flowing.
+    const state = withPeerCount(before, room.peers.size, now);
+    if (countable(state, now)) {
+      this.counted += 1;
+      this.company.set(slug, { ...state, counted: true });
+      return;
+    }
+    if (state !== before) {
+      this.company.set(slug, state);
+    }
   }
 
   /** Peers silent past the timeout — connections that dropped without saying so. */
@@ -224,6 +279,7 @@ export class RoomRegistry {
     for (const [slug, room] of this.rooms) {
       if (room.emptyAt !== null && room.emptyAt <= cutoff) {
         this.rooms.delete(slug);
+        this.company.delete(slug);
         removed += 1;
       }
     }

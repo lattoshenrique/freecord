@@ -22,10 +22,12 @@ async function main(): Promise<void> {
     turn,
   });
 
-  // Two sweeps: zombie peers leave quickly so the room can empty out;
-  // a room empty past the timeout ceases to exist.
+  // Three sweeps: zombie peers leave quickly so the room can empty out;
+  // a long conversation crosses the mark that makes it count; a room
+  // empty past the timeout ceases to exist.
   const sweeper = setInterval(() => {
     sweepStalePeers(registry);
+    registry.tallyCompany();
     registry.sweepExpired();
   }, 10 * 1000);
   sweeper.unref();

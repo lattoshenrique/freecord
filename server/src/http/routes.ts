@@ -75,6 +75,17 @@ export function registerRoutes(
     return reply.code(201).send(registry.createRoom(body.data.displayName));
   });
 
+  /**
+   * The one public number: rooms that held company long enough to count
+   * (domain/room-stats.ts). An aggregate and nothing else — no slug, no
+   * name, no timestamp — because a room still leaves no trace behind it.
+   */
+  app.get('/api/stats', async (_request, reply) => {
+    return reply
+      .header('Cache-Control', 'public, max-age=60')
+      .send({ rooms: registry.countedRooms });
+  });
+
   app.get('/api/downloads', async (_request, reply) => {
     return reply.header('Cache-Control', 'public, max-age=300').send(await desktopCatalog());
   });
