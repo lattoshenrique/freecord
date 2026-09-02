@@ -11,8 +11,19 @@
  * `advance` is only ever called by a player whose own item is still the
  * one the room has on — so a straggler that ends late cannot drag the
  * room back to the film it already left.
+ *
+ * The queue takes anything the tool can watch. A YouTube video, an
+ * episode found in somebody's page and a Twitch VOD line up in the same
+ * list and hand the stage over to each other in turn.
  */
-import { QUEUE_MAX, sameItem, type WatchItem, type WatchState } from './state';
+import {
+  QUEUE_MAX,
+  STATE_BUDGET,
+  positionAt,
+  sameItem,
+  type WatchItem,
+  type WatchState,
+} from './state';
 
 /** Where an item begins when its turn comes: what its link asked for. */
 function startOf(item: WatchItem): number {
@@ -24,12 +35,47 @@ export function startWith(item: WatchItem, startSeconds = startOf(item)): WatchS
   return { now: item, playing: true, time: startSeconds, queue: [] };
 }
 
-/** Lines an item up at the end. A full queue keeps what it has. */
+/**
+ * Whether a state still fits what a tool is allowed to say.
+ *
+ * Counting items is not enough now that one of them may be a two-kilobyte
+ * URL: the server refuses an oversized state WHOLE (docs/tools.md), so a
+ * queue nobody checked would not lose its last entry — it would lose the
+ * room's next play, silently, and nobody would know why the video stopped
+ * changing.
+ */
+export function fits(state: WatchState): boolean {
+  return JSON.stringify(state).length <= STATE_BUDGET;
+}
+
+/**
+ * The state with its position brought up to now — what to write through
+ * whenever a move does not itself say where the video is.
+ *
+ * Every state carries a `time` and the moment it was set, and a viewer
+ * reads the two together (docs/tools.md). So a state written WITHOUT
+ * touching the position — lining something up, taking something out —
+ * carries yesterday's number with today's timestamp, and every player in
+ * the room dutifully seeks back to where the video was when somebody last
+ * pressed something. Watched happening: adding to the queue rewound the
+ * room twelve seconds, in front of everybody.
+ */
+export function carried(state: WatchState, at: number, now?: number): WatchState {
+  return { ...state, time: positionAt(state, at, now) };
+}
+
+/** Lines an item up at the end. A queue with no room keeps what it has. */
 export function enqueue(state: WatchState, item: WatchItem): WatchState {
   if (state.queue.length >= QUEUE_MAX) {
     return state;
   }
-  return { ...state, queue: [...state.queue, item] };
+  const next = { ...state, queue: [...state.queue, item] };
+  return fits(next) ? next : state;
+}
+
+/** Whether one more would fit — what the shelf disables its key on. */
+export function hasRoomFor(state: WatchState, item: WatchItem): boolean {
+  return enqueue(state, item) !== state;
 }
 
 /** Drops the item at `index` of the queue; out of range changes nothing. */

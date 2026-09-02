@@ -16,10 +16,9 @@
  */
 import type { ToolRoomState } from '../lib/use-room';
 import type { RegisteredTool } from './contract';
-import { videoTool } from './video';
-import { youtubeTool } from './youtube';
+import { watchTool } from './watch';
 
-export const TOOLS: readonly RegisteredTool[] = [youtubeTool, videoTool];
+export const TOOLS: readonly RegisteredTool[] = [watchTool];
 
 /**
  * Whether the room has any of THIS build's tools going. A peer on a

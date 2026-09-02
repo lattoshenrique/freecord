@@ -138,15 +138,20 @@ localhost. `CORS_ORIGIN` restricts the origin in production.
 - Call settings live in a dialog: microphone profile (voice or studio),
   camera quality, computer audio in the share, sounds, language, and the
   desktop app download for the visitor's own OS.
-- A **tool shelf** in the dock, two tools so far. **YouTube**: paste a
-  link and it opens for the room — everyone's own player, one shared
+- A **tool shelf** in the dock, one tool so far. **Watch together**: paste
+  a link and it opens for the room — everyone's own player, one shared
   timeline. Anyone plays, pauses or skips, and whoever joins late lands
-  where the room already is. There is a shared **queue** behind what is
-  playing (anyone adds to it, jumps to one, or drops one), and a
+  where the room already is. One field takes anything: a YouTube link or a
+  video's own address is read in your browser and plays at once, and any
+  other page is read once by the edge, which says what is playable in it so
+  you can pick. There is a shared **queue** behind what is playing — anyone
+  adds to it, jumps to one, or drops one, and a YouTube video, an episode
+  found in somebody's page and a Twitch VOD all line up in the same list. A
   **playlist link** plays as itself: when it steps to its next video the
-  room follows, and when it runs out the queue takes over. **Video**: the
-  same idea for a page that is not YouTube — paste the page, the edge
-  reads what is playable in it, and the room watches what you pick.
+  room follows, and when it runs out the queue takes over. What the room
+  gets is said before anybody commits it: a shared clock, a live edge
+  everyone sits at, or — for a page nobody can reach into — the same thing
+  on everybody's screen and each person driving their own.
 - Tools are a **plugin contract**, not a feature list: a tool is a folder
   that gets one shared value the whole room reads and writes, and the
   server carries it without knowing what it means — so a new tool needs no

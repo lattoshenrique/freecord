@@ -103,13 +103,13 @@ export function registerRoutes(
   });
 
   /**
-   * What is playable in a page somebody pasted, for the video tool
+   * What is playable in a page somebody pasted, for the watch tool
    * (app/source-lookup.ts). The one place the server opens a stranger's
    * URL, so it is worth saying what it is and is not:
    *
    * It reads the page's markup and hands back what it found. It never
    * touches a media byte — the video is fetched by each browser from
-   * wherever it lives, the way the YouTube tool has always worked — and
+   * wherever it lives, the way a YouTube link has always worked — and
    * it stores nothing: no cache, no log line with the URL in it (which
    * is why the page arrives in the body and not in the query string —
    * see sourceBody), and `no-store` on the way out, because what

@@ -122,7 +122,7 @@ export function getStats(): Promise<{ rooms: number }> {
 }
 
 /**
- * What is playable in a page somebody pasted, for the video tool.
+ * What is playable in a page somebody pasted, for the watch tool.
  *
  * The one call in this client that hands the server a stranger's URL. It
  * comes back with what the page says about its own video; the video

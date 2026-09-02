@@ -13,8 +13,9 @@ browser A ◄──── WebRTC P2P (voice/video/screen, chat + files on data c
 **Fully self-owned.** Media flows straight between browsers in a P2P mesh (each
 peer keeps one `RTCPeerConnection` with every other). The server never touches
 media: it owns room state, carries signaling envelopes, and — on request,
-once per paste — fetches the one page handed to the video tool and reads its
-markup for what is playable (`app/source-lookup.ts`), keeping nothing from it. Consequences:
+once per paste, and only for a link the browser could not read itself —
+fetches the one page handed to the watch tool and reads its markup for what
+is playable (`app/source-lookup.ts`), keeping nothing from it. Consequences:
 
 - Infrastructure cost ~zero: one small Node process serves thousands of rooms,
   because the heavy traffic never goes through it.
@@ -83,12 +84,17 @@ src/
   video is, how much of a timer is left — never compares one browser's
   clock to another's. Because the value is opaque, validating it is the
   tool's job in every client (`parseState`), not the server's.
-- The first tool is watching a YouTube video together
-  (`web/src/tools/youtube/`). The video never touches us: each browser
-  embeds YouTube's player and only the agreement travels. Its `sync.ts`
+- The one tool so far is watching something together
+  (`web/src/tools/watch/`) — a YouTube video or playlist, a stream, a
+  file, a Twitch channel, or somebody else's page when nothing better is
+  reachable. It was two tools until the split stopped making sense to
+  anybody holding a link. No media touches us in any of those: each
+  browser embeds the player and only the agreement travels. Its `sync.ts`
   holds the rule that keeps a shared player honest — a person moving the
-  player tells the room, a player falling behind fixes itself — which are
-  told apart by comparing each reading against the wall time that passed.
+  player tells the room, a player falling behind fixes itself — told apart
+  by what the player admits about itself, and where it admits nothing (an
+  iframe reporting only a number) by comparing each reading against the
+  wall time that passed.
 
 ### What a tool is allowed to weigh
 

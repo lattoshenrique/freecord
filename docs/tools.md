@@ -14,8 +14,8 @@ server code either (see "When a tool needs the app").
 web/src/tools/
   contract.ts        the types below, checked by the compiler
   registry.ts        the tools this build ships — one line each
-  youtube/           the first tool, and the worked example
-  video/             the second, and the example of needing a route
+  watch/             the only tool so far: the worked example, and the
+                     example of needing a route
 ```
 
 ## The contract
@@ -72,18 +72,20 @@ anything, and your tool will be handed it.
 Write it as if the sender were hostile. Check every field, clamp every
 number, and return `null` for anything you did not expect — the state is
 then treated as if the tool were off, which is always a safe place to land.
-`web/src/tools/youtube/state.ts` is 40 lines of exactly that, and its test
-file is the list of things a peer might try.
+`web/src/tools/watch/state.ts` is exactly that, and its test file is the
+list of things a peer might try.
 
-Then go one step past the field, to what the field is FOR. The `video`
-tool's state carries a URL a stranger chose and hands it to a `<video>` or
-an `<iframe>` inside the page that holds this room's chat key, so checking
-that it parses as a URL is not enough: it is http(s) only, absolute,
-capped, and it REFUSES OUR OWN ORIGIN. The frame is sandboxed with
-`allow-scripts allow-same-origin`, which is only a sandbox while the
-document inside it is somebody else's — point it at us and the sandbox
-stops being one. No amount of field validation would have caught that;
-asking "what does this value become?" did.
+Then go one step past the field, to what the field is FOR. Half of the
+`watch` tool's state is eleven characters that go into a URL it builds
+itself, and that half is easy. The other half carries a URL a stranger
+chose and hands it to a `<video>` or an `<iframe>` inside the page that
+holds this room's chat key, so checking that it parses as a URL is not
+enough: it is http(s) only, absolute, capped, and it REFUSES OUR OWN
+ORIGIN. The frame is sandboxed with `allow-scripts allow-same-origin`,
+which is only a sandbox while the document inside it is somebody else's —
+point it at us and the sandbox stops being one. No amount of field
+validation would have caught that; asking "what does this value become?"
+did.
 
 ## What the server enforces (and nothing else)
 
@@ -102,8 +104,8 @@ peer to peer over the existing file channel rather than through here.
 
 ## Two people doing the same thing at once
 
-Last word wins is only safe if the moves are shaped for it. The YouTube
-tool's queue (`web/src/tools/youtube/queue.ts`) is the worked example:
+Last word wins is only safe if the moves are shaped for it. The `watch`
+tool's queue (`web/src/tools/watch/queue.ts`) is the worked example:
 when a video ends, every player in the room reaches the end within a
 second of each other and every one of them tries to advance. That is fine
 — advancing past the item that is on lands on the same next item whoever
@@ -138,11 +140,11 @@ fighting over one shared value.
 
 The stage holds one thing at a time: the tool whose state changed most
 recently wins it, and a viewer who pins a screen or a person takes it back
-for themselves. Known rough edge, now that there are two tools with
-stages: turning one on displaces the others with nothing on screen saying
-so. The displaced tool keeps running and its row in the shelf still says
-it is on, but the room is not told which one it is looking at. If your
-tool has a stage, expect to share it.
+for themselves. Known rough edge, and one this build only stopped hitting
+by shipping a single tool with a stage: turning one on displaces the
+others with nothing on screen saying so. The displaced tool keeps running
+and its row in the shelf still says it is on, but the room is not told
+which one it is looking at. If your tool has a stage, expect to share it.
 
 And expect it never to be drawn at all. A participant may refuse to take
 part in what the room puts on, and that refusal is theirs alone: neither
@@ -162,8 +164,9 @@ off would lock the door from outside, and they may change their mind.
 
 One shared value and your own two components cover more than it sounds
 like, but not everything, and the ceiling is a real one rather than a
-formality. The `video` tool hit it first: finding the video inside a page
-means READING that page, and a browser may not read another origin —
+formality. The `watch` tool hit it the day it grew past YouTube, whose
+links say what they are: finding the video inside any OTHER page means
+READING that page, and a browser may not read another origin —
 CORS forbids it. No amount of cleverness inside a tool gets around that,
 so the lookup is an app route (`/api/sources`, in both edges) and the tool
 imports its client from `../../api`, plus `../../lib/desktop` for the
@@ -174,9 +177,10 @@ costs:
 
 - **Both edges, one tag.** A route is protocol: Node and Worker implement
   it together or the tool works in dev and is missing in production.
-- **Guards, not assumptions.** The `video` tool works with no route and
-  with no desktop shell; each import is behind a check, so a build that
-  ships the tool without the route degrades instead of breaking.
+- **Guards, not assumptions.** The `watch` tool works with no route and
+  with no desktop shell — a YouTube link, an `.m3u8` and a Twitch channel
+  are all read in the browser; each import is behind a check, so a build
+  that ships the tool without the route degrades instead of breaking.
 - **Somebody vouches.** A tool that reaches into the app is no longer
   reviewable on its own folder. Whoever assembles the build answers for
   that reach the same way they answer for the registry.
@@ -199,7 +203,7 @@ to the room. Whoever assembles a build vouches for the list in
 tracks, the chat, or a room of its own in the protocol. That ceiling is
 what keeps a tool cheap to review and impossible to break the room with. A
 tool that genuinely needs more is a conversation to have first — the
-`video` tool's route was one, and the section above is what came out of
+`watch` tool's route was one, and the section above is what came out of
 it — never a wider contract to assume.
 
 **Everything a tool knows is public to the room.** There is no private

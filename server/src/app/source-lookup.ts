@@ -7,7 +7,7 @@
  * - It reads MARKUP, never media. The page's own preview tags, its
  *   `<video>`, its player's configuration — the same bytes a chat app
  *   reads to draw a link preview. The video itself is fetched by each
- *   browser from wherever it lives, exactly as the YouTube tool does, and
+ *   browser from wherever it lives, exactly as a YouTube link does, and
  *   never through us. Proxying media would make one of this project's
  *   loudest promises false, and would turn a watch-together feature into
  *   a way around other people's access control.

@@ -21,7 +21,7 @@
  * Nothing here proxies anything: the bytes go from wherever the video
  * lives to this browser, and the room only ever agreed on the address.
  */
-import type { VideoPlay } from './state';
+import type { SourcePlay } from './state';
 
 /** What a mounted source hands back: a way to let go of it. */
 export interface AttachedSource {
@@ -65,7 +65,7 @@ export type SourceFailure =
  */
 export async function attachSource(
   video: HTMLVideoElement,
-  source: { play: VideoPlay; url: string },
+  source: { play: SourcePlay; url: string },
   onFailure: (failure: SourceFailure) => void,
 ): Promise<AttachedSource> {
   if (source.play === 'hls') {

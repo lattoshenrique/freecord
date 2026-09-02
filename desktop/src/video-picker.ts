@@ -1,7 +1,7 @@
 /**
  * Picking a video by watching a page play it.
  *
- * The web half of the video tool reads a page's markup and finds what
+ * The web half of the watch tool reads a page's markup and finds what
  * the page admits to (server/src/domain/sources.ts). Plenty of sites
  * admit to nothing: the player is built by a script after somebody
  * clicks, and a fetcher that only reads HTML is handed an empty room.

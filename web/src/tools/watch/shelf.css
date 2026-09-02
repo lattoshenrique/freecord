@@ -1,0 +1,282 @@
+/*
+ * Two lists the shelf's kit has no control for: what a link turned out to
+ * hold, and what the room has lined up behind what is on.
+ *
+ * The kit (tools-menu.css) covers a label, a field and the buttons, and
+ * this tool uses it for all of those. A CHOICE between several sources
+ * and a queue are its own, built to sit inside the shelf's frame without
+ * arguing with it: same hairlines, same radii, same monospace for
+ * anything that reads as a label.
+ *
+ * Every class is prefixed with this tool's id. Stylesheets are global
+ * once they are in the page, and a tool that names a class `.option` is a
+ * tool that will one day fight another one.
+ *
+ * A candidate row is a <label> wrapping a real radio, so the whole thing
+ * is a click target and the keyboard gets arrow keys through the group
+ * for free — a custom widget would have had to earn both back.
+ */
+
+.watch-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  max-height: 13rem;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+}
+
+.watch-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  padding: 0.5rem 0.6rem;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--hud-border, rgba(255, 255, 255, 0.1));
+  border-radius: var(--hud-radius, 8px);
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.watch-option:hover {
+  background: rgba(255, 255, 255, 0.045);
+}
+
+/* The chosen one is marked on its edge and its accent, not by moving:
+   the list must not reflow while somebody reads down it. */
+.watch-option.is-chosen {
+  border-color: var(--accent, #5b8cff);
+}
+
+.watch-option:focus-within {
+  outline: 2px solid var(--accent, #5b8cff);
+  outline-offset: 1px;
+}
+
+.watch-radio {
+  flex: none;
+  margin: 0.15rem 0 0;
+  accent-color: var(--accent, #5b8cff);
+}
+
+.watch-option-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.watch-option-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+/* What it is: YouTube, a file, a stream, Twitch, the page itself. */
+.watch-kind {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text, #e6e8ee);
+}
+
+/* What the page called this one — often the only thing telling two
+   copies of the same episode apart. */
+.watch-quality {
+  padding: 0.05rem 0.35rem;
+  border: 1px solid var(--hud-border, rgba(255, 255, 255, 0.1));
+  border-radius: 999px;
+  font-family: var(--mono, monospace);
+  font-size: 0.62rem;
+  color: var(--muted, #9aa3b2);
+  white-space: nowrap;
+}
+
+.watch-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.05rem 0.35rem;
+  border: 1px solid var(--danger, #e5484d);
+  border-radius: 999px;
+  color: var(--danger, #e5484d);
+  font-family: var(--mono, monospace);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.watch-live::before {
+  content: '';
+  width: 0.3rem;
+  height: 0.3rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.watch-option-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.6rem;
+  font-size: 0.7rem;
+  color: var(--muted, #9aa3b2);
+}
+
+.watch-host {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 12rem;
+}
+
+/*
+ * What the room actually gets out of this one — the thing somebody would
+ * otherwise only discover after committing everybody to it.
+ */
+.watch-sync {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* A link cut for one viewer. Amber rather than red: it is a warning
+   about what may happen, not a refusal. */
+.watch-warn {
+  margin: 0;
+  padding: 0.4rem 0.55rem;
+  background: rgba(224, 168, 0, 0.08);
+  border-left: 2px solid #e0a800;
+  border-radius: 0 var(--hud-radius, 8px) var(--hud-radius, 8px) 0;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: var(--text, #e6e8ee);
+}
+
+/* Reading a page takes a moment, and a moment with nothing in it reads
+   as a broken panel. */
+.watch-busy::after {
+  content: '';
+  display: inline-block;
+  width: 0.6rem;
+  height: 0.6rem;
+  margin-left: 0.4rem;
+  vertical-align: -0.05rem;
+  border: 1.5px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: watch-spin 0.7s linear infinite;
+}
+
+@keyframes watch-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .watch-busy::after {
+    animation: none;
+    opacity: 0.5;
+  }
+}
+
+.watch-queue-label {
+  margin: 0.15rem 0 0;
+}
+
+.watch-queue {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  /* Long enough to see what is coming, short enough that the shelf never
+     grows taller than the dock it hangs off. */
+  max-height: 11rem;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.watch-queue-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem;
+  border: 1px solid var(--hud-border, rgba(255, 255, 255, 0.1));
+  border-radius: var(--hud-radius, 8px);
+}
+
+.watch-queue-thumb {
+  flex: none;
+  width: 4rem;
+  height: 2.25rem;
+  object-fit: cover;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.watch-queue-thumb-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted, #9aa3b2);
+}
+
+.watch-queue-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.watch-queue-name {
+  font-size: 0.78rem;
+  color: var(--text, #e6e8ee);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/*
+ * For a YouTube item, its id: reading a title needs YouTube's data API
+ * and a key this project will not ask anybody for. The thumbnail carries
+ * the recognition; this line carries the honesty. For anything else, the
+ * host it comes from, which is the same honesty by another route.
+ */
+.watch-queue-where {
+  font-family: var(--mono, monospace);
+  font-size: 0.66rem;
+  color: var(--muted, #9aa3b2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.watch-queue-key {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--hud-radius, 8px);
+  color: var(--muted, #9aa3b2);
+  cursor: pointer;
+}
+
+.watch-queue-key:hover,
+.watch-queue-key:focus-visible {
+  color: var(--text, #e6e8ee);
+  border-color: var(--hud-border, rgba(255, 255, 255, 0.1));
+}

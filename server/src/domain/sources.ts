@@ -1,21 +1,23 @@
 /**
  * Where the video is, in a page somebody pasted.
  *
- * The room's second video tool takes a link to a PAGE rather than a link
- * to a video: an episode, a live channel, a lecture — whatever the person
- * was already watching. Somebody has to open that page and say what is
- * playable in it, and that somebody cannot be the browser: a document
- * from another origin is unreadable to it, by the same rule that keeps
- * the rest of the web honest. So an edge fetches the page and this file
- * reads it.
+ * The room's watch tool takes a link to whatever somebody was already
+ * looking at. Sometimes that is a link to a video — a YouTube URL, an
+ * `.m3u8`, a Twitch channel — and the browser reads those itself. The
+ * rest of the time it is a link to a PAGE: an episode, a lecture, a
+ * broadcast somebody else's site is hosting. Somebody has to open that
+ * page and say what is playable in it, and that somebody cannot be the
+ * browser: a document from another origin is unreadable to it, by the
+ * same rule that keeps the rest of the web honest. So an edge fetches the
+ * page and this file reads it.
  *
  * What it reads is METADATA — the markup a page already publishes about
  * its own video: the tags every chat app reads to draw a preview, the
  * `<video>` element, the player's configuration. No media byte passes
  * through us, before or after. Whatever the room agrees to watch, every
- * browser fetches from the source itself, exactly as the YouTube tool
- * does; "no media through a server" is one of this project's louder
- * promises and nothing here softens it.
+ * browser fetches from the source itself, exactly as it does for a
+ * YouTube link; "no media through a server" is one of this project's
+ * louder promises and nothing here softens it.
  *
  * Everything below is a pure function of text. Fetching — timeouts, size
  * caps, how many hops — lives in app/source-lookup.ts, so both edges get
@@ -39,7 +41,7 @@ export const SOURCE_LIMITS = {
  *
  *   file / hls / dash  our own <video> element. Play, pause and position
  *                      are ours to set, so the room gets a real shared
- *                      timeline, the same one the YouTube tool has.
+ *                      timeline, the same one a YouTube link gets.
  *   twitch             their embed, driven through its own JS API: play
  *                      and pause for everybody, volume that obeys the
  *                      room's speaker key, and the live edge instead of
