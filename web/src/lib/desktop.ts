@@ -59,8 +59,26 @@ export interface DesktopBridge {
     systemAudio?: unknown;
     windowChrome?: unknown;
     trafficLights?: unknown;
+    videoPicker?: unknown;
   };
   window?: Partial<Record<keyof DesktopWindowApi, unknown>>;
+  video?: Partial<Record<keyof DesktopVideoPicker, unknown>>;
+}
+
+/**
+ * Opening a page in a window of its own to see what it plays.
+ *
+ * The web half of the video tool can read a page, but not run it: a site
+ * that builds its player only after somebody clicks hands a fetcher
+ * nothing. The shell can — it opens the page for real, the person presses
+ * play, and it writes down the media the page then asks for
+ * (desktop/src/video-picker.ts).
+ */
+export interface DesktopVideoPicker {
+  /** Resolves with what that window saw, or an empty list. */
+  pick(url: string): Promise<unknown>;
+  /** Closes the window without waiting for it. */
+  cancel(): void;
 }
 
 interface BridgeHost {
@@ -93,6 +111,25 @@ export function windowChrome(bridge = desktopBridge()): DesktopWindowApi | null 
     return null;
   }
   return api as unknown as DesktopWindowApi;
+}
+
+/**
+ * The picker, or null when there is nothing to open a window with:
+ * in a browser, or on a shell built before this existed. Same shape as
+ * `windowChrome` above and for the same reason — the shell is installed
+ * and the page is deployed, so neither may assume the other's version,
+ * and the tool simply does not offer the button.
+ */
+export function videoPicker(bridge = desktopBridge()): DesktopVideoPicker | null {
+  if (bridge?.capabilities?.videoPicker !== true) {
+    return null;
+  }
+  const api = bridge.video;
+  const calls = ['pick', 'cancel'] as const;
+  if (!api || calls.some((call) => typeof api[call] !== 'function')) {
+    return null;
+  }
+  return api as unknown as DesktopVideoPicker;
 }
 
 /** True where the platform keeps its own buttons and the bar makes room. */

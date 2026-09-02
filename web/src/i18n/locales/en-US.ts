@@ -84,7 +84,7 @@ export const enUS = {
 
   'how.mesh.title': 'The media never touches our server',
   'how.mesh.body':
-    'Voice, video and screen flow browser to browser over native WebRTC, encrypted end to end. Our server only introduces the browsers to each other and keeps the list of who is in the room — there is no media server to eavesdrop, and no bill for one either. A network too restrictive for a direct connection would need a TURN relay; we run none, so those rare connections fail instead of quietly passing through a third party.',
+    'Voice, video and screen flow browser to browser over native WebRTC, encrypted end to end. Our server introduces the browsers to each other and keeps the list of who is in the room — there is no media server to eavesdrop, and no bill for one either. One thing more, and only when somebody asks for it: paste a page into the video tool and the server opens that one page, reads its markup for what is playable, answers, and keeps nothing. No media passes through it then either — every browser fetches the video from wherever it lives. A network too restrictive for a direct connection would need a TURN relay; we run none, so those rare connections fail instead of quietly passing through a third party.',
   'how.diagram.media': 'Voice, video and screen: straight between the browsers',
   'how.diagram.signaling': 'Through the server, only the signaling: who is in the room, and how to reach them',
 

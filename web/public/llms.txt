@@ -40,7 +40,9 @@ https://github.com/lattoshenrique/freecord.
   send the link. The link is the credential.
 - **No media server.** Voice, video and screen sharing flow browser-to-browser
   in a peer-to-peer mesh over native WebRTC, encrypted end to end by default
-  (DTLS-SRTP). Our server only relays signaling messages and holds room state,
+  (DTLS-SRTP). Our server relays signaling messages and holds room state, and on
+  request opens one page somebody pasted into the video tool to read what is
+  playable in it, keeping nothing from that lookup;
   so it is not technically capable of watching or recording a call. A
   deployment may optionally enable TURN to relay peers that cannot connect
   directly; a TURN relay forwards encrypted bytes it cannot decrypt, making it

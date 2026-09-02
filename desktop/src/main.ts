@@ -35,7 +35,15 @@ import {
 } from 'electron';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { createTranslator, pickerStrings, resolveLocale, type Locale, type StringKey } from './i18n';
+import {
+  createTranslator,
+  pickerStrings,
+  resolveLocale,
+  videoPickStrings,
+  type Locale,
+  type StringKey,
+} from './i18n';
+import { openVideoPicker } from './video-picker';
 import { startUpdater } from './updater';
 import { attachWindowChrome, installWindowChrome } from './window-chrome';
 
@@ -215,6 +223,49 @@ async function screenAccessBlocked(parent: BrowserWindow | null): Promise<boolea
     );
   }
   return true;
+}
+
+/* ------------------------------------------------------------------ *
+ * Video picker
+ * ------------------------------------------------------------------ */
+
+/** One picking window at a time: a second would collect into the first. */
+let pickingWindow = false;
+
+/**
+ * The page's way of asking for a window that can watch a site play.
+ *
+ * The video tool can read a page's markup from the edge, but a site that
+ * builds its player only after a click hands a reader nothing. Here the
+ * page is opened for real and we write down the media it asks for
+ * (video-picker.ts). Two guards, both worth stating: only the app's own
+ * window may ask — a stranger's page inside a picker must not be able to
+ * open another one — and only one window at a time.
+ */
+function installVideoPicker(): void {
+  ipcMain.handle('video:pick', async (event, url: unknown) => {
+    const asking = BrowserWindow.fromWebContents(event.sender);
+    if (asking !== mainWindow || !isAppUrl(event.sender.getURL())) {
+      return [];
+    }
+    if (pickingWindow || typeof url !== 'string' || !/^https?:\/\//i.test(url)) {
+      return [];
+    }
+    pickingWindow = true;
+    try {
+      return await openVideoPicker({
+        parent: mainWindow,
+        url,
+        staticDir: STATIC_DIR,
+        preload: path.join(__dirname, 'video-pick-preload.js'),
+        strings: videoPickStrings(t),
+        locale,
+        frameOptions: frameOptions(),
+      });
+    } finally {
+      pickingWindow = false;
+    }
+  });
 }
 
 /* ------------------------------------------------------------------ *
@@ -443,6 +494,7 @@ if (!app.requestSingleInstanceLock()) {
     t = createTranslator(app.getLocale());
     locale = resolveLocale(app.getLocale());
     configureSession();
+    installVideoPicker();
     installWindowChrome({
       appUrl: APP_URL,
       sourceUrl: SOURCE_URL,

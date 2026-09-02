@@ -37,7 +37,9 @@ import {
   type DesktopCatalog,
 } from '../../server/src/domain/downloads.js';
 import { roomPreviewHtml } from '../../server/src/domain/preview.js';
+import { SOURCE_LIMITS } from '../../server/src/domain/sources.js';
 import { parseClientMessage } from '../../server/src/app/signaling.js';
+import { lookupSource } from '../../server/src/app/source-lookup.js';
 import { TurnCredentialProvider } from '../../server/src/app/turn.js';
 import { fetchDesktopCatalog } from '../../server/src/app/desktop-catalog.js';
 
@@ -1169,6 +1171,47 @@ async function handleApi(request: Request, env: Env, url: URL): Promise<Response
         'Content-Type': 'application/json',
         // Short browser cache; the heavy lifting is the colo cache above.
         'Cache-Control': 'public, max-age=300',
+        ...corsHeaders(env),
+      },
+    });
+  }
+
+  /**
+   * What is playable in a page somebody pasted, for the video tool
+   * (server/src/app/source-lookup.ts) — same route, same answers as the
+   * Node edge.
+   *
+   * The only place this server opens a stranger's URL. It reads markup
+   * and never a media byte: the video is fetched by each browser from
+   * wherever it lives, as the YouTube tool has always done. Nothing is
+   * kept — no cache, no log (hence the body rather than the query
+   * string), and `no-store` on the way out, because what somebody is
+   * about to watch is not ours to hold or to leave in a proxy. Rate limited like room creation: every call is an outbound
+   * request made in our name.
+   */
+  if (url.pathname === '/api/sources' && request.method === 'POST') {
+    const ip = request.headers.get('CF-Connecting-IP') ?? 'unknown';
+    const { success } = await env.RATE_LIMITER.limit({ key: `sources:${ip}` });
+    if (!success) {
+      return json({ error: 'rate_limited' }, 429, env);
+    }
+    // In the body, never the query string: Cloudflare's request log — and
+    // `wrangler tail`, and any Logpush — records a URL with its query, so
+    // a GET would have kept the one thing this route promises not to.
+    const body = (await request.json().catch(() => ({}))) as { url?: unknown };
+    const target = typeof body.url === 'string' ? body.url : '';
+    if (!target || target.length > SOURCE_LIMITS.maxUrlLength) {
+      return json({ error: 'invalid_url' }, 400, env);
+    }
+    const result = await lookupSource(target);
+    if (!result.ok) {
+      return json({ error: result.reason }, result.reason === 'invalid_url' ? 400 : 502, env);
+    }
+    return new Response(JSON.stringify(result.lookup), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-store',
         ...corsHeaders(env),
       },
     });

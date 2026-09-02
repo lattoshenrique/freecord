@@ -43,6 +43,12 @@ const STRINGS = {
     pickerCancel: 'Cancel',
     pickerShare: 'Share',
     pickerSystemAudio: "The computer's sound goes along with the picture.",
+    videoPickTitle: 'Pick a video',
+    videoPickHint: 'Press play on the page. Whatever it loads shows up here.',
+    videoPickFound: '{count} found',
+    videoPickNothing: 'Nothing yet',
+    videoPickUse: 'Use these',
+    videoPickCancel: 'Cancel',
     screenPermissionTitle: 'Screen recording permission',
     screenPermissionMessage: 'macOS is blocking screen capture.',
     screenPermissionDetail:
@@ -95,6 +101,12 @@ const STRINGS = {
     pickerCancel: 'Cancelar',
     pickerShare: 'Compartilhar',
     pickerSystemAudio: 'O som do computador vai junto com a imagem.',
+    videoPickTitle: 'Escolher um vídeo',
+    videoPickHint: 'Aperte play na página. O que ela carregar aparece aqui.',
+    videoPickFound: '{count} encontradas',
+    videoPickNothing: 'Nada ainda',
+    videoPickUse: 'Usar estas',
+    videoPickCancel: 'Cancelar',
     screenPermissionTitle: 'Permissão de gravação de tela',
     screenPermissionMessage: 'O macOS está bloqueando a captura de tela.',
     screenPermissionDetail:
@@ -146,6 +158,12 @@ const STRINGS = {
     pickerCancel: 'Cancelar',
     pickerShare: 'Compartir',
     pickerSystemAudio: 'El sonido del equipo va junto con la imagen.',
+    videoPickTitle: 'Elegir un video',
+    videoPickHint: 'Dale play en la página. Lo que cargue aparece aquí.',
+    videoPickFound: '{count} encontradas',
+    videoPickNothing: 'Nada todavía',
+    videoPickUse: 'Usar estas',
+    videoPickCancel: 'Cancelar',
     screenPermissionTitle: 'Permiso de grabación de pantalla',
     screenPermissionMessage: 'macOS está bloqueando la captura de pantalla.',
     screenPermissionDetail:
@@ -198,6 +216,12 @@ const STRINGS = {
     pickerCancel: '取消',
     pickerShare: '共享',
     pickerSystemAudio: '电脑的声音会随画面一起共享。',
+    videoPickTitle: '挑一个视频',
+    videoPickHint: '在页面上按播放。它加载的内容会出现在这里。',
+    videoPickFound: '找到 {count} 个',
+    videoPickNothing: '还没有',
+    videoPickUse: '用这些',
+    videoPickCancel: '取消',
     screenPermissionTitle: '屏幕录制权限',
     screenPermissionMessage: 'macOS 正在阻止屏幕捕获。',
     screenPermissionDetail:
@@ -247,6 +271,12 @@ const STRINGS = {
     pickerCancel: 'キャンセル',
     pickerShare: '共有',
     pickerSystemAudio: 'パソコンの音声も画面と一緒に共有されます。',
+    videoPickTitle: '動画を選ぶ',
+    videoPickHint: 'ページで再生を押してください。読み込まれたものがここに出ます。',
+    videoPickFound: '{count} 件',
+    videoPickNothing: 'まだありません',
+    videoPickUse: 'これを使う',
+    videoPickCancel: 'キャンセル',
     screenPermissionTitle: '画面収録の許可',
     screenPermissionMessage: 'macOS が画面のキャプチャをブロックしています。',
     screenPermissionDetail:
@@ -291,6 +321,18 @@ export function createTranslator(systemLocale: string): (key: StringKey) => stri
 }
 
 /** Every string the picker window needs, resolved for the current locale. */
+/** The strings the video picker's strip draws (desktop/src/video-picker.ts). */
+export function videoPickStrings(t: (key: StringKey) => string): Record<string, string> {
+  return {
+    title: t('videoPickTitle'),
+    hint: t('videoPickHint'),
+    found: t('videoPickFound'),
+    nothing: t('videoPickNothing'),
+    use: t('videoPickUse'),
+    cancel: t('videoPickCancel'),
+  };
+}
+
 export function pickerStrings(t: (key: StringKey) => string): Record<string, string> {
   return {
     title: t('pickerTitle'),

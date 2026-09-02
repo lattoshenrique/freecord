@@ -36,6 +36,35 @@ export interface DesktopCatalog {
   releasesUrl: string;
 }
 
+/**
+ * Mirror of the server's `VideoCandidate` (server/src/domain/sources.ts):
+ * one thing the room could watch, and everything a person needs to
+ * choose between it and the next one.
+ */
+export interface VideoCandidate {
+  /** How a client plays it — and how much of a shared clock that buys. */
+  play: 'file' | 'hls' | 'dash' | 'twitch' | 'frame';
+  url: string;
+  found: 'link' | 'meta' | 'schema' | 'element' | 'embed' | 'script';
+  label?: string;
+  title?: string;
+  poster?: string;
+  twitch?: { channel?: string; video?: string; clip?: string };
+  live?: boolean;
+  framable?: boolean;
+  /** Signed for whoever opened the page: it may play for nobody else. */
+  personal?: boolean;
+  /** Reached through this embed rather than from the page itself. */
+  via?: string;
+}
+
+export interface SourceLookup {
+  url: string;
+  title?: string;
+  candidates: VideoCandidate[];
+  empty: boolean;
+}
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -90,6 +119,22 @@ export function renameRoom(slug: string, displayName: string): Promise<RoomSumma
  */
 export function getStats(): Promise<{ rooms: number }> {
   return request('/api/stats');
+}
+
+/**
+ * What is playable in a page somebody pasted, for the video tool.
+ *
+ * The one call in this client that hands the server a stranger's URL. It
+ * comes back with what the page says about its own video; the video
+ * itself is always fetched by this browser, from wherever it lives, and
+ * never through us (server/src/app/source-lookup.ts).
+ *
+ * A POST for a read, deliberately: the page goes in the body, because a
+ * URL in a query string is written to both edges' request logs, and this
+ * is the one call whose whole promise is that nothing is kept.
+ */
+export function lookupSources(url: string): Promise<SourceLookup> {
+  return request('/api/sources', { method: 'POST', body: JSON.stringify({ url }) });
 }
 
 /** Desktop app catalog — the edge resolves which Release is the latest. */

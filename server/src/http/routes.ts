@@ -4,7 +4,9 @@ import { z } from 'zod';
 import type { RoomRegistry } from '../app/room-registry.js';
 import { DESKTOP_CATALOG_TTL_MS, fetchDesktopCatalog } from '../app/desktop-catalog.js';
 import { SignalingSession, parseClientMessage } from '../app/signaling.js';
+import { lookupSource } from '../app/source-lookup.js';
 import type { TurnCredentialProvider } from '../app/turn.js';
+import { SOURCE_LIMITS } from '../domain/sources.js';
 import { EMPTY_DESKTOP_CATALOG, type DesktopCatalog } from '../domain/downloads.js';
 import {
   ROOM_LIMITS,
@@ -23,6 +25,16 @@ const renameRoomBody = z.object({
 
 const slugParam = z.object({
   slug: z.string().min(1).max(64),
+});
+
+/**
+ * The pasted page travels in the BODY, never in the query string. A URL
+ * in a query string is written to this server's request log by Fastify's
+ * own serializer, and to Cloudflare's on the other edge — so a GET would
+ * have quietly kept the one thing this route promises not to keep.
+ */
+const sourceBody = z.object({
+  url: z.string().min(1).max(SOURCE_LIMITS.maxUrlLength),
 });
 
 /** A join carries a guest name; a reconnection carries a resume token instead. */
@@ -89,6 +101,43 @@ export function registerRoutes(
   app.get('/api/downloads', async (_request, reply) => {
     return reply.header('Cache-Control', 'public, max-age=300').send(await desktopCatalog());
   });
+
+  /**
+   * What is playable in a page somebody pasted, for the video tool
+   * (app/source-lookup.ts). The one place the server opens a stranger's
+   * URL, so it is worth saying what it is and is not:
+   *
+   * It reads the page's markup and hands back what it found. It never
+   * touches a media byte — the video is fetched by each browser from
+   * wherever it lives, the way the YouTube tool has always worked — and
+   * it stores nothing: no cache, no log line with the URL in it (which
+   * is why the page arrives in the body and not in the query string —
+   * see sourceBody), and `no-store` on the way out, because what
+   * somebody is about to watch is not ours to keep or to leave in a
+   * proxy.
+   *
+   * Tighter than the global limit: every call here is an outbound
+   * request in our name.
+   */
+  app.post(
+    '/api/sources',
+    { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const body = sourceBody.safeParse(request.body ?? {});
+      if (!body.success) {
+        return reply.code(400).send({ error: 'invalid_url' });
+      }
+      const result = await lookupSource(body.data.url);
+      if (!result.ok) {
+        // A link we will not open is the caller's mistake; a page that
+        // would not answer is not ours either.
+        return reply
+          .code(result.reason === 'invalid_url' ? 400 : 502)
+          .send({ error: result.reason });
+      }
+      return reply.header('Cache-Control', 'no-store').send(result.lookup);
+    },
+  );
 
   app.get('/api/rooms/:slug', async (request, reply) => {
     const params = slugParam.safeParse(request.params);

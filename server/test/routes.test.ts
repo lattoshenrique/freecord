@@ -16,6 +16,19 @@ describe('HTTP routes', () => {
     await app.close();
   });
 
+  /**
+   * A GET would put the pasted page in the query string, and both edges
+   * write a request's URL to their logs — which would quietly break the
+   * one thing this route promises. The method is part of the promise.
+   */
+  it('GET /api/sources is not a route: the page travels in the body', async () => {
+    const get = await app.inject({ method: 'GET', url: '/api/sources?url=https://example.com/a' });
+    expect(get.statusCode).toBe(404);
+    const post = await app.inject({ method: 'POST', url: '/api/sources', payload: { url: 'nope' } });
+    expect(post.statusCode).toBe(400);
+    expect(post.json()).toEqual({ error: 'invalid_url' });
+  });
+
   it('POST /api/rooms creates a room and returns the slug', async () => {
     const response = await app.inject({
       method: 'POST',

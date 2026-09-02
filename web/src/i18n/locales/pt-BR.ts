@@ -70,7 +70,7 @@ export const ptBR: Catalog = {
 
   'how.mesh.title': 'A mídia nunca toca o nosso servidor',
   'how.mesh.body':
-    'Voz, vídeo e tela fluem de navegador para navegador por WebRTC nativo, criptografados fim a fim. O nosso servidor só apresenta os navegadores uns aos outros e guarda a lista de quem está na sala — não existe servidor de mídia para bisbilhotar, nem conta para pagar por ele. Uma rede restritiva demais para conexão direta precisaria de um relay TURN; não mantemos nenhum, então essas poucas conexões falham em vez de passar caladas por um terceiro.',
+    'Voz, vídeo e tela fluem de navegador para navegador por WebRTC nativo, criptografados fim a fim. O nosso servidor apresenta os navegadores uns aos outros e guarda a lista de quem está na sala — não existe servidor de mídia para bisbilhotar, nem conta para pagar por ele. Uma coisa a mais, e só quando alguém pede: cole uma página na ferramenta de vídeo e o servidor abre aquela página uma vez, lê na marcação o que dá para tocar, responde e não guarda nada. Nem aí passa mídia por ele — cada navegador busca o vídeo onde ele mora. Uma rede restritiva demais para conexão direta precisaria de um relay TURN; não mantemos nenhum, então essas poucas conexões falham em vez de passar caladas por um terceiro.',
   'how.diagram.media': 'Voz, vídeo e tela: direto entre os navegadores',
   'how.diagram.signaling': 'Pelo servidor, só a sinalização: quem está na sala e como alcançar cada um',
 

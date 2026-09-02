@@ -12,7 +12,9 @@ browser A ◄──── WebRTC P2P (voice/video/screen, chat + files on data c
 
 **Fully self-owned.** Media flows straight between browsers in a P2P mesh (each
 peer keeps one `RTCPeerConnection` with every other). The server never touches
-media: it owns room state and carries signaling envelopes. Consequences:
+media: it owns room state, carries signaling envelopes, and — on request,
+once per paste — fetches the one page handed to the video tool and reads its
+markup for what is playable (`app/source-lookup.ts`), keeping nothing from it. Consequences:
 
 - Infrastructure cost ~zero: one small Node process serves thousands of rooms,
   because the heavy traffic never goes through it.
@@ -411,7 +413,8 @@ to move the Electron shell itself, which changes rarely.
 
 1. **Today (validation, ~US$ 0–6/month)**: one Node process on a free
    VPS/PaaS serving API + WS + static files. It supports thousands of
-   concurrent users in small rooms (the server only signals).
+   concurrent users in small rooms (the server signals, plus one page read
+   per paste).
 2. **TURN** — *built, deliberately switched off*: the credential path exists
    end to end (`welcome.ice`, `app/turn.ts`), but no provider is configured and
    none is planned for now. That is a product decision, not an oversight: the

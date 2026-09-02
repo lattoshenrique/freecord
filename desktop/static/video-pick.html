@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'"
+    />
+    <title>Freecord</title>
+    <style>
+      /*
+       * The strip above the video picker's page.
+       *
+       * It is a view of its own, sitting on top of a stranger's document:
+       * our controls never live inside their renderer, and their scripts
+       * never share a page with ours. So this file draws one line — what
+       * to do, what has been found so far, and the two ways out.
+       *
+       * Same tokens and same face as static/picker.html and the app.
+       */
+      :root {
+        color-scheme: dark;
+        --bg: #0b0d12;
+        --text: #e9ebf0;
+        --muted: #9aa0ad;
+        --accent: #5865f2;
+        --accent-hover: #6a76f5;
+        --border: rgba(255, 255, 255, 0.14);
+        --track-label: 0.08em;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        height: 100vh;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0 0.75rem;
+        font-family:
+          'JetBrains Mono', 'Fira Code', 'IBM Plex Mono', 'Cascadia Code', ui-monospace, 'SF Mono',
+          SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+        font-variant-ligatures: none;
+        font-size: 12px;
+        color: var(--text);
+        background: var(--bg);
+        border-bottom: 1px solid var(--border);
+        -webkit-font-smoothing: antialiased;
+        /* The window is frameless; this strip is what you drag it by. */
+        -webkit-app-region: drag;
+        user-select: none;
+      }
+      .text {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+        flex: 1;
+      }
+      .hint {
+        color: var(--muted);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .count {
+        letter-spacing: var(--track-label);
+        text-transform: uppercase;
+        font-size: 10px;
+        color: var(--muted);
+      }
+      .count[data-found='true'] {
+        color: var(--accent-hover);
+      }
+      /* Traffic lights live in this corner on macOS; the strip steps aside. */
+      body[data-platform='darwin'] {
+        padding-left: 80px;
+      }
+      button {
+        -webkit-app-region: no-drag;
+        flex: none;
+        padding: 6px 12px;
+        font: inherit;
+        font-size: 12px;
+        color: var(--text);
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        cursor: pointer;
+        transition:
+          background 0.15s ease,
+          border-color 0.15s ease,
+          opacity 0.15s ease;
+      }
+      button:hover:not(:disabled) {
+        background: rgba(255, 255, 255, 0.08);
+      }
+      button.use {
+        background: var(--accent);
+        border-color: var(--accent);
+      }
+      button.use:hover:not(:disabled) {
+        background: var(--accent-hover);
+      }
+      button:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+      button:focus-visible {
+        outline: 2px solid var(--accent-hover);
+        outline-offset: 2px;
+      }
+    </style>
+  </head>
+  <body>
+    <span class="text">
+      <span class="hint" id="hint"></span>
+      <span class="count" id="count" data-found="false"></span>
+    </span>
+    <button type="button" id="cancel"></button>
+    <button type="button" class="use" id="use" disabled></button>
+
+    <script>
+      (() => {
+        const hint = document.getElementById('hint');
+        const count = document.getElementById('count');
+        const use = document.getElementById('use');
+        const cancel = document.getElementById('cancel');
+        let strings = {};
+        let found = 0;
+
+        /** `{count}` is the only placeholder any of these lines carry. */
+        const fill = (template, value) =>
+          String(template ?? '').replace('{count}', String(value));
+
+        const draw = () => {
+          count.textContent = found === 0 ? strings.nothing ?? '' : fill(strings.found, found);
+          count.dataset.found = String(found > 0);
+          use.disabled = found === 0;
+        };
+
+        window.videoPick.onOpen((payload) => {
+          strings = (payload && payload.strings) || {};
+          document.documentElement.lang = (payload && payload.locale) || 'en-US';
+          document.body.dataset.platform = (payload && payload.platform) || '';
+          hint.textContent = strings.hint ?? '';
+          use.textContent = strings.use ?? '';
+          cancel.textContent = strings.cancel ?? '';
+          document.title = strings.title ?? document.title;
+          draw();
+        });
+
+        window.videoPick.onFound((sources) => {
+          found = Array.isArray(sources) ? sources.length : 0;
+          draw();
+        });
+
+        use.addEventListener('click', () => window.videoPick.done(true));
+        cancel.addEventListener('click', () => window.videoPick.done(false));
+        window.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape') {
+            window.videoPick.done(false);
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>

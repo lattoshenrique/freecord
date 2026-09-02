@@ -28,6 +28,9 @@ contextBridge.exposeInMainWorld('freecordDesktop', {
     windowChrome: true,
     // ...and on macOS to leave room for the traffic lights, which stay.
     trafficLights: process.platform === 'darwin',
+    // A window that can open a page and watch what it plays — the video
+    // tool's answer to a site that builds its player after a click.
+    videoPicker: true,
   },
   window: {
     /** The bar is on screen. Until this arrives the shell assumes it is not. */
@@ -42,5 +45,15 @@ contextBridge.exposeInMainWorld('freecordDesktop', {
     },
     /** One of the verbs in window-chrome.ts; anything else is ignored there. */
     run: (command: string) => ipcRenderer.send('window:command', command),
+  },
+  video: {
+    /**
+     * Opens a page in a window of its own and resolves with the media it
+     * played. The main process refuses anything but the app's own window
+     * asking, and anything but one window at a time (main.ts).
+     */
+    pick: (url: string) => ipcRenderer.invoke('video:pick', url),
+    /** Closing the window is the cancellation; this is the other way. */
+    cancel: () => ipcRenderer.send('video-pick:done', false),
   },
 });

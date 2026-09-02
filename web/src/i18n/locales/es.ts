@@ -70,7 +70,7 @@ export const esES: Catalog = {
 
   'how.mesh.title': 'El contenido nunca toca nuestro servidor',
   'how.mesh.body':
-    'La voz, el vídeo y la pantalla fluyen de navegador a navegador por WebRTC nativo, cifrados de extremo a extremo. Nuestro servidor solo presenta los navegadores entre sí y guarda la lista de quién está en la sala — no hay servidor de medios que pueda espiar, ni factura que pagar por él. Una red demasiado restrictiva para una conexión directa necesitaría un relay TURN; no mantenemos ninguno, así que esas pocas conexiones fallan en vez de pasar en silencio por un tercero.',
+    'La voz, el vídeo y la pantalla van de navegador a navegador por WebRTC nativo, cifrados de extremo a extremo. Nuestro servidor presenta los navegadores entre sí y guarda la lista de quién está en la sala: no hay servidor de medios que pueda escuchar, ni factura que pagar por uno. Una cosa más, y solo cuando alguien la pide: pega una página en la herramienta de vídeo y el servidor abre esa página una vez, lee en su marcado qué se puede reproducir, responde y no guarda nada. Tampoco ahí pasa ningún medio por él: cada navegador descarga el vídeo de donde viva. Una red demasiado restrictiva para una conexión directa necesitaría un relay TURN; no tenemos ninguno, así que esas pocas conexiones fallan en vez de pasar en silencio por un tercero.',
   'how.diagram.media': 'Voz, vídeo y pantalla: directo entre los navegadores',
   'how.diagram.signaling': 'Por el servidor, solo la señalización: quién está en la sala y cómo llegar a cada uno',
 
