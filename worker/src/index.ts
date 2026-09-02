@@ -240,9 +240,14 @@ export class RoomDurableObject {
       lastSeen: Date.now(),
       resumeToken,
     } satisfies PeerAttachment);
-    // With people inside, the expiration clock stops and the zombie sweep begins.
+    // With people inside, the expiration clock stops and the zombie sweep
+    // begins — without postponing one already due: a seat that just
+    // dropped set the alarm for its screen lock's grace, and a join must
+    // not push that back (it did: every join or resume delayed the
+    // release by a sweep interval, so a sharer who dropped and came
+    // straight back found the room unable to share for 17 s or more).
     await this.ctx.storage.delete('emptyAt');
-    await this.ctx.storage.setAlarm(Date.now() + SWEEP_INTERVAL_MS);
+    await this.ensureAlarmWithin(SWEEP_INTERVAL_MS);
 
     const screen = (await this.ctx.storage.get<ScreenLock>('screen')) ?? null;
     this.send(server, {
@@ -321,7 +326,7 @@ export class RoomDurableObject {
       }
     }
     await this.ctx.storage.delete('emptyAt');
-    await this.ctx.storage.setAlarm(Date.now() + SWEEP_INTERVAL_MS);
+    await this.ensureAlarmWithin(SWEEP_INTERVAL_MS);
 
     const screen = (await this.ctx.storage.get<ScreenLock>('screen')) ?? null;
     const others = this.ctx.getWebSockets().filter((ws) => ws !== server);

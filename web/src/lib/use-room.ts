@@ -526,7 +526,20 @@ export function useRoomSession(options: JoinOptions) {
           selfIdRef.current = message.selfId;
           setSelfId(message.selfId);
           setPeers(message.peers);
-          setScreen(message.screen);
+          if (
+            message.screen?.id === message.selfId &&
+            !localScreenRef.current &&
+            !pendingScreenRef.current
+          ) {
+            // The server still holds the screen lock for us, but this page
+            // has no capture to back it (the seat came back without the
+            // stream). Release it, or the room could not share until we
+            // left: the lock belongs to whoever is actually sending.
+            signalingRef.current?.send({ t: 'screen-stop' });
+            setScreen(null);
+          } else {
+            setScreen(message.screen);
+          }
           const cameraRoster = new Set(message.cameras);
           setCameras(cameraRoster);
           setDeafened(new Set(message.deafened));

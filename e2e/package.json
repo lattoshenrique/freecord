@@ -11,7 +11,8 @@
     "test:browser": "playwright test --project=browser",
     "test:heavy": "E2E_HEAVY=1 playwright test --project=browser --grep @heavy",
     "load:signaling": "node load/signaling.mjs",
-    "load:ramp": "node load/ramp.mjs"
+    "load:ramp": "node load/ramp.mjs",
+    "check:worker": "node worker/screen-drop.mjs"
   },
   "devDependencies": {
     "@fastify/cors": "^11.0.1",
