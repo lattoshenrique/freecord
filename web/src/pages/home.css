@@ -52,32 +52,45 @@
   animation: none;
 }
 
-/* Everything under the button. */
+/* Everything under the button: the hint line, and the download link. */
 .start-center > *:nth-child(3),
 .start-center > *:nth-child(4) {
   animation-delay: 1.65s;
 }
 
-/* The mark alone, the size of an app icon, lit like the button. */
+/* The mark and the name on one line, the mark the size of an app icon. */
 .start-brand {
   display: inline-flex;
+  align-items: center;
+  gap: 0.85rem;
   margin: 0;
+  font-size: clamp(2.2rem, 6vw, 3.1rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+/*
+ * The name, set like the mark: the same gradient, running the same way the
+ * mesh's does, and lifted off the page by the same glow the mark and the
+ * button wear. Tight tracking so the word reads as one shape at this size.
+ */
+.start-wordmark {
+  background: linear-gradient(120deg, #c7ccff 0%, var(--accent) 45%, #a855f7 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  letter-spacing: -0.045em;
+  /* The gradient is painted into the glyphs, so the glow has to be a shadow
+     under them rather than a text-shadow the clip would eat. */
+  filter: drop-shadow(0 6px 22px rgba(120, 90, 240, 0.45));
+  padding-right: 0.06em;
 }
 
 .start-brand .logo {
   filter: drop-shadow(0 8px 24px rgba(88, 101, 242, 0.35));
 }
 
-.start-brand .visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  padding: 0;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
 
 /* ---- the field ---- */
 
@@ -93,7 +106,7 @@
   flex-direction: column;
   align-items: center;
   gap: 1.1rem;
-  width: min(26rem, 100%);
+  width: min(30rem, 100%);
   margin-top: 0.75rem;
 }
 
@@ -102,32 +115,121 @@
  * for a focus ring to follow into a strange shape — and the page autofocuses
  * here, so that ring would be on screen from the first frame.
  */
-.start-form input {
+/*
+ * The line reads as a shell prompt: a sign, mono text, and a block caret that
+ * blinks only while the line is empty. The underline still is the whole
+ * field — the prompt row carries it now, so it lights up as one thing when
+ * the caret is inside.
+ */
+.start-prompt {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
   width: 100%;
-  background: none;
-  border: none;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 0;
-  color: var(--text);
   padding: 0.55rem 0.25rem;
-  font-size: 1rem;
-  text-align: center;
   transition: border-color 0.15s ease;
 }
 
-.start-form input::placeholder {
-  color: rgba(154, 160, 173, 0.55);
-}
-
-.start-form input:hover {
+.start-prompt:hover {
   border-bottom-color: rgba(255, 255, 255, 0.22);
 }
 
-/* The underline is the focus indicator: it lights up, nothing else moves. */
+.start-prompt:focus-within {
+  border-bottom-color: var(--accent);
+}
+
+/* The sign is the accent's, always — it is the one lit character on the line. */
+.start-prompt-sign {
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 1rem;
+  line-height: 1;
+  user-select: none;
+}
+
+.start-form input {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  border-radius: 0;
+  color: var(--text);
+  padding: 0;
+  font-family: var(--mono);
+  font-size: 0.98rem;
+  letter-spacing: -0.01em;
+  text-align: left;
+}
+
+.start-form input::placeholder {
+  color: rgba(154, 160, 173, 0.5);
+}
+
 .start-form input:focus,
 .start-form input:focus-visible {
   outline: none;
-  border-bottom-color: var(--accent);
+}
+
+/*
+ * The caret is a solid block, the way a terminal draws one. It is ours: the
+ * native one is hidden while the block is on duty, and comes back the moment
+ * the insertion point moves off the end of the line, where a block measured
+ * from the text's width would point at the wrong character.
+ */
+.start-caret {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 0.62rem;
+  height: 1.25rem;
+  background: var(--accent);
+  border-radius: 1px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(1.45rem, -50%);
+  box-shadow: 0 0 12px rgba(88, 101, 242, 0.7);
+}
+
+.start-prompt[data-block-caret='true']:focus-within .start-caret {
+  animation: start-blink 1.06s steps(1, end) infinite;
+}
+
+.start-prompt[data-block-caret='true'] input {
+  caret-color: transparent;
+}
+
+/*
+ * With the line empty the block stands where the first character will go, so
+ * the placeholder steps aside by exactly one block. Nothing to shift: there
+ * is no text yet, and the placeholder is gone by the time there is.
+ */
+.start-prompt[data-empty='true'] input {
+  text-indent: 0.95rem;
+}
+
+/* The measuring mirror: laid out with the text, never painted. */
+.start-mirror {
+  position: absolute;
+  left: 0;
+  top: 0;
+  visibility: hidden;
+  white-space: pre;
+  font-family: var(--mono);
+  font-size: 0.98rem;
+  letter-spacing: -0.01em;
+}
+
+@keyframes start-blink {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  50.01%,
+  100% {
+    opacity: 0;
+  }
 }
 
 .start-form button {
@@ -188,14 +290,14 @@
 .download-button {
   color: var(--muted);
   font-size: 0.92rem;
-  text-decoration: none;
+  /* Underlined always: it is a link, and only a link reads as one. */
+  text-decoration: underline;
+  text-underline-offset: 0.25em;
   transition: color 0.15s ease;
 }
 
 .download-button:hover {
   color: var(--text);
-  text-decoration: underline;
-  text-underline-offset: 0.25em;
 }
 
 .download-button:focus-visible {

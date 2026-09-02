@@ -32,9 +32,34 @@ export default function HomePage() {
   const { t } = useI18n();
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
+  const mirrorRef = useRef<HTMLSpanElement>(null);
   const [displayName, setDisplayName] = useState('');
+  // Where the block caret sits, in px from the start of the text, and whether
+  // it is the caret on duty at all.
+  const [caretX, setCaretX] = useState(0);
+  const [atEnd, setAtEnd] = useState(true);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  /**
+   * The block caret only tells the truth at the end of the line: anywhere
+   * else the browser's own caret is the one that knows where typing lands,
+   * so we stand down and let it show.
+   */
+  function syncCaret() {
+    const input = inputRef.current;
+    if (!input) {
+      return;
+    }
+    const end = input.selectionStart === input.value.length && input.selectionStart === input.selectionEnd;
+    setAtEnd(end);
+  }
+
+  // The mirror is laid out with the text, so measure after every keystroke.
+  useEffect(() => {
+    setCaretX(mirrorRef.current?.offsetWidth ?? 0);
+    syncCaret();
+  }, [displayName]);
 
   /**
    * The caret belongs to the field: it is the only thing to do here. We take
@@ -106,29 +131,57 @@ export default function HomePage() {
         <MeshBackground />
 
         <div className="start-center">
-          {/* The mark alone is the title; the name stays for screen readers. */}
+          {/* Mark and name together: the title of the screen, and all of it. */}
           <h1 className="start-brand">
             <Logo size={88} />
-            <span className="visually-hidden">{t('app.name')}</span>
+            <span className="start-wordmark">{t('app.name')}</span>
           </h1>
 
           <form className="start-form" onSubmit={handleSubmit}>
-            <input
-              ref={inputRef}
-              type="text"
-              // Belt and braces with the effect above: the browser focuses it
-              // on first paint, the effect takes it back afterwards.
-              autoFocus
-              value={displayName}
-              // Room for a full invite URL; names are capped on submit.
-              maxLength={300}
-              placeholder={t('home.roomNamePlaceholder')}
-              onChange={(event) => {
-                setDisplayName(event.target.value);
-                setError(null);
-              }}
-              aria-label={t('home.roomName')}
-            />
+            {/* The field reads as a terminal line: a prompt sign, mono text,
+                and a block caret. The caret is ours, not the browser's, so it
+                can be a solid block — it rides a hidden mirror of the typed
+                text, and hands the job back to the native caret whenever the
+                insertion point is not at the end (see `atEnd`). */}
+            <div
+              className="start-prompt"
+              data-empty={displayName === '' ? 'true' : 'false'}
+              data-block-caret={atEnd ? 'true' : 'false'}
+            >
+              <span className="start-prompt-sign" aria-hidden="true">
+                &gt;
+              </span>
+              <input
+                ref={inputRef}
+                type="text"
+                // Belt and braces with the effect above: the browser focuses it
+                // on first paint, the effect takes it back afterwards.
+                autoFocus
+                value={displayName}
+                spellCheck={false}
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                // Room for a full invite URL; names are capped on submit.
+                maxLength={300}
+                placeholder={t('home.roomNamePlaceholder')}
+                onChange={(event) => {
+                  setDisplayName(event.target.value);
+                  setError(null);
+                }}
+                aria-label={t('home.roomName')}
+                onSelect={syncCaret}
+                onKeyUp={syncCaret}
+                onClick={syncCaret}
+                onFocus={syncCaret}
+              />
+              {/* Same font, same size, never seen: its width is where the
+                  typed text ends, and so where the block belongs. */}
+              <span className="start-mirror" aria-hidden="true" ref={mirrorRef}>
+                {displayName}
+              </span>
+              <span className="start-caret" aria-hidden="true" style={{ left: `${caretX}px` }} />
+            </div>
             <button type="submit" disabled={creating}>
               {creating ? t('home.creating') : invite ? t('home.join') : t('home.create')}
             </button>
