@@ -146,6 +146,20 @@ so. The displaced tool keeps running and its row in the shelf still says
 it is on, but the room is not told which one it is looking at. If your
 tool has a stage, expect to share it.
 
+And expect it never to be drawn at all. A participant may refuse to take
+part in what the room puts on, and that refusal is theirs alone: neither
+your `Stage` nor your shelf panel is mounted for them, while the room's
+state goes on existing and reaching everyone, this tool included. So
+nothing your tool needs may live in the lifecycle of those components —
+no timer it counts on, no work it only does on mount, nothing kept
+between renders that cannot be rebuilt from `state`. The value is the
+tool; the views are one way of drawing it, for the people who want it
+drawn.
+
+Refusal touches neither `state` nor `setState`. The tool stays on for the
+room, and the shelf key stays lit for the person who refused — turning it
+off would lock the door from outside, and they may change their mind.
+
 ## When a tool needs the app
 
 One shared value and your own two components cover more than it sounds
