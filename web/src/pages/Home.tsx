@@ -261,16 +261,19 @@ export default function HomePage() {
 
           {/* The second thing to do here, drawn as text: the room comes first. */}
           <DownloadButton />
-
-          {/* Proof of life, and the only number on the page: rooms that
-              happened. Absent until it has one to show — a counter reading
-              zero is worse than no counter. */}
-          {rooms !== null && rooms > 0 ? (
-            <p className="start-count">
-              {t('home.rooms', { count: rooms, total: new Intl.NumberFormat(locale).format(rooms) })}
-            </p>
-          ) : null}
         </div>
+
+        {/* Proof of life, and the only number on the page: rooms that
+            happened. It sits with the footer, not with the button — the
+            middle of this screen is for opening a room, and a statistic
+            there would be the page talking about itself while someone is
+            trying to type. Absent until it has one to show: a counter
+            reading zero is worse than no counter. */}
+        {rooms !== null && rooms > 0 ? (
+          <p className="start-count">
+            {t('home.rooms', { count: rooms, total: new Intl.NumberFormat(locale).format(rooms) })}
+          </p>
+        ) : null}
 
         <footer className="start-foot">
           <Link to="/how-it-works">{t('how.link')}</Link>

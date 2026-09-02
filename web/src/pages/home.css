@@ -309,15 +309,28 @@
 }
 
 /*
- * The count of rooms that happened: the quietest thing on the screen, under
- * the download line. Tabular figures so it does not jitter when it grows.
+ * The count of rooms that happened: the quietest thing on the screen, a line
+ * above the footer's own line. Tabular figures so it does not jitter when it
+ * grows, and it arrives on the footer's clock — it is one of those, not a
+ * fifth thing under the button.
  */
 .start-count {
+  margin: 0 0 0.75rem;
+  text-align: center;
   color: var(--muted);
   font-size: 0.78rem;
   opacity: 0.75;
   font-variant-numeric: tabular-nums;
   animation: fade-in 0.6s var(--ease) both;
+}
+
+/*
+ * The link is the second thing to do here, so it sits off on its own: the
+ * same air the mark keeps above the field (the column gap plus the form's
+ * own margin) opens again under the button.
+ */
+.start-center > .download-button {
+  margin-top: 0.75rem;
 }
 
 /* A line of text under the lit button: present, secondary. */
