@@ -3,7 +3,7 @@ import type { Catalog } from '..';
 export const esES: Catalog = {
   'app.name': 'Freecord',
   'app.tagline':
-    'Voz, vídeo, chat y pantalla en una malla P2P. Sin servidor de medios en medio.',
+    'Voz, vídeo, chat y pantalla sobre una malla P2P. Sin servidor de medios en medio, sin cuenta, sin truco.',
   'app.buildInfo': 'Versión {version} · build {build}',
 
   'desktop.window.room': 'Sala',
@@ -25,19 +25,19 @@ export const esES: Catalog = {
   'home.roomName': 'Nombre de la sala',
   'home.roomNamePlaceholder': 'Nombre de la sala — o pega un enlace de invitación',
   'home.create': 'Crear sala',
-  'home.creating': 'Creando…',
-  'home.createFailed': 'No se pudo crear la sala. Inténtalo de nuevo.',
+  'home.creating': 'Levantándola…',
+  'home.createFailed': 'La sala se negó a arrancar. Prueba otra vez.',
   'home.join': 'Entrar a la sala',
-  'home.joinHint': 'Enlace de invitación — el botón te lleva a esa sala.',
+  'home.joinHint': 'Eso es un enlace de invitación — el botón te mete directo.',
   'home.invalidInvite':
-    'Eso parece un enlace de invitación, pero está incompleto. Pega el enlace entero.',
+    'Eso es medio enlace de invitación. Pégalo entero, con # incluido — la clave de la sala vive después del #.',
   'home.community': 'Comunidad',
 
   'home.hero.titleA': 'Una sala es',
   'home.hero.titleB': 'solo un enlace.',
   'home.footer.downloads': 'Descargas',
 
-  'home.card.hint': 'El enlace es la invitación.',
+  'home.card.hint': 'El enlace es la invitación. Esa es toda la capa de autenticación.',
 
   'how.link': 'Cómo funciona',
   'how.title': 'Cómo funciona Freecord',
@@ -47,7 +47,7 @@ export const esES: Catalog = {
   'how.steps.title': 'Tres pasos',
   'how.step.create.title': 'Crea la sala',
   'how.step.create.body':
-    'Ponle nombre o no. Recibes un enlace que nadie puede adivinar, y nada más: sin cuenta, sin correo, sin contraseña.',
+    'Ponle nombre o no. Recibes un enlace que nadie puede adivinar, y nada más: sin cuenta, sin correo, sin contraseña que olvidar.',
   'how.step.share.title': 'Comparte el enlace',
   'how.step.share.body':
     'El enlace es la invitación y la credencial. Quien lo tiene, entra. La clave del chat viaja en la parte de la URL después del #, que los navegadores nunca envían a un servidor.',
@@ -71,57 +71,60 @@ export const esES: Catalog = {
 
   'how.limits.title': 'Las reglas que sigue la sala',
   'how.limits.body':
-    'Veinte personas por sala. Una sala vacía se cierra a los quince minutos. Un navegador que se calla treinta y cinco segundos pierde su sitio, para que una pestaña colgada no lo ocupe para siempre. Por encima de veinte la malla deja de ser la respuesta honesta: el siguiente paso es un nodo de medios propio, como la pantalla compartida ya retransmite entre pares.',
+    'Veinte personas por sala. Una sala vacía se cierra a los quince minutos. Un navegador que se queda callado treinta y cinco segundos pierde su sitio, para que una pestaña colgada no lo ocupe para siempre. Por encima de veinte la malla deja de ser la respuesta honesta: el siguiente paso es un nodo de medios propio, igual que la pantalla compartida ya se retransmite entre pares.',
 
-  'how.run.title': 'Ejecútalo tú mismo',
+  'how.run.title': 'Monta la tuya',
   'how.run.body':
-    'Node 20 y dos comandos. Sin cuenta, sin clave de API, sin nada que firmar: el mismo protocolo corre en un portátil y en Cloudflare Workers.',
+    'Node 20 y dos comandos. Sin cuenta, sin clave de API, sin nada que firmar: el mismo protocolo corre en tu portátil y en Cloudflare Workers, y ninguno de los dos nota la diferencia.',
   'how.run.copy': 'Copiar comandos',
   'how.run.copied': '¡Copiado!',
   'how.more.start': 'Crear una sala',
 
   'invite.copy': 'Invitar',
-  'invite.copied': '¡Enlace copiado!',
+  'invite.copied': '¡Copiado! Ve a pegarlo por ahí.',
   'invite.manualCopy': 'Copia el enlace de la sala:',
 
   'prejoin.title': 'Entrar en {room}',
   'prejoin.yourName': 'Tu nombre',
-  'prejoin.yourNamePlaceholder': '¿Cómo te llamamos?',
+  'prejoin.yourNamePlaceholder': 'Cualquier alias vale — nadie lo comprueba',
   'prejoin.mic': 'Micrófono',
   'prejoin.cam': 'Cámara',
-  'prejoin.shuffle': 'Otro nombre',
+  'prejoin.shuffle': 'Otro nombre al azar',
   'prejoin.join': 'Entrar',
-  'prejoin.notFound': 'Esta sala ya no existe.',
-  'prejoin.loadFailed': 'No se pudo cargar la sala.',
+  'prejoin.notFound': 'Esta sala ya no está.',
+  'prejoin.loadFailed': 'La sala no cargó.',
   'prejoin.backHome': 'Volver al inicio',
 
   'prejoin.notFoundTitle': 'Sala no encontrada',
-  'prejoin.notFoundBody': 'Puede que el enlace haya caducado: las salas vacías se cierran solas.',
+  'prejoin.notFoundBody':
+    'El enlace puede haber caducado — una sala vacía pasa por el recolector de basura a los quince minutos.',
   'prejoin.createNew': 'Crear una sala nueva',
-  'prejoin.errorTitle': 'Algo salió mal',
-  'prejoin.errorBody': 'No se pudo cargar la sala. Prueba a recargar la página.',
-  'prejoin.empty': 'Todavía no hay nadie: sé la primera persona en entrar.',
+  'prejoin.errorTitle': 'Pues se ha roto',
+  'prejoin.errorBody':
+    'La sala no cargó. Recarga la página — lo arregla más veces de las que nos gustaría admitir.',
+  'prejoin.empty': 'Todavía no hay nadie: serías el proceso 1.',
   'prejoin.inRoom': { one: '{count} persona en la sala.', other: '{count} personas en la sala.' },
   'prejoin.joinRoom': 'Entrar en la sala',
   'prejoin.renameRoom': 'Renombrar la sala',
-  'prejoin.renameFailed': 'No se pudo renombrar la sala.',
+  'prejoin.renameFailed': 'El nombre nuevo no cuajó. Inténtalo otra vez.',
 
-  'room.loading': 'Cargando sala…',
-  'room.connecting': 'Conectando a la sala…',
+  'room.loading': 'Arrancando la sala…',
+  'room.connecting': 'Intercambiando candidatos ICE…',
   'room.participants': { one: '{count} participante', other: '{count} participantes' },
   'room.unnamed': 'Sala sin nombre',
   'room.you': 'tú',
   'room.someone': 'Alguien',
-  'room.micMuted': 'Micrófono desactivado',
-  'room.deafened': 'Altavoces apagados — no está escuchando',
-  'room.leftTitle': 'Has salido de la sala',
-  'room.endedFull': 'La sala está llena (máximo 20 personas).',
-  'room.endedNotFound': 'La sala ya no existe.',
-  'room.endedClosed': 'Se perdió la conexión con la sala.',
+  'room.micMuted': 'Micro apagado',
+  'room.deafened': 'Altavoces apagados — no oyes nada',
+  'room.leftTitle': 'Has salido de la sala. o7',
+  'room.endedFull':
+    'La sala está llena — veinte es el tope. Más allá, una malla deja de ser honesta.',
+  'room.endedNotFound': 'Esta sala ya no está. Las salas vacías se cierran solas.',
+  'room.endedClosed': 'Se cayó la conexión con la sala. Pasa; el enlace sigue valiendo.',
   'room.seatsAria': 'Asientos: {count} de {max} ocupados',
-  'room.camSlotsFull': 'Las cámaras están completas por ahora — el audio sigue libre',
+  'room.camSlotsFull': 'No quedan plazas de cámara — el audio nunca se acaba',
   'room.camDenied':
-    'No hay hueco de cámara libre ahora mismo. La tuya podrá encenderse cuando alguien apague la suya.',
+    'Ahora mismo no hay ninguna plaza de cámara libre. La tuya entra en cuanto alguien apague la suya.',
 
   'screen.yours': 'Tu pantalla',
   'screen.of': 'Pantalla de {name}',
@@ -135,11 +138,11 @@ export const esES: Catalog = {
 
   'quality.title': 'Calidad de la pantalla',
   'quality.sharp.label': 'Nítida',
-  'quality.sharp.hint': 'Código y texto — 1080p a 15 fps, nunca se difumina',
+  'quality.sharp.hint': 'Para leer código — 1080p a 15 fps, cada punto y coma legible',
   'quality.balanced.label': 'Equilibrada',
-  'quality.balanced.hint': 'Predeterminada — 1080p a 30 fps',
+  'quality.balanced.hint': 'La de por defecto — 1080p a 30 fps',
   'quality.smooth.label': 'Fluida',
-  'quality.smooth.hint': 'Vídeo y juegos — 720p a 60 fps, prioriza el movimiento',
+  'quality.smooth.hint': 'Para demos y juegos — 720p a 60 fps, movimiento antes que píxeles',
 
   'settings.title': 'Ajustes de la llamada',
   'controls.settings': 'Ajustes de la llamada',
@@ -149,31 +152,36 @@ export const esES: Catalog = {
   'settings.tab.general': 'General',
   'settings.screenAudio.title': 'Audio del ordenador',
   'settings.mic.profile': 'Perfil del micrófono',
-  'settings.language.hint': 'Se aplica al instante y se recuerda en este dispositivo.',
+  'settings.language.hint':
+    'Se aplica al momento y se queda en este dispositivo. Sin recargar, sin reiniciar.',
   'settings.about.title': 'Acerca de',
   'settings.close': 'Cerrar ajustes',
   'settings.sounds.title': 'Sonidos',
   'settings.sounds.label': 'Efectos de sonido',
-  'settings.sounds.hint': 'Avisos de mensajes nuevos y de gente que entra y sale.',
+  'settings.sounds.hint': 'Un bip cuando llega un mensaje y cuando alguien entra.',
   'settings.desktop.title': 'Aplicación de escritorio',
-  'settings.desktop.hint': 'Las mismas salas en una ventana propia, con la descarga para este ordenador.',
+  'settings.desktop.hint':
+    'Las mismas salas en una ventana propia, con selector de pantalla nativo y la descarga para este ordenador.',
   'settings.screenAudio.label': 'Compartir el audio del equipo',
-  'settings.screenAudio.hint': 'El sonido del sistema o de la pestaña sale junto con la pantalla — desde la próxima vez que compartas',
+  'settings.screenAudio.hint':
+    'El sonido del sistema o de la pestaña viaja con tu pantalla — a partir del próximo compartido, no de este',
   'settings.mic.title': 'Micrófono',
   'settings.mic.voice.label': 'Voz',
-  'settings.mic.voice.hint': 'Limpia el ambiente: eco y ruido eliminados, volumen nivelado',
+  'settings.mic.voice.hint':
+    'Limpia tu habitación: sin eco, sin ruido de ventilador, volumen nivelado',
   'settings.mic.music.label': 'Estudio',
-  'settings.mic.music.hint': 'Estéreo sin filtros a bitrate alto — música e instrumentos, usa auriculares',
+  'settings.mic.music.hint':
+    'Estéreo crudo a bitrate alto — música e instrumentos. Ponte auriculares, salvo que te guste el acople.',
   'settings.mic.echoCancellation': 'Cancelación de eco',
   'settings.mic.noiseSuppression': 'Supresión de ruido',
   'settings.mic.autoGainControl': 'Volumen automático',
   'settings.camera.title': 'Cámara',
   'settings.camera.eco.label': 'Ahorro',
-  'settings.camera.eco.hint': 'Ahorra datos — hasta 360p a 20 fps',
+  'settings.camera.eco.hint': 'Para el wifi del hotel — hasta 360p a 20 fps',
   'settings.camera.standard.label': 'Estándar',
-  'settings.camera.standard.hint': 'Hasta 720p a 30 fps — la predeterminada',
+  'settings.camera.standard.hint': 'Hasta 720p a 30 fps — la sensata',
   'settings.camera.high.label': 'Alta',
-  'settings.camera.high.hint': 'Hasta 1080p a 30 fps — exige buena conexión',
+  'settings.camera.high.hint': 'Hasta 1080p a 30 fps — trae una conexión de verdad',
   'settings.device.mic': 'Dispositivo del micrófono',
   'settings.device.speaker': 'Salida de sonido',
   'settings.device.default': 'Predeterminado del sistema',
@@ -188,8 +196,8 @@ export const esES: Catalog = {
   'controls.camOn': 'Encender cámara',
   'controls.shareScreen': 'Compartir pantalla',
   'controls.stopSharing': 'Dejar de compartir',
-  'controls.someoneSharing': 'Otra persona ya está compartiendo su pantalla',
-  'controls.screensFull': 'Las tres pantallas ya están en uso',
+  'controls.someoneSharing': 'Ahora mismo la pantalla la tiene otra persona',
+  'controls.screensFull': 'Las tres plazas de pantalla están ocupadas — tres es el límite',
   'layout.spotlight': 'Destacado',
   'layout.grid': 'Cuadrícula',
   'controls.layout': 'Diseño: {name}. Pulsa L para cambiar',
@@ -204,13 +212,12 @@ export const esES: Catalog = {
   'controls.dock': 'Controles de la llamada',
 
   'chat.title': 'Chat de la sala',
-  'chat.empty': 'Aún no hay mensajes. Saluda 👋',
+  'chat.empty': 'Aún no hay mensajes. Bip bop — saluda 👋',
   'chat.noKey':
-    'No tienes la clave de esta sala, así que no puedes enviar mensajes. Pide el enlace de invitación original: la clave forma parte de él.',
-  'chat.locked':
-    'Cifrado — no tienes la clave de esta sala',
+    'Tu enlace vino sin la clave de esta sala, así que no puede salir nada. Pide el enlace original a quien te invitó — la clave viaja después del # y nunca llega a un servidor.',
+  'chat.locked': 'Cifrada — y tu enlace vino sin la clave',
   'chat.messageLabel': 'Mensaje del chat',
-  'chat.placeholder': 'Mensaje…',
+  'chat.placeholder': 'Mensaje… el markdown funciona',
   'chat.send': 'Enviar mensaje',
   'chat.toolbar': 'Formato del mensaje',
   'chat.unread': { one: 'mensaje nuevo', other: 'mensajes nuevos' },
@@ -229,9 +236,9 @@ export const esES: Catalog = {
   'chat.jumpToLatest': 'Ir a los mensajes nuevos',
 
   'file.attach': 'Enviar un archivo',
-  'file.direct': 'Va directo a la otra persona, nunca pasa por un servidor',
-  'file.noPeers': 'Todavía no hay nadie más en la sala.',
-  'file.tooLarge': 'Se pueden enviar archivos de hasta {max}.',
+  'file.direct': 'Va directo por un canal de datos — sin servidor, sin subida, sin bucket',
+  'file.noPeers': 'Todavía no hay nadie aquí a quien mandárselo.',
+  'file.tooLarge': 'Hasta {max} por archivo — más allá el navegador se rinde.',
   'file.offer': '{name} quiere enviarte un archivo',
   'file.to': 'para {name}',
   'file.accept': 'Aceptar',
@@ -239,14 +246,14 @@ export const esES: Catalog = {
   'file.cancel': 'Cancelar',
   'file.save': 'Guardar',
   'file.dismiss': 'Descartar',
-  'file.status.pending': 'Esperando a que {name} acepte…',
+  'file.status.pending': 'Esperando a {name}…',
   'file.status.sending': 'Enviando… {percent}%',
   'file.status.receiving': 'Recibiendo… {percent}%',
   'file.status.sent': 'Enviado',
   'file.status.received': 'Recibido',
   'file.status.declined': 'Rechazado',
   'file.status.cancelled': 'Cancelado',
-  'file.status.failed': 'La transferencia falló: la otra persona salió o se cayó la conexión.',
+  'file.status.failed': 'Falló la transferencia — la otra persona se fue, o se cayó la conexión.',
   'file.preview': 'Abrir imagen a tamaño real',
   'file.closePreview': 'Cerrar imagen',
   'file.toMany': { one: 'para {count} persona', other: 'para {count} personas' },
@@ -295,13 +302,12 @@ export const esES: Catalog = {
   'community.contribute.title':
     'Contribuye',
   'community.contribute.body':
-    'Node 20 y dos comandos: esa es toda la preparación, sin cuenta, sin clave de API, sin nada que firmar. Elige algo pequeño, pasa el typecheck y los tests, abre un pull request.',
+    'Node 20 y dos comandos es toda la instalación — sin cuenta, sin clave de API, sin registrarse en nada. Coge algo pequeño, pasa el comprobador de tipos y los tests, abre un pull request.',
   'community.contribute.guide':
     'Guía de contribución',
   'community.contribute.conduct':
     'Código de conducta',
-  'community.issues.title':
-    '¿Encontraste un fallo? ¿Quieres algo?',
+  'community.issues.title': '¿Has encontrado un fallo? ¿Quieres algo?',
   'community.issues.body':
     'Las issues sirven para ambas cosas. En una app en tiempo real el contexto vale más que una traza: dinos tu navegador, cuánta gente había en la sala, si alguien compartía pantalla y si alguno de los lados estaba tras una VPN o una red corporativa.',
   'community.issues.report':
@@ -348,8 +354,7 @@ export const esES: Catalog = {
     'Da permiso de ejecución al AppImage antes de abrirlo: chmod +x freecord-linux-x86_64.AppImage',
   'download.macOtherConfident':
     '¿Tu Mac es del otro tipo?',
-  'download.macOtherUnsure':
-    'No pudimos identificar tu Mac.',
+  'download.macOtherUnsure': 'Tu Mac se ha negado a decir cuál es.',
   'download.macOtherArm':
     'Descargar la versión Apple Silicon',
   'download.macOtherIntel':
