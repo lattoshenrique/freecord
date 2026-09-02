@@ -15,7 +15,7 @@
  *    cached answer there is a wrong answer with no error attached, and
  *    `/api/sources` answers `no-store` on purpose: what somebody is about to
  *    watch is the one thing this project promises not to keep.
- * 2. **Cross-origin requests pass straight through.** The video tools load
+ * 2. **Cross-origin requests pass straight through.** The watch tool loads
  *    YouTube's iframe API, embeds and thumbnails from origins we do not
  *    version; freezing any of those in a cache of ours breaks them in a way
  *    nobody would think to blame on this file.

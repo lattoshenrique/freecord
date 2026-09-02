@@ -70,7 +70,7 @@ export const ptBR: Catalog = {
 
   'how.mesh.title': 'A mídia nunca toca o nosso servidor',
   'how.mesh.body':
-    'Voz, vídeo e tela fluem de navegador para navegador por WebRTC nativo, criptografados fim a fim. O nosso servidor apresenta os navegadores uns aos outros e guarda a lista de quem está na sala — não existe servidor de mídia para bisbilhotar, nem conta para pagar por ele. Uma coisa a mais, e só quando alguém pede: cole uma página na ferramenta de vídeo e o servidor abre aquela página uma vez, lê na marcação o que dá para tocar, responde e não guarda nada. Nem aí passa mídia por ele — cada navegador busca o vídeo onde ele mora. Uma rede restritiva demais para conexão direta precisaria de um relay TURN; não mantemos nenhum, então essas poucas conexões falham em vez de passar caladas por um terceiro.',
+    'Voz, vídeo e tela fluem de navegador para navegador por WebRTC nativo, criptografados fim a fim. O nosso servidor apresenta os navegadores uns aos outros e guarda a lista de quem está na sala — não existe servidor de mídia para bisbilhotar, nem conta para pagar por ele. Uma coisa a mais, e só quando alguém pede: cole uma página em Assistir juntos e o servidor abre aquela página uma vez, lê na marcação o que dá para tocar, responde e não guarda nada. Nem aí passa mídia por ele — cada navegador busca o vídeo onde ele mora. Uma rede restritiva demais para conexão direta precisaria de um relay TURN; não mantemos nenhum, então essas poucas conexões falham em vez de passar caladas por um terceiro.',
   'how.diagram.media': 'Voz, vídeo e tela: direto entre os navegadores',
   'how.diagram.signaling': 'Pelo servidor, só a sinalização: quem está na sala e como alcançar cada um',
 
@@ -406,7 +406,7 @@ export const ptBR: Catalog = {
   'community.promise.vendor.title':
     'Sem fornecedor, sem SDK',
   'community.promise.vendor.body':
-    'Nenhum fornecedor de mídia e nenhum SDK de terceiro. O protocolo inteiro está no repositório e tudo roda em infraestrutura gratuita. A única exceção possível é o TURN, opcional: um relay para redes que bloqueiam conexão direta — ele repassa tráfego cifrado que não consegue ler, e hospedar o seu é mudança de uma linha. Este serviço não tem nenhum configurado hoje. O outro lado, dito na cara: quando a ferramenta de vídeo não consegue mais do que colocar a página de outra pessoa na tela, essa página carrega no navegador de todo mundo aqui e roda os scripts dela, e o site do outro lado enxerga a conexão de cada um como qualquer site enxergaria. Uma chave nas suas configurações e nada disso carrega para você — a sala continua assistindo sem você.',
+    'Nenhum fornecedor de mídia e nenhum SDK de terceiro. O protocolo inteiro está no repositório e tudo roda em infraestrutura gratuita. A única exceção possível é o TURN, opcional: um relay para redes que bloqueiam conexão direta — ele repassa tráfego cifrado que não consegue ler, e hospedar o seu é mudança de uma linha. Este serviço não tem nenhum configurado hoje. O outro lado, dito na cara: quando Assistir juntos não consegue mais do que colocar a página de outra pessoa na tela, essa página carrega no navegador de todo mundo aqui e roda os scripts dela, e o site do outro lado enxerga a conexão de cada um como qualquer site enxergaria. Uma chave nas suas configurações e nada disso carrega para você — a sala continua assistindo sem você.',
   'community.source.title':
     'Leia o código',
   'community.source.body':
