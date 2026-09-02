@@ -16,10 +16,11 @@
  */
 import type { ToolRoomState } from '../lib/use-room';
 import type { RegisteredTool } from './contract';
+import { spotifyTool } from './spotify';
 import { videoTool } from './video';
 import { youtubeTool } from './youtube';
 
-export const TOOLS: readonly RegisteredTool[] = [youtubeTool, videoTool];
+export const TOOLS: readonly RegisteredTool[] = [youtubeTool, videoTool, spotifyTool];
 
 /**
  * Whether the room has any of THIS build's tools going. A peer on a
