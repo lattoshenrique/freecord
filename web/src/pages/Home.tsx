@@ -133,7 +133,7 @@ export default function HomePage() {
         <div className="start-center">
           {/* Mark and name together: the title of the screen, and all of it. */}
           <h1 className="start-brand">
-            <Brand size={88} march />
+            <Brand size={64} march />
           </h1>
 
           <form className="start-form" onSubmit={handleSubmit}>
