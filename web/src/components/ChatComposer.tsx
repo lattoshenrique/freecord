@@ -11,6 +11,7 @@ import {
 } from 'react';
 import { useI18n, type MessageKey } from '../i18n';
 import type { ChatQuote } from '../lib/chat-body';
+import { MOTION, usePresence } from '../lib/motion';
 import { applyMarkdown, type MarkdownAction, type Placeholders } from '../lib/markdown-edit';
 import EmojiPicker from './EmojiPicker';
 import {
@@ -144,6 +145,16 @@ export default function ChatComposer({
   // The formatting row is a mode, not furniture: off until asked for, so the
   // composer opens as one line — attach, message, emoji, send.
   const [formatOpen, setFormatOpen] = useState(false);
+  // Both of these close by being taken out of the page, so both are held
+  // back for the length of their way out (lib/motion.ts). The strip is drawn
+  // from the last quote there was: by the time it is leaving the reply has
+  // already been cancelled, and a strip that empties as it goes is a flicker.
+  const emojiPresence = usePresence(emojiOpen, MOTION.quick);
+  const replyPresence = usePresence(quote !== null, MOTION.quick);
+  const lastQuote = useRef<ChatQuote | null>(quote);
+  if (quote) {
+    lastQuote.current = quote;
+  }
 
   // Opening the chat is opening the keyboard: the field takes focus at once,
   // and again when a reply is picked, so "Reply" lands the caret ready to type.
@@ -314,12 +325,18 @@ export default function ChatComposer({
 
   return (
     <div className="chat-composer">
-      {quote && (
-        <div className="chat-reply-strip" role="status">
+      {replyPresence.mounted && lastQuote.current && (
+        <div
+          className="chat-reply-strip"
+          role="status"
+          data-leaving={replyPresence.leaving ? 'true' : undefined}
+        >
           <ReplyIcon />
           <div className="chat-reply-body">
-            <span className="chat-reply-name">{t('chat.replyingTo', { name: quote.name })}</span>
-            <span className="chat-reply-text">{quote.text}</span>
+            <span className="chat-reply-name">
+              {t('chat.replyingTo', { name: lastQuote.current.name })}
+            </span>
+            <span className="chat-reply-text">{lastQuote.current.text}</span>
           </div>
           <button
             type="button"
@@ -377,7 +394,9 @@ export default function ChatComposer({
           >
             <EmojiIcon />
           </button>
-          {emojiOpen && <EmojiPicker onPick={insertEmoji} />}
+          {emojiPresence.mounted && (
+            <EmojiPicker onPick={insertEmoji} leaving={emojiPresence.leaving} />
+          )}
         </div>
         {formatOpen &&
           TOOL_GROUPS.map((group, index) => (
@@ -390,7 +409,7 @@ export default function ChatComposer({
                   <button
                     key={action}
                     type="button"
-                    className="chat-tool"
+                    className="chat-tool chat-tool-format"
                     title={shortcut ? `${label} (${shortcut}) · ${sample}` : `${label} · ${sample}`}
                     aria-label={label}
                     // mousedown would steal focus from the textarea, and the selection with it.

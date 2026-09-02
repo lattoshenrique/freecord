@@ -193,6 +193,10 @@ button.tool-head:focus-visible .tool-name {
  * stay where they were when you picked one. Nothing to mark when the
  * build ships a single tool — there was no choice to record.
  */
+.tool-card {
+  transition: box-shadow var(--dur-quick, 0.15s) ease;
+}
+
 .tool-card.is-open:not(.is-only) {
   box-shadow: inset 2px 0 0 var(--accent, #5b8cff);
 }
@@ -266,6 +270,8 @@ button.tool-head:focus-visible .tool-name {
   letter-spacing: var(--track-label);
   text-transform: uppercase;
   white-space: nowrap;
+  /* The room started this tool a moment ago: the chip arrives with it. */
+  animation: chip-in var(--dur-pop, 0.22s) var(--ease, ease) both;
 }
 
 .tool-live::before {
@@ -283,6 +289,20 @@ button.tool-head:focus-visible .tool-name {
   flex-direction: column;
   gap: 0.5rem;
   padding: 0.15rem 0.9rem 0.9rem;
+  /* Picking a row opens its frame under it: the controls unfold out of the
+     row instead of the shelf suddenly being taller. */
+  animation: tool-panel-in var(--dur-pop, 0.22s) var(--ease, ease) both;
+}
+
+@keyframes tool-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .tool-label {
@@ -363,7 +383,9 @@ button.tool-head:focus-visible .tool-name {
   transition:
     background 0.15s ease,
     color 0.15s ease,
-    border-color 0.15s ease;
+    border-color 0.15s ease,
+    filter 0.15s ease,
+    opacity var(--dur-pop, 0.22s) ease;
 }
 
 .tool-open {
@@ -400,6 +422,8 @@ button.tool-head:focus-visible .tool-name {
   font-size: 0.74rem;
   line-height: 1.4;
   color: var(--danger, #e5484d);
+  /* Something went wrong just now — it arrives, it was not always there. */
+  animation: bubble-in var(--dur-pop, 0.22s) var(--ease, ease) both;
 }
 
 /* A phone: the shelf spans the dock's width and stands a little taller. */
@@ -411,7 +435,8 @@ button.tool-head:focus-visible .tool-name {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .tools-menu {
+  .tools-menu,
+  .tool-panel {
     animation: none;
   }
 }

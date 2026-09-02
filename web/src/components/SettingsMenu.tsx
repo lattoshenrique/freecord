@@ -195,6 +195,7 @@ export default function SettingsMenu({
   audioDevices,
   onAudioDevices,
   onClose,
+  leaving,
 }: {
   screenQuality: ScreenQualityId;
   onScreenQuality: (id: ScreenQualityId) => void;
@@ -206,6 +207,8 @@ export default function SettingsMenu({
   audioDevices?: AudioDevicePrefs;
   onAudioDevices?: (next: AudioDevicePrefs) => void;
   onClose: () => void;
+  /** On its way out: drawn for the length of the animation, and inert. */
+  leaving?: boolean;
 }) {
   const { t, locale, setLocale } = useI18n();
   const titleId = useId();
@@ -453,7 +456,7 @@ export default function SettingsMenu({
   })();
 
   return createPortal(
-    <div className="settings-backdrop" onClick={onClose}>
+    <div className="settings-backdrop" data-leaving={leaving ? 'true' : undefined} onClick={onClose}>
       <div
         ref={dialogRef}
         className="settings-dialog"

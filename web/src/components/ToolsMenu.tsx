@@ -36,6 +36,7 @@ export default function ToolsMenu({
   speakerOn,
   onSetState,
   onDismiss,
+  leaving,
 }: {
   /** What each tool has going right now, by tool id. */
   tools: ReadonlyMap<string, ToolRoomState>;
@@ -46,6 +47,8 @@ export default function ToolsMenu({
   speakerOn: boolean;
   onSetState: (tool: string, state: unknown) => void;
   onDismiss: () => void;
+  /** On its way out: drawn for the length of the animation, and inert. */
+  leaving?: boolean;
 }) {
   const { t } = useI18n();
   // With more than one tool the shelf opens on whichever is already
@@ -73,8 +76,20 @@ export default function ToolsMenu({
         title, and a second "close menu" in the tree only makes those two
         harder to tell apart.
       */}
-      <div className="menu-backdrop" aria-hidden onClick={onDismiss} />
-      <div className="tools-menu" role="dialog" aria-label={t('tools.title')}>
+      {/* Inert the moment the shelf starts to leave: for those few frames
+          the backdrop is over the dock with nothing left to dismiss. */}
+      <div
+        className="menu-backdrop"
+        data-leaving={leaving ? 'true' : undefined}
+        aria-hidden
+        onClick={onDismiss}
+      />
+      <div
+        className="tools-menu"
+        role="dialog"
+        aria-label={t('tools.title')}
+        data-leaving={leaving ? 'true' : undefined}
+      >
         <header className="tools-header">
           <h2 className="tools-title">{t('tools.title')}</h2>
           <button

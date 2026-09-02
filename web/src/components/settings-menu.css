@@ -23,6 +23,16 @@
   animation: fade-in 0.2s var(--ease, ease) both;
 }
 
+/* The dialog leaves before its backdrop does, so the room comes back
+   underneath something that is already on its way out. */
+.settings-backdrop[data-leaving='true'] {
+  animation: fade-out var(--dur-panel, 0.26s) var(--ease-in, ease) both;
+}
+
+.settings-backdrop[data-leaving='true'] .settings-dialog {
+  animation: fall-out var(--dur-quick, 0.15s) var(--ease-in, ease) both;
+}
+
 .settings-dialog {
   display: grid;
   grid-template-columns: 13rem minmax(0, 1fr);

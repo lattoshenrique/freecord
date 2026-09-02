@@ -17,10 +17,22 @@ const EMOJI = [
   '🎮', '💻', '🐶', '🐱', '🌙', '🌈', '🌹', '😜',
 ];
 
-export default function EmojiPicker({ onPick }: { onPick: (emoji: string) => void }) {
+export default function EmojiPicker({
+  onPick,
+  leaving,
+}: {
+  onPick: (emoji: string) => void;
+  /** On its way out: drawn for the length of the animation, and inert. */
+  leaving?: boolean;
+}) {
   const { t } = useI18n();
   return (
-    <div className="chat-emoji-pop" role="group" aria-label={t('chat.emoji')}>
+    <div
+      className="chat-emoji-pop"
+      role="group"
+      aria-label={t('chat.emoji')}
+      data-leaving={leaving ? 'true' : undefined}
+    >
       {EMOJI.map((emoji) => (
         <button
           key={emoji}

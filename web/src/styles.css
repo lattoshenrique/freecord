@@ -14,6 +14,21 @@
   --shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
   /*
+   * The room's motion, written down once.
+   *
+   * `--ease` is the way in: it overshoots nothing and settles long, which is
+   * what makes something arriving look like it was placed rather than
+   * dropped. `--ease-in` is the way out — the mirror of it, so leaving is
+   * the entrance run backwards and not a second, unrelated gesture. Three
+   * durations cover the room: a key lighting up, something small arriving,
+   * and a whole panel. Their milliseconds are also in lib/motion.ts, which
+   * is where the timers that keep a leaving panel mounted live.
+   */
+  --ease-in: cubic-bezier(0.64, 0, 0.78, 0);
+  --dur-quick: 0.15s;
+  --dur-pop: 0.22s;
+  --dur-panel: 0.26s;
+  /*
    * One family, everywhere: the interface is set in the font its people
    * already have open in their editor. The stack asks for the ones a
    * developer is likely to have installed, then falls back to whatever the
@@ -246,6 +261,85 @@ select:focus-visible,
   to {
     transform: rotate(360deg);
   }
+}
+
+/* A badge, a chip, a key that was not there a frame ago. */
+@keyframes chip-in {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/*
+ * The ways out.
+ *
+ * Each one is the entrance it belongs to, run backwards: what rose falls,
+ * what slid in from the right slides back out of it. Nothing in the room
+ * leaves by simply not being drawn any more — a panel that blinks off reads
+ * as a fault, and by the time the eye has found the gap it has already lost
+ * where the thing went.
+ *
+ * They are driven from React: `usePresence` (lib/motion.ts) keeps the
+ * element mounted for exactly one of these and marks it `data-leaving`.
+ */
+
+@keyframes fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes fall-out {
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+}
+
+@keyframes slide-out-right {
+  to {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+}
+
+@keyframes bubble-out {
+  to {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+/* Like fall-out, but carrying the centring translate through every frame. */
+@keyframes badge-pop-out {
+  to {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.7);
+  }
+}
+
+/* A face that is no longer in the call: it holds its place while it goes. */
+@keyframes tile-out {
+  to {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+
+/*
+ * Nothing on its way out can be clicked, focused or read again: for the
+ * length of the animation it is a picture of what was there.
+ */
+[data-leaving='true'],
+/* Said again for the dock's own children, which are handed their clicks
+   back by `.room-footer > *` — a shelf on its way out must not catch one. */
+.room-footer > [data-leaving='true'] {
+  pointer-events: none;
 }
 
 .fade-in {
@@ -504,7 +598,15 @@ select:focus-visible,
   color: #fff;
   cursor: pointer;
   opacity: 0.55;
-  transition: opacity 0.15s ease, background 0.15s ease;
+  transition:
+    opacity var(--dur-quick) ease,
+    background var(--dur-quick) ease,
+    color var(--dur-quick) ease,
+    transform var(--dur-quick) var(--ease);
+}
+
+.screen-action:active {
+  transform: scale(0.92);
 }
 
 .screen-stage:hover .screen-action,
@@ -623,10 +725,17 @@ select:focus-visible,
      speaking ring for why dropping it from a list is not an option. */
   --tile-enter: rise-in 0.35s var(--ease) both;
   animation: var(--tile-enter);
+  /*
+   * Size and position are not transitioned here on purpose: the grid is laid
+   * out in JS and every tile moves at once, so the move is played as one
+   * inverted transform per tile (lib/motion.ts, useFlip) — a tile that also
+   * transitioned its own width would be answering the same change twice, and
+   * the two curves would fight over the frame.
+   */
   transition:
-    width 0.25s var(--ease),
-    height 0.25s var(--ease),
-    border-color 0.2s ease;
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    opacity var(--dur-pop) ease;
 }
 
 .tile:hover {
@@ -688,6 +797,15 @@ select:focus-visible,
   flex: 0 0 auto;
 }
 
+/* Muted, deafened, pinned: they appear the moment the state does, so they
+   appear as something arriving rather than as a redraw of the label. */
+.tile-pin,
+.tile-mic-off,
+.tile-deafened,
+.tile-screen-badge {
+  animation: chip-in var(--dur-pop) var(--ease) both;
+}
+
 .tile-mic-off {
   display: inline-flex;
   color: #ff8589;
@@ -747,13 +865,22 @@ select:focus-visible,
  * mouth — marked by the Avatar component — opens with the voice: the tile
  * writes the speaker's loudness to the drawing as --mouth (see Tile in
  * RoomView), and the mouth's height follows it, shut between words and
- * wide on a shout. The whole head leans a little while they talk. Only
- * transforms move: the tile keeps its size, and the head's swing stays
- * well inside the frame. The features scale about their own centre
- * (transform-box) so the mouth opens in place instead of sliding off.
+ * wide on a shout. The mascot itself leans a little while they talk, and
+ * only it: the lean is on the group the Avatar component draws the shapes
+ * in, so the frame around the face — border, ground and all — holds still
+ * while its guest moves inside it. Only transforms move: the tile keeps its
+ * size, and the lean stays well inside the frame. The features scale about
+ * their own centre (transform-box) so the mouth opens in place instead of
+ * sliding off.
  */
 .tile[data-speaking='true'] .tile-avatar {
   border-color: var(--accent);
+}
+
+/* The lean, in the drawing's own units (the box is AVATAR_SIZE across), so
+   it scales with the tile the way the face does. */
+.tile[data-speaking='true'] .tile-avatar [data-part='mascot'] {
+  transform-box: fill-box;
   transform-origin: 50% 80%;
   animation: avatar-talking 1.4s ease-in-out infinite;
 }
@@ -1033,9 +1160,20 @@ select:focus-visible,
 }
 
 /* In the strip beside a shared screen the tiles are small: ring only on the
-   tile; the avatar still nods, since that stays inside the frame. */
+   tile; the mascot still nods, since that stays inside the frame. */
 .tiles-strip .tile[data-speaking='true'] {
   animation: var(--tile-enter);
+}
+
+/*
+ * Someone who left. The tile keeps its place for the length of the fade, so
+ * the row reflows once, afterwards, instead of snapping shut under the eye.
+ * Last of the rules that set `animation` on a tile, because it has to win
+ * over the speaking ring: the last word about someone is that they are gone.
+ */
+.tile[data-leaving='true'],
+.tiles-strip .tile[data-leaving='true'] {
+  animation: tile-out var(--dur-pop) var(--ease-in) both;
 }
 
 /*
@@ -1122,6 +1260,10 @@ select:focus-visible,
   animation: slide-in-right 0.3s var(--ease) both;
 }
 
+.chat-panel[data-leaving='true'] {
+  animation: slide-out-right var(--dur-panel) var(--ease-in) both;
+}
+
 .chat-header {
   display: flex;
   align-items: center;
@@ -1194,10 +1336,19 @@ select:focus-visible,
   cursor: pointer;
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
   animation: bubble-in 0.2s var(--ease) both;
+  transition: background var(--dur-quick) ease, transform var(--dur-quick) var(--ease);
+}
+
+.chat-jump[data-leaving='true'] {
+  animation: bubble-out var(--dur-pop) var(--ease-in) both;
 }
 
 .chat-jump:hover {
   background: var(--accent-hover);
+}
+
+.chat-jump:active {
+  transform: scale(0.96);
 }
 
 .chat-empty {
@@ -1364,6 +1515,16 @@ select:focus-visible,
   animation: bubble-in 0.2s var(--ease) both;
 }
 
+.chat-reply-strip[data-leaving='true'] {
+  animation: bubble-out var(--dur-quick) var(--ease-in) both;
+}
+
+/* The formatting row unfolds out of its key rather than appearing whole. */
+.chat-tool-format,
+.chat-toolbar-sep {
+  animation: chip-in var(--dur-pop) var(--ease) both;
+}
+
 .chat-reply-body {
   flex: 1;
   min-width: 0;
@@ -1445,7 +1606,12 @@ select:focus-visible,
   font-family: inherit;
   font-size: 1rem;
   line-height: 1.45;
-  transition: border-color 0.15s ease;
+  /* The height is written from JS on every keystroke: short enough that the
+     field is already there when the next character lands, long enough that
+     a new line unrolls instead of jumping. */
+  transition:
+    border-color var(--dur-quick) ease,
+    height 0.12s var(--ease);
   /* No Windows a barra de rolagem nativa vem com setas nas pontas: a do campo
      é fina e sem botões, e some enquanto o texto ainda cabe (JS alterna). */
   overflow-y: hidden;
@@ -1524,6 +1690,9 @@ select:focus-visible,
   bottom: calc(var(--room-pad) + var(--safe-bottom));
   z-index: 30;
   display: flex;
+  /* A column, because the dock is not always the only thing down here: the
+     camera-denied line sits above the keys rather than beside them. */
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   pointer-events: none;
@@ -1531,6 +1700,29 @@ select:focus-visible,
 
 .room-footer > * {
   pointer-events: auto;
+}
+
+/*
+ * The one line the dock says out loud: the browser refused the camera. It
+ * rides above the keys, in the same glass, and arrives the way the dock did
+ * — a sentence that blinks into the middle of a call reads as an error in
+ * the page rather than as an answer to the key that was just pressed.
+ */
+.cam-denied-note {
+  margin: 0 0 var(--room-pad);
+  max-width: min(28rem, calc(100vw - 2 * var(--room-pad)));
+  padding: 0.45rem 0.75rem;
+  background: var(--hud-bg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(229, 72, 77, 0.45);
+  border-radius: var(--hud-radius);
+  color: #ff8589;
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  line-height: 1.4;
+  text-align: center;
+  animation: rise-in var(--dur-panel) var(--ease) both;
 }
 
 /*
@@ -1589,10 +1781,13 @@ select:focus-visible,
     var(--glass-highlight),
     inset 0 -1px 0 rgba(0, 0, 0, 0.35);
   transition:
-    background 0.15s ease,
-    border-color 0.15s ease,
-    color 0.15s ease,
-    box-shadow 0.15s ease;
+    background var(--dur-quick) ease,
+    border-color var(--dur-quick) ease,
+    color var(--dur-quick) ease,
+    box-shadow var(--dur-quick) ease,
+    /* A key that goes dim — no camera slot left, nothing to share — fades
+       there instead of switching off. */
+    opacity var(--dur-pop) ease;
 }
 
 /*
@@ -1674,7 +1869,9 @@ select:focus-visible,
   width: auto;
   padding: 0 0.95rem 0 0.8rem;
   gap: 0.45rem;
-  background: linear-gradient(135deg, #5865f2, #a855f7);
+  /* Not the gradient: that is the layer over this one, further down, and
+     what is underneath it is the green the key turns once it is copied. */
+  background: rgba(74, 222, 128, 0.18);
   border-color: rgba(168, 85, 247, 0.7);
   color: white;
   font-family: var(--mono);
@@ -1684,15 +1881,53 @@ select:focus-visible,
 }
 
 .control-invite:hover:not(:disabled) {
-  background: linear-gradient(135deg, #6a76ff, #b86bff);
   border-color: #b6bcff;
+}
+
+/*
+ * Copied.
+ *
+ * A gradient cannot be transitioned to a flat colour — the browser has no
+ * frame between the two and simply cuts — so the green is the key's own
+ * background and the brand gradient is a layer over it, which fades. The
+ * same layer is what brightens on hover, since a second gradient would cut
+ * the same way. Everything the eye follows here is opacity and colour.
+ */
+.control-invite::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg, #5865f2, #a855f7);
+  transition:
+    opacity var(--dur-panel) ease,
+    filter var(--dur-quick) ease;
+}
+
+.control-invite:hover:not(:disabled)::before {
+  filter: brightness(1.14);
+}
+
+.control-invite > * {
+  position: relative;
 }
 
 .control-invite.invite-copied,
 .control-invite.invite-copied:hover:not(:disabled) {
+  /* Said again against `.control:hover`, which is a class stronger than the
+     key's own background and would light the copied key white. */
   background: rgba(74, 222, 128, 0.18);
   border-color: #4ade80;
   color: #4ade80;
+}
+
+.control-invite.invite-copied::before {
+  opacity: 0;
+}
+
+/* The mark swaps with the word: the check arrives, it does not replace. */
+.control-invite svg {
+  animation: chip-in var(--dur-pop) var(--ease) both;
 }
 
 .control-leave {
@@ -1908,6 +2143,11 @@ select:focus-visible,
   animation: unread-badge-pop 0.25s var(--ease) both;
 }
 
+/* Read at last: it shrinks back into the key it was sitting on. */
+.chat-unread-badge[data-leaving='true'] {
+  animation: badge-pop-out var(--dur-quick) var(--ease-in) both;
+}
+
 /* ---- markdown dentro da bolha de chat ---- */
 
 .chat-md > :first-child {
@@ -2106,6 +2346,31 @@ select:focus-visible,
   border-radius: 14px;
   box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45);
   z-index: 20;
+  /* It opens upwards, out of the key that was pressed. */
+  transform-origin: bottom right;
+  animation: pop-up var(--dur-pop) var(--ease) both;
+}
+
+.chat-emoji-pop[data-leaving='true'] {
+  animation: pop-down var(--dur-quick) var(--ease-in) both;
+}
+
+@keyframes pop-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes pop-down {
+  to {
+    opacity: 0;
+    transform: translateY(4px) scale(0.97);
+  }
 }
 
 .chat-emoji-option {
@@ -2274,6 +2539,8 @@ select:focus-visible,
   outline-offset: 2px;
 }
 
+/* Held on stage: the ring grows on the border the tile already has — the
+   `.tile` rule transitions box-shadow, so pinning is a swell, not a cut. */
 .tile[data-pinned='true'] {
   box-shadow: inset 0 0 0 2px var(--accent);
 }
@@ -2355,6 +2622,10 @@ select:focus-visible,
   font-size: 0.66rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+  /* The reading arrives a second or two into the call, and after that only
+     its colour changes — green to amber to red is a slide, not a cut. */
+  animation: chip-in var(--dur-pop) var(--ease) both;
+  transition: color 0.4s ease;
 }
 
 .latency-good {
@@ -2406,8 +2677,8 @@ select:focus-visible,
   color: var(--muted);
   cursor: pointer;
   transition:
-    background 0.15s ease,
-    color 0.15s ease;
+    background var(--dur-quick) ease,
+    color var(--dur-quick) ease;
 }
 
 .layout-option + .layout-option {
