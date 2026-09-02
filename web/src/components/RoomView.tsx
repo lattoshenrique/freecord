@@ -122,6 +122,23 @@ function ScreenTile({
   );
 }
 
+/** Faixas de latência: verde conversa bem, âmbar arrasta, vermelho atrapalha. */
+function latencyGrade(ms: number): 'good' | 'fair' | 'poor' {
+  return ms < 100 ? 'good' : ms < 250 ? 'fair' : 'poor';
+}
+
+/** The round-trip on one tile, in the corner: which pair is dragging. */
+function LatencyChip({ ms, title }: { ms: number | null; title: string }) {
+  if (ms === null) {
+    return null;
+  }
+  return (
+    <span className={`latency-chip latency-${latencyGrade(ms)}`} title={title}>
+      {ms} ms
+    </span>
+  );
+}
+
 function formatBitrate(kbps: number): string {
   return kbps >= 1000 ? `${(kbps / 1000).toFixed(1)} Mb/s` : `${kbps} kb/s`;
 }
@@ -429,6 +446,8 @@ function Tile({
   speaking,
   cameraOn,
   stream,
+  latencyMs,
+  latencyTitle,
   style,
   sinkId,
   onSelect,
@@ -449,6 +468,14 @@ function Tile({
    */
   cameraOn: boolean;
   stream: MediaStream | null;
+  /**
+   * Round-trip time, measured here: on a peer's tile it is OUR link to them,
+   * so one high reading is that pair's problem. The self tile carries the
+   * middle of every link instead — when THAT climbs, the room is not the
+   * problem, we are.
+   */
+  latencyMs?: number | null;
+  latencyTitle?: string;
   style?: React.CSSProperties;
   /** Playback device for a remote peer's audio; self tiles pass none. */
   sinkId?: string | null;
@@ -480,6 +507,7 @@ function Tile({
           : undefined
       }
     >
+      <LatencyChip ms={latencyMs ?? null} title={latencyTitle ?? ''} />
       {showVideo ? (
         <MediaView
           stream={stream}
@@ -937,6 +965,11 @@ export default function RoomView({
     // The worst pair: one number that still points at whoever the call drags for.
     hudMetrics.push({ label: 'rtt', value: `${Math.max(...rtts)} ms` });
   }
+  // Our own reading has no peer to measure against — every link is ours. The
+  // middle one is the honest summary: a single bad pair leaves it alone, and a
+  // connection going bad on this end drags all of them, so it climbs.
+  const sortedRtts = [...rtts].sort((a, b) => a - b);
+  const selfRttMs = sortedRtts.length > 0 ? sortedRtts[Math.floor((sortedRtts.length - 1) / 2)] : null;
   const hudStats = session.screenStats;
   if (hudStats?.kbps != null) {
     hudMetrics.push({
@@ -990,6 +1023,8 @@ export default function RoomView({
       speaking={session.selfId !== null && speaking.has(session.selfId)}
       cameraOn={session.camOn}
       stream={session.localMedia && session.camOn ? session.localMedia : null}
+      latencyMs={selfRttMs}
+      latencyTitle={t('latency.self')}
       style={onSelect ? tileStyle : undefined}
       onSelect={onSelect}
       pinned={pinnedTile}
@@ -1009,6 +1044,8 @@ export default function RoomView({
         speaking={speaking.has(peer.id)}
         cameraOn={session.cameras.has(peer.id)}
         stream={cameraStream}
+        latencyMs={session.peerLatency.get(peer.id)?.rttMs ?? null}
+        latencyTitle={t('latency.peer', { name: peer.name })}
         style={onSelect ? tileStyle : undefined}
         sinkId={session.audioDevices.speakerId}
         onSelect={onSelect}

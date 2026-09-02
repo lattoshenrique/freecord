@@ -235,6 +235,8 @@ export const ptBR: Catalog = {
   'file.status.declinedCount': { one: '{count} recusou', other: '{count} recusaram' },
 
   'latency.signal': 'Latência até o servidor de sinalização',
+  'latency.peer': 'Latência direta com {name}',
+  'latency.self': 'Sua latência no mesh — o meio dos seus enlaces',
 
   // Community page — English source lives in en-US.ts, owned by its author.
   'community.back':

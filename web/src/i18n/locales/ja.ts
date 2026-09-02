@@ -236,6 +236,8 @@ export const jaJP: Catalog = {
   'file.status.declinedCount': { other: '{count} 人が断りました' },
 
   'latency.signal': 'シグナリングサーバーまでの遅延',
+  'latency.peer': '{name} との直接遅延',
+  'latency.self': 'メッシュ内のあなたの遅延 — 各リンクの中央値',
 
   // Community page — English source lives in en-US.ts, owned by its author.
   'community.back':

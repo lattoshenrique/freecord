@@ -240,6 +240,8 @@ export const enUS = {
   'file.status.declinedCount': { one: '{count} declined', other: '{count} declined' },
 
   'latency.signal': 'Latency to the signaling server',
+  'latency.peer': 'Direct latency with {name}',
+  'latency.self': 'Your latency in the mesh — the middle of your links',
 
   'community.back': 'Back to start',
   'community.title': 'Freecord is open source',
