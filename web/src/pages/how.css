@@ -17,7 +17,10 @@
   display: flex;
   flex-direction: column;
   gap: 2.75rem;
-  max-width: 44rem;
+  /* A hair wider than the sans column was: the same sentence set in a
+     monospaced face runs about a tenth longer, and the measure is what
+     the eye reads, not the millimetres. */
+  max-width: 48rem;
   margin: 0 auto;
   padding: 3rem 1.5rem 5rem;
   animation: rise-in 0.5s var(--ease) both;
@@ -32,7 +35,7 @@
   text-decoration: none;
   font-weight: 700;
   font-size: 0.95rem;
-  letter-spacing: -0.01em;
+  letter-spacing: var(--track-tight);
   transition: color 0.15s ease;
 }
 
@@ -44,26 +47,26 @@
   margin: 0 0 0.9rem;
   font-size: clamp(2.1rem, 5vw, 3.1rem);
   line-height: 1.08;
-  letter-spacing: -0.03em;
+  letter-spacing: var(--track-display);
 }
 
 .how-lead {
   margin: 0;
   color: var(--muted);
-  font-size: 1.15rem;
+  font-size: 1.05rem;
   line-height: 1.6;
 }
 
 .how h2 {
   margin: 0 0 0.6rem;
   font-size: 1.3rem;
-  letter-spacing: -0.02em;
+  letter-spacing: var(--track-display);
 }
 
 .how section > p {
   margin: 0;
   color: var(--muted);
-  font-size: 1rem;
+  font-size: 0.95rem;
   line-height: 1.7;
 }
 
@@ -103,7 +106,7 @@
 .how-steps p {
   margin: 0;
   color: var(--muted);
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   line-height: 1.65;
 }
 

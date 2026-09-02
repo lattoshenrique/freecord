@@ -13,7 +13,26 @@
   --radius: 14px;
   --shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --mono: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace;
+  /*
+   * One family, everywhere: the interface is set in the font its people
+   * already have open in their editor. The stack asks for the ones a
+   * developer is likely to have installed, then falls back to whatever the
+   * system calls its code font — nothing is downloaded, so the first frame
+   * is already in the right face, offline and in the desktop app too.
+   */
+  --mono:
+    'JetBrains Mono', 'Fira Code', 'IBM Plex Mono', 'Cascadia Code', ui-monospace, 'SF Mono', SFMono-Regular, Menlo,
+    Consolas, 'Liberation Mono', monospace;
+  /* What the interface is set in. Today it is the mono, by design. */
+  --font: var(--mono);
+  /*
+   * Tracking, written once. A monospaced face is already wide, so display
+   * sizes come in a touch, the small all-caps labels go out far enough to
+   * read as labels, and everything in between sits where the font drew it.
+   */
+  --track-display: -0.02em;
+  --track-tight: -0.01em;
+  --track-label: 0.08em;
   /* Header e dock flutuam sobre o palco; quem fica embaixo reserva esta folga.
      Estavam repetidas na mão em três lugares e desalinhavam juntas. */
   --header-clear: 4rem;
@@ -32,12 +51,16 @@
 
 body {
   margin: 0;
-  font-family:
-    system-ui,
-    -apple-system,
-    'Segoe UI',
-    Roboto,
-    sans-serif;
+  font-family: var(--font);
+  /*
+   * Programming ligatures are off: a name, a room title or a message is
+   * prose, and `!=` written by someone in chat should stay two characters.
+   * Numbers are tabular by default, so counters and clocks never jitter.
+   */
+  font-variant-ligatures: none;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   /* Luz ambiente sutil: dá ao vidro algo para refratar. */
   background:
     radial-gradient(52rem 34rem at 12% -8%, rgba(88, 101, 242, 0.16), transparent 60%),
@@ -57,8 +80,13 @@ body {
   color: var(--text);
 }
 
-button {
+/* Form controls take the page's face instead of the platform's own. */
+button,
+input,
+textarea,
+select {
   font-family: inherit;
+  font-variant-ligatures: none;
 }
 
 /* ---- animações ---- */
@@ -304,7 +332,7 @@ button {
 .room-header h1 {
   font-size: 0.92rem;
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: var(--track-tight);
   margin: 0;
   overflow: hidden;
   text-overflow: ellipsis;
