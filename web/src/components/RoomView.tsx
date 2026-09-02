@@ -1370,6 +1370,7 @@ export default function RoomView({
           {/* The link is the invite, so it sits with the other keys rather
               than as a chip in the corner: the first thing a host looks for. */}
           <InviteButton />
+          <span className="dock-sep" aria-hidden="true" />
           <button
             type="button"
             className={`control ${session.micOn ? '' : 'control-off'}`}
@@ -1417,6 +1418,7 @@ export default function RoomView({
           >
             {session.camOn ? <CamIcon /> : <CamOffIcon />}
           </button>
+          <span className="dock-sep" aria-hidden="true" />
           <button
             type="button"
             className={`control ${iAmSharing ? 'control-active' : ''}`}
@@ -1456,6 +1458,7 @@ export default function RoomView({
             choose between drawing where you are and where you would go, and
             whichever it drew, half the room read it the other way.
           */}
+          <span className="dock-sep" aria-hidden="true" />
           <div
             className="layout-select"
             role="group"
@@ -1479,6 +1482,7 @@ export default function RoomView({
               </button>
             ))}
           </div>
+          <span className="dock-sep" aria-hidden="true" />
           <button
             ref={setChatButton}
             type="button"
@@ -1496,6 +1500,7 @@ export default function RoomView({
           >
             <ChatIcon />
           </button>
+          <span className="dock-sep" aria-hidden="true" />
           <button
             type="button"
             className="control control-leave"

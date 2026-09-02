@@ -51,6 +51,37 @@ export default function RoomPage() {
   const [micEnabled, setMicEnabled] = useState(false);
   const [camEnabled, setCamEnabled] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
+  // A new name should read as a change of name, not as a field that blinked:
+  // the old one leaves, the new one arrives, and the icon turns once. The
+  // counter drives the turn; the phase drives the swap.
+  const [shuffles, setShuffles] = useState(0);
+  const [swap, setSwap] = useState<'out' | 'in' | null>(null);
+  const swapTimer = useRef<number | null>(null);
+  useEffect(() => () => {
+    if (swapTimer.current !== null) window.clearTimeout(swapTimer.current);
+  }, []);
+
+  function shuffleName() {
+    setShuffles((n) => n + 1);
+    nameRef.current?.focus();
+    if (swapTimer.current !== null) window.clearTimeout(swapTimer.current);
+    const still =
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (still) {
+      setName(randomNickname());
+      return;
+    }
+    // The name is replaced at the turn of the animation, while the old one is
+    // out of sight — so the letters never cross-fade into each other.
+    setSwap('out');
+    swapTimer.current = window.setTimeout(() => {
+      setName(randomNickname());
+      setSwap('in');
+      // Long enough for the last of the avatar's tiles to land.
+      swapTimer.current = window.setTimeout(() => setSwap(null), 700);
+    }, 150);
+  }
   // The room's own name is the title, and the title is an input: null while
   // nobody is typing in it, the draft while someone is.
   const [roomDraft, setRoomDraft] = useState<string | null>(null);
@@ -304,10 +335,11 @@ export default function RoomPage() {
           </p>
 
           <div className="join-identity">
-            <Avatar name={name} className="join-avatar" />
+            <Avatar name={name} className={`join-avatar${swap === 'in' ? ' swap-in' : ''}`} />
             <div className="join-name">
               <input
                 ref={nameRef}
+                className={swap ? `swap-${swap}` : undefined}
                 type="text"
                 value={name}
                 maxLength={40}
@@ -323,12 +355,14 @@ export default function RoomPage() {
                 className="join-shuffle"
                 title={t('prejoin.shuffle')}
                 aria-label={t('prejoin.shuffle')}
-                onClick={() => {
-                  setName(randomNickname());
-                  nameRef.current?.focus();
-                }}
+                onClick={shuffleName}
               >
-                <ShuffleIcon />
+                <span
+                  className="join-shuffle-spin"
+                  style={{ transform: `rotate(${shuffles * 360}deg)` }}
+                >
+                  <ShuffleIcon />
+                </span>
               </button>
             </div>
           </div>
