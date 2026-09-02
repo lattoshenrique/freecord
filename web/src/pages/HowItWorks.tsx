@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import Logo from '../components/Logo';
+import Brand from '../components/Brand';
 import { useI18n, type MessageKey } from '../i18n';
 import './how.css';
 
@@ -90,8 +90,7 @@ export default function HowItWorksPage() {
     <main className="how">
       <article className="how-inner">
         <Link to="/" className="how-brand" aria-label={t('prejoin.backHome')}>
-          <Logo size={26} />
-          <span>{t('app.name')}</span>
+          <Brand size={26} />
         </Link>
 
         <header>

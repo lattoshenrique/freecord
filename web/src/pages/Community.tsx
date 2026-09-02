@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import DownloadCard from '../components/DownloadCard';
-import Logo from '../components/Logo';
+import Brand from '../components/Brand';
 import { useI18n, type MessageKey } from '../i18n';
 import './community.css';
 
@@ -64,8 +64,7 @@ export default function CommunityPage() {
       <article className="community-inner">
         {/* The mark is the way back: one affordance, top left, like the home. */}
         <Link to="/" className="community-brand" aria-label={t('community.back')}>
-          <Logo size={26} />
-          <span>{t('app.name')}</span>
+          <Brand size={26} />
         </Link>
 
         <header>

@@ -1,0 +1,63 @@
+/*
+ * The brand pair: mark then name, on one line.
+ *
+ * Deliberately thin — gap, colour and type size come from the screen around
+ * it (see Brand.tsx), so the same component can be a page title on the home
+ * and a small link back home everywhere else.
+ */
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.brand-name {
+  color: inherit;
+  /*
+   * The name writes itself as the mark's edges close: logo.css draws them
+   * from 1.15s over 0.9s, and the word is revealed over exactly that window,
+   * so the pair finishes as one. Eight steps for eight letters — the name is
+   * a proper noun, the same in every locale — which reads as typing rather
+   * than as a wipe.
+   *
+   * The last keyframe is the whole word, so the global reduced-motion rule
+   * (animations collapse to their end state) leaves the name simply there.
+   */
+  animation: brand-type 0.9s steps(8, end) 1.15s both;
+}
+
+@keyframes brand-type {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+/* Name off: the mark stands alone, and the word stays for screen readers —
+   the mark itself is aria-hidden, so without this there is nothing to read. */
+.brand-name-off {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/*
+ * The state cards (room not found, room broken) centre their mark with an
+ * auto margin on a block element. The pair is a flex row, so it takes the
+ * centring the card's own text-align gives it instead — the two-class
+ * selector is what wins over `.home-logo`'s `display: block`.
+ */
+.brand.home-logo {
+  /* A block-level flex row, so the card's auto margins still centre it. */
+  display: flex;
+  width: max-content;
+  margin: 0 auto 0.75rem;
+}

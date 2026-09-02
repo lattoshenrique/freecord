@@ -6,7 +6,7 @@ import { generateRoomKey } from '../lib/chat-crypto';
 import { looksLikeInvite, parseInvite } from '../lib/invite';
 import { DownloadButton } from '../components/DownloadCard';
 import LanguagePicker from '../components/LanguagePicker';
-import Logo from '../components/Logo';
+import Brand from '../components/Brand';
 import MeshBackground from '../components/MeshBackground';
 import { useI18n } from '../i18n';
 import './home.css';
@@ -133,8 +133,7 @@ export default function HomePage() {
         <div className="start-center">
           {/* Mark and name together: the title of the screen, and all of it. */}
           <h1 className="start-brand">
-            <Logo size={88} />
-            <span className="start-wordmark">{t('app.name')}</span>
+            <Brand size={88} />
           </h1>
 
           <form className="start-form" onSubmit={handleSubmit}>
@@ -151,36 +150,39 @@ export default function HomePage() {
               <span className="start-prompt-sign" aria-hidden="true">
                 &gt;
               </span>
-              <input
-                ref={inputRef}
-                type="text"
-                // Belt and braces with the effect above: the browser focuses it
-                // on first paint, the effect takes it back afterwards.
-                autoFocus
-                value={displayName}
-                spellCheck={false}
-                autoComplete="off"
-                autoCorrect="off"
-                autoCapitalize="off"
-                // Room for a full invite URL; names are capped on submit.
-                maxLength={300}
-                placeholder={t('home.roomNamePlaceholder')}
-                onChange={(event) => {
-                  setDisplayName(event.target.value);
-                  setError(null);
-                }}
-                aria-label={t('home.roomName')}
-                onSelect={syncCaret}
-                onKeyUp={syncCaret}
-                onClick={syncCaret}
-                onFocus={syncCaret}
-              />
-              {/* Same font, same size, never seen: its width is where the
-                  typed text ends, and so where the block belongs. */}
-              <span className="start-mirror" aria-hidden="true" ref={mirrorRef}>
-                {displayName}
+              {/* The typed line, and the two things measured against it. */}
+              <span className="start-line">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  // Belt and braces with the effect above: the browser focuses
+                  // it on first paint, the effect takes it back afterwards.
+                  autoFocus
+                  value={displayName}
+                  spellCheck={false}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  // Room for a full invite URL; names are capped on submit.
+                  maxLength={300}
+                  placeholder={t('home.roomNamePlaceholder')}
+                  onChange={(event) => {
+                    setDisplayName(event.target.value);
+                    setError(null);
+                  }}
+                  aria-label={t('home.roomName')}
+                  onSelect={syncCaret}
+                  onKeyUp={syncCaret}
+                  onClick={syncCaret}
+                  onFocus={syncCaret}
+                />
+                {/* Same font, same size, never seen: its width is where the
+                    typed text ends, and so where the block belongs. */}
+                <span className="start-mirror" aria-hidden="true" ref={mirrorRef}>
+                  {displayName}
+                </span>
+                <span className="start-caret" aria-hidden="true" style={{ left: `${caretX}px` }} />
               </span>
-              <span className="start-caret" aria-hidden="true" style={{ left: `${caretX}px` }} />
             </div>
             <button type="submit" disabled={creating}>
               {creating ? t('home.creating') : invite ? t('home.join') : t('home.create')}

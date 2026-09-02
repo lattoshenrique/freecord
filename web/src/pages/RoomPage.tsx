@@ -5,7 +5,7 @@ import { roomKeyFromHash } from '../lib/chat-crypto';
 import { randomNickname } from '../lib/identity';
 import { useI18n } from '../i18n';
 import Avatar from '../components/Avatar';
-import Logo from '../components/Logo';
+import Brand from '../components/Brand';
 import RoomView from '../components/RoomView';
 import { CamIcon, CamOffIcon, MicIcon, MicOffIcon, ShuffleIcon } from '../components/icons';
 import type { JoinOptions } from '../lib/use-room';
@@ -82,7 +82,7 @@ export default function RoomPage() {
     return (
       <main className="centered">
         <section className="home-card state-card">
-          <Logo className="home-logo" size={44} />
+          <Brand className="home-logo" size={44} name={false} />
           <h1>{t('prejoin.notFoundTitle')}</h1>
           <p className="tagline">{t('prejoin.notFoundBody')}</p>
           <Link to="/" className="button-link">
@@ -97,7 +97,7 @@ export default function RoomPage() {
     return (
       <main className="centered">
         <section className="home-card state-card">
-          <Logo className="home-logo" size={44} />
+          <Brand className="home-logo" size={44} name={false} />
           <h1>{t('prejoin.errorTitle')}</h1>
           <p className="tagline">{t('prejoin.errorBody')}</p>
         </section>
@@ -157,8 +157,7 @@ export default function RoomPage() {
           }}
         >
           <Link to="/" className="join-brand" aria-label={t('prejoin.backHome')}>
-            <Logo size={24} />
-            <span>{t('app.name')}</span>
+            <Brand size={24} />
           </Link>
 
           {/* The heading is the field: click the name and type. */}
