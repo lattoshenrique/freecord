@@ -185,6 +185,7 @@ export const jaJP: Catalog = {
   'controls.closeChat': 'チャットを閉じる',
   'controls.leave': 'ルームから退出',
   'controls.closeMenu': 'メニューを閉じる',
+  'controls.dock': '通話の操作',
 
   'chat.title': 'ルームチャット',
   'chat.empty': 'まだメッセージはありません。挨拶してみましょう 👋',
@@ -209,6 +210,7 @@ export const jaJP: Catalog = {
   'chat.reply': '返信',
   'chat.replyingTo': '{name} に返信中',
   'chat.cancelReply': '返信をやめる',
+  'chat.jumpToLatest': '新着メッセージへ',
 
   'file.attach': 'ファイルを送る',
   'file.direct': '相手に直接届きます。サーバーは経由しません',

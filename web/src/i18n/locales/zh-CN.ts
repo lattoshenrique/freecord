@@ -183,6 +183,7 @@ export const zhCN: Catalog = {
   'controls.closeChat': '关闭聊天',
   'controls.leave': '离开房间',
   'controls.closeMenu': '关闭菜单',
+  'controls.dock': '通话控制',
 
   'chat.title': '房间聊天',
   'chat.empty': '还没有消息，打个招呼吧 👋',
@@ -207,6 +208,7 @@ export const zhCN: Catalog = {
   'chat.reply': '回复',
   'chat.replyingTo': '正在回复 {name}',
   'chat.cancelReply': '取消回复',
+  'chat.jumpToLatest': '跳到新消息',
 
   'file.attach': '发送文件',
   'file.direct': '直接发送给对方，不经过任何服务器',

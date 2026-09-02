@@ -317,6 +317,9 @@
 }
 
 .join-device {
+  /* The hidden checkbox is positioned absolutely: it stays inside its pill
+     rather than landing wherever the nearest positioned ancestor is. */
+  position: relative;
   flex: 1;
   display: inline-flex;
   align-items: center;

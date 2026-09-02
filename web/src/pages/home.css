@@ -173,7 +173,20 @@
 }
 
 .start-form input::placeholder {
-  color: rgba(154, 160, 173, 0.5);
+  /* Dim, but still a reading: half-strength fell under 3:1 on the slab. */
+  color: rgba(154, 160, 173, 0.75);
+}
+
+/*
+ * iOS zooms the page into any field set under 16px the moment it is
+ * focused, and this page focuses its field on arrival. On a touch screen
+ * the line is set at the size that leaves the page where it is.
+ */
+@media (pointer: coarse) {
+  .start-form input,
+  .start-mirror {
+    font-size: 1rem;
+  }
 }
 
 .start-form input:focus,

@@ -10,7 +10,16 @@
 <html lang="en-US">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      viewport-fit=cover lets the room paint under a phone notch and home bar
+      (the CSS keeps the controls out of them with safe-area insets);
+      resizes-content makes the on-screen keyboard shrink the layout, so the
+      chat composer stays above it instead of under it.
+    -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content"
+    />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
     <title>Freecord — free group voice, video and screen sharing, no signup</title>

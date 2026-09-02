@@ -43,6 +43,22 @@
    */
   --header-clear: calc(var(--room-pad) * 2 + 2.3rem);
   --dock-clear: calc(var(--room-pad) * 2 + 3.8rem + 2px);
+  /*
+   * A phone's notch and home bar. The viewport is told to paint under them
+   * (viewport-fit=cover in index.html); whatever floats at an edge — the
+   * header, the dock, the chat sheet — adds these so no key hides under
+   * the bar you swipe home with. Zero on every other screen.
+   */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  /*
+   * The accent as small text on a dark panel. The button blue itself falls
+   * short of 4.5:1 at the sizes a chat author's name is set in; this one is
+   * the same hue, lifted until it reads.
+   */
+  --accent-text: #a9b0ff;
   /* liquid glass */
   --glass-bg: rgba(255, 255, 255, 0.08);
   --glass-bg-strong: rgba(16, 19, 27, 0.55);
@@ -93,6 +109,61 @@ textarea,
 select {
   font-family: inherit;
   font-variant-ligatures: none;
+}
+
+/*
+ * Touch manners. `manipulation` drops the double-tap-to-zoom wait, so a key
+ * answers the first tap; the tap highlight is off because every key here
+ * already says "pressed" in its own colour. The callout is what iOS shows
+ * on a long press — on a mute key it offers to copy nothing.
+ */
+button,
+a,
+label,
+select,
+[role='button'] {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+[role='button'] {
+  -webkit-touch-callout: none;
+}
+
+/*
+ * One focus ring for everything that can be tabbed to and does not draw its
+ * own (the fields draw theirs on the border). Keyboard only: `:focus-visible`
+ * stays quiet after a click or a tap.
+ */
+button:focus-visible,
+a:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Off screen, never off the accessibility tree: what a screen reader hears
+   where a sighted person sees a badge, an icon, or a bubble's colour. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* A fixed backdrop is repainted on every scroll frame on phones: the glow
+   scrolls with the page there, which nobody notices, and the jank goes. */
+@media (hover: none) {
+  body {
+    background-attachment: scroll;
+  }
 }
 
 /* ---- animações ---- */
@@ -305,10 +376,14 @@ select {
   right: 0;
   z-index: 30;
   display: flex;
+  /* The telemetry strip drops under the title on a phone rather than
+     squeezing it; the stage measures the header and clears both rows. */
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  padding: var(--room-pad);
+  gap: var(--room-pad) 1rem;
+  padding: calc(var(--room-pad) + var(--safe-top)) calc(var(--room-pad) + var(--safe-right))
+    var(--room-pad) calc(var(--room-pad) + var(--safe-left));
   pointer-events: none;
 }
 
@@ -1054,10 +1129,14 @@ select {
 
 .chat-close {
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
   background: transparent;
   border: none;
   color: var(--muted);
-  padding: 0.25rem;
+  padding: 0;
   border-radius: 6px;
   cursor: pointer;
   transition: color 0.15s ease, background 0.15s ease;
@@ -1071,10 +1150,43 @@ select {
 .chat-messages {
   flex: 1;
   overflow-y: auto;
+  /* Momentum scrolling on iOS, and the panel behind never scrolls along. */
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   padding: 0.75rem;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+}
+
+/*
+ * The way back down. While someone is reading up the history the list stays
+ * where they left it, and what arrives meanwhile is announced by this pill,
+ * stuck to the bottom edge of the scroll: one tap lands on the newest.
+ */
+.chat-jump {
+  position: sticky;
+  bottom: 0.25rem;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.25rem;
+  padding: 0.4rem 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  background: var(--accent);
+  color: white;
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+  animation: bubble-in 0.2s var(--ease) both;
+}
+
+.chat-jump:hover {
+  background: var(--accent-hover);
 }
 
 .chat-empty {
@@ -1119,7 +1231,7 @@ select {
   font-family: var(--mono);
   font-size: 0.68rem;
   font-weight: 600;
-  color: var(--accent-hover);
+  color: var(--accent-text);
 }
 
 .chat-bubble.mine .chat-quote-name {
@@ -1200,8 +1312,23 @@ select {
   font-family: var(--mono);
   font-size: 0.7rem;
   font-weight: 600;
-  color: var(--accent-hover);
+  color: var(--accent-text);
   margin-bottom: 0.2rem;
+}
+
+/* When it was said: a small reading in the bubble's corner, after the text. */
+.chat-time {
+  display: block;
+  margin-top: 0.15rem;
+  text-align: right;
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.chat-bubble.mine .chat-time {
+  color: rgba(255, 255, 255, 0.78);
 }
 
 .chat-composer {
@@ -1244,7 +1371,7 @@ select {
   font-family: var(--mono);
   font-size: 0.68rem;
   font-weight: 600;
-  color: var(--accent-hover);
+  color: var(--accent-text);
 }
 
 .chat-reply-text {
@@ -1381,9 +1508,9 @@ select {
 /* Floating control bar over the stage. */
 .room-footer {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: var(--room-pad);
+  left: var(--safe-left);
+  right: var(--safe-right);
+  bottom: calc(var(--room-pad) + var(--safe-bottom));
   z-index: 30;
   display: flex;
   align-items: center;
@@ -1407,7 +1534,7 @@ select {
   align-items: center;
   /* Ten keys on a phone are wider than the phone: the dock stays inside the
      screen and lets the row wrap rather than running off both edges. */
-  max-width: calc(100vw - 2 * var(--room-pad));
+  max-width: calc(100vw - 2 * var(--room-pad) - var(--safe-left) - var(--safe-right));
   padding: 0.5rem 0.75rem;
   border: 1px solid var(--hud-border);
   /* Concentric with the keys: their 10px corner plus the 8px of padding
@@ -1611,16 +1738,38 @@ select {
 }
 
 @media (max-width: 640px) {
-  /* A bottom sheet above the dock. It floats over the tiles, so the glass
-     goes opaque: a tile showing through the messages read as a defect. */
+  /*
+   * The chat is a screen of its own on a phone, the way every messaging app
+   * does it: the whole viewport, its own close key in the header, the
+   * composer at the bottom where the keyboard rises to meet it. The sheet
+   * it used to be sat under the dock once the keys wrapped to two rows,
+   * with the field hidden behind them. It floats over the tiles, so the
+   * glass goes opaque: a tile showing through the messages read as a defect.
+   */
   .chat-panel {
     position: fixed;
-    inset: auto 0 calc(var(--dock-clear) - var(--room-pad)) 0;
+    inset: 0;
     width: auto;
-    margin: var(--room-pad);
-    max-height: 55dvh;
-    z-index: 10;
+    margin: 0;
+    max-height: none;
+    /* Above the dock and the header (30): the call's keys are one tap away
+       behind the close key, and nothing of the room shows through. */
+    z-index: 35;
+    padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
+    border: none;
+    border-radius: 0;
     background: var(--panel);
+    box-shadow: none;
+    animation: rise-in 0.25s var(--ease) both;
+  }
+
+  .chat-header {
+    padding: 0.85rem 1rem;
+  }
+
+  /* "3 participants" and "3/20" say the same thing; the short one stays. */
+  .room-count {
+    display: none;
   }
 
   .tiles-strip .tile {
@@ -1631,6 +1780,79 @@ select {
   .chat-tool {
     width: 2.6rem;
     height: 2.6rem;
+  }
+}
+
+/*
+ * A finger, not a pointer. Anything that must be hit while the room is
+ * moving grows to the 44px Apple and the WCAG both ask for, and the keys
+ * that only show on hover are simply shown: there is no hover to wait for.
+ */
+@media (pointer: coarse) {
+  .chat-close,
+  .screen-action {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+
+  .chat-reply-btn {
+    width: 2rem;
+    height: 2rem;
+    top: -0.7rem;
+    right: -0.7rem;
+    opacity: 0.85;
+  }
+
+  .chat-bubble.mine .chat-reply-btn {
+    left: -0.7rem;
+  }
+
+  .layout-option {
+    min-width: 2.4rem;
+  }
+
+  .chat-emoji-option {
+    height: 2.6rem;
+  }
+
+  .chat-file-btn {
+    padding: 0.5rem 0.85rem;
+  }
+}
+
+/*
+ * A phone on its side: the header and the dock alone would eat half the
+ * height. Both pull in, the keys shrink a step, and the label under the
+ * title goes so the stage keeps most of the picture.
+ */
+@media (max-height: 480px) {
+  :root {
+    --room-pad: 0.5rem;
+  }
+
+  .room-count {
+    display: none;
+  }
+
+  .control,
+  .layout-select {
+    height: 2.4rem;
+  }
+
+  .control {
+    width: 2.4rem;
+  }
+
+  .control-invite {
+    width: auto;
+  }
+
+  .dock-glass {
+    padding: 0.35rem 0.5rem;
+  }
+
+  .tiles-strip .tile {
+    flex-basis: 7rem;
   }
 }
 
@@ -1923,7 +2145,7 @@ select {
 .chat-file-icon {
   display: inline-flex;
   flex-shrink: 0;
-  color: var(--accent-hover);
+  color: var(--accent-text);
 }
 
 .chat-bubble.mine .chat-file-icon {

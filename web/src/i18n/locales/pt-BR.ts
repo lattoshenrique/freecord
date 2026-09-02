@@ -184,6 +184,7 @@ export const ptBR: Catalog = {
   'controls.closeChat': 'Fechar chat',
   'controls.leave': 'Sair da sala',
   'controls.closeMenu': 'Fechar menu',
+  'controls.dock': 'Controles da chamada',
 
   'chat.title': 'Chat da sala',
   'chat.empty': 'Nenhuma mensagem ainda. Diga um oi 👋',
@@ -208,6 +209,7 @@ export const ptBR: Catalog = {
   'chat.reply': 'Responder',
   'chat.replyingTo': 'Respondendo a {name}',
   'chat.cancelReply': 'Cancelar resposta',
+  'chat.jumpToLatest': 'Ir para as mensagens novas',
 
   'file.attach': 'Enviar um arquivo',
   'file.direct': 'Vai direto para a outra pessoa, nunca passa por um servidor',

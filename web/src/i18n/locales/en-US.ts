@@ -189,6 +189,7 @@ export const enUS = {
   'controls.closeChat': 'Close chat',
   'controls.leave': 'Leave room',
   'controls.closeMenu': 'Close menu',
+  'controls.dock': 'Call controls',
 
   'chat.title': 'Room chat',
   'chat.empty': 'No messages yet. Say hi 👋',
@@ -213,6 +214,7 @@ export const enUS = {
   'chat.reply': 'Reply',
   'chat.replyingTo': 'Replying to {name}',
   'chat.cancelReply': 'Cancel reply',
+  'chat.jumpToLatest': 'Jump to new messages',
 
   'file.attach': 'Send a file',
   'file.direct': 'Goes straight to the other person, never through a server',

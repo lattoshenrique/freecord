@@ -185,6 +185,7 @@ export const esES: Catalog = {
   'controls.closeChat': 'Cerrar chat',
   'controls.leave': 'Salir de la sala',
   'controls.closeMenu': 'Cerrar menú',
+  'controls.dock': 'Controles de la llamada',
 
   'chat.title': 'Chat de la sala',
   'chat.empty': 'Aún no hay mensajes. Saluda 👋',
@@ -209,6 +210,7 @@ export const esES: Catalog = {
   'chat.reply': 'Responder',
   'chat.replyingTo': 'Respondiendo a {name}',
   'chat.cancelReply': 'Cancelar respuesta',
+  'chat.jumpToLatest': 'Ir a los mensajes nuevos',
 
   'file.attach': 'Enviar un archivo',
   'file.direct': 'Va directo a la otra persona, nunca pasa por un servidor',

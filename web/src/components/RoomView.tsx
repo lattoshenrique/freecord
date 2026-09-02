@@ -650,6 +650,15 @@ export default function RoomView({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [badgeAt, setBadgeAt] = useState<{ left: number; top: number } | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const messagesRef = useRef<HTMLDivElement>(null);
+  // Whether the reader is at the bottom of the chat. Reading up the history
+  // and being yanked down by every new line is the oldest chat annoyance
+  // there is: the list follows only while it was already at the end, and
+  // otherwise says there is more below (see the jump pill).
+  const atBottomRef = useRef(true);
+  const [newBelow, setNewBelow] = useState(false);
+  const layoutRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
   const footerRef = useRef<HTMLElement>(null);
   // A callback ref, not a plain one: the dock only exists once the room is
   // connected (this component returns early before that), so the badge has to
@@ -664,11 +673,54 @@ export default function RoomView({
   }, [status, onLeft]);
 
   useEffect(() => {
-    if (chatOpen) {
-      setUnread(0);
-      chatEndRef.current?.scrollIntoView({ block: 'end' });
+    if (!chatOpen) {
+      // The panel unmounts with its scroll: the next opening starts at the end.
+      atBottomRef.current = true;
+      setNewBelow(false);
+      return;
     }
-  }, [session.chat, chatOpen]);
+    setUnread(0);
+    // Our own message always lands in view: nobody sends a line and wants to
+    // stay up in last week's history.
+    const last = session.chat[session.chat.length - 1];
+    if (atBottomRef.current || last?.from.id === session.selfId) {
+      chatEndRef.current?.scrollIntoView({ block: 'end' });
+      setNewBelow(false);
+    } else {
+      setNewBelow(true);
+    }
+  }, [session.chat, session.transfers, chatOpen, session.selfId]);
+
+  const onMessagesScroll = useCallback(() => {
+    const list = messagesRef.current;
+    if (!list) {
+      return;
+    }
+    const gap = list.scrollHeight - list.scrollTop - list.clientHeight;
+    atBottomRef.current = gap < 48;
+    if (atBottomRef.current) {
+      setNewBelow(false);
+    }
+  }, []);
+
+  const jumpToLatest = useCallback(() => {
+    atBottomRef.current = true;
+    setNewBelow(false);
+    chatEndRef.current?.scrollIntoView({ block: 'end', behavior: 'smooth' });
+  }, []);
+
+  // Closing hands the keyboard back to the key that opened it, so a screen
+  // reader is not dropped on the page body with no idea where it is.
+  const closeChat = useCallback(() => {
+    setChatOpen(false);
+    chatButton?.focus();
+  }, [chatButton]);
+
+  // The clock on each bubble, in the room's language.
+  const timeFormat = useMemo(
+    () => new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' }),
+    [locale],
+  );
 
   const chatCount = session.chat.length;
   const seenCountRef = useRef(0);
@@ -802,6 +854,37 @@ export default function RoomView({
       observer.disconnect();
     };
   }, [chatButton]);
+
+  // The header and the dock float over the stage, which reserves room for
+  // them through --header-clear and --dock-clear. The stylesheet guesses
+  // one row each; on a phone the keys wrap to two and the telemetry drops
+  // under the title, and the guess left the composer hidden behind the
+  // dock. Measured instead, on the room's own box, so the reservation is
+  // whatever they actually take — notch and home bar included.
+  useLayoutEffect(() => {
+    const layout = layoutRef.current;
+    const header = headerRef.current;
+    const footer = footerRef.current;
+    if (!layout || !header || !footer) {
+      return;
+    }
+    const measure = () => {
+      const box = layout.getBoundingClientRect();
+      const headerBottom = header.getBoundingClientRect().bottom - box.top;
+      const dockTop = box.bottom - footer.getBoundingClientRect().top;
+      layout.style.setProperty('--header-clear', `${Math.ceil(headerBottom)}px`);
+      layout.style.setProperty('--dock-clear', `calc(${Math.ceil(dockTop)}px + var(--room-pad))`);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(header);
+    observer.observe(footer);
+    window.addEventListener('resize', measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, [status.kind]);
 
   const stageRef = useRef<HTMLDivElement>(null);
   const screenVideoRef = useRef<HTMLVideoElement>(null);
@@ -1009,7 +1092,7 @@ export default function RoomView({
           </span>
         </div>
         <div className="spinner" aria-hidden />
-        <p>{t('room.connecting')}</p>
+        <p role="status">{t('room.connecting')}</p>
       </main>
     );
   }
@@ -1017,6 +1100,25 @@ export default function RoomView({
   const iAmSharing = session.screens.some((share) => share.id === session.selfId);
   /** Every screen slot taken by others: the button waits for one to free up. */
   const screensFull = !iAmSharing && session.screens.length >= MAX_SCREENS;
+  // Phones cannot share a screen (no getDisplayMedia on iOS Safari or on
+  // Android Chrome): a key that can only fail is a key that should not be
+  // there. Feature-detected, not width-detected — a small window on a
+  // laptop still can.
+  const canShareScreen =
+    typeof navigator !== 'undefined' && typeof navigator.mediaDevices?.getDisplayMedia === 'function';
+  const micLabel = session.micOn ? t('controls.muteMic') : t('controls.unmuteMic');
+  const speakerLabel = session.speakerOn ? t('controls.muteSpeaker') : t('controls.unmuteSpeaker');
+  const camLabel = session.cameraSlotsFull
+    ? t('room.camSlotsFull')
+    : session.camOn
+      ? t('controls.camOff')
+      : t('controls.camOn');
+  const screenLabel = screensFull
+    ? t('controls.screensFull')
+    : iAmSharing
+      ? t('controls.stopSharing')
+      : t('controls.shareScreen');
+  const chatLabel = chatOpen ? t('controls.closeChat') : t('controls.openChat');
   const sharerName = stageScreen && !stageScreen.mine ? stageScreen.name : null;
   // Received through a tree relay: the RTT shown is to it, not to the source.
   const stageSource =
@@ -1132,7 +1234,7 @@ export default function RoomView({
   };
 
   return (
-    <div className="room-layout">
+    <div className="room-layout" ref={layoutRef}>
       {screenAudioStreams.map(({ id, stream }) => (
         <AudioSink
           key={id}
@@ -1141,7 +1243,7 @@ export default function RoomView({
           muted={!session.speakerOn}
         />
       ))}
-      <header className="room-header">
+      <header className="room-header" ref={headerRef}>
         <div className="room-title">
           <Logo size={22} className="room-logo" />
           <h1>{room.displayName || t('room.unnamed')}</h1>
@@ -1167,7 +1269,8 @@ export default function RoomView({
         )}
       </header>
 
-      <div className="room-body">
+      {/* The stage is the page's main content: a landmark to jump to. */}
+      <main className="room-body">
         <div className="stage-area">
           {stageStream && (
             <div
@@ -1291,7 +1394,7 @@ export default function RoomView({
               // reply is pending, so one press cancels the reply and the next closes.
               if (event.key === 'Escape') {
                 event.preventDefault();
-                setChatOpen(false);
+                closeChat();
               }
             }}
           >
@@ -1301,12 +1404,20 @@ export default function RoomView({
                 type="button"
                 className="chat-close"
                 aria-label={t('controls.closeChat')}
-                onClick={() => setChatOpen(false)}
+                onClick={closeChat}
               >
                 <CloseIcon />
               </button>
             </header>
-            <div className="chat-messages">
+            {/* A log: what arrives is read out as it comes, without
+                stealing the focus from wherever the reader is. */}
+            <div
+              className="chat-messages"
+              role="log"
+              aria-label={t('chat.title')}
+              ref={messagesRef}
+              onScroll={onMessagesScroll}
+            >
               {session.chat.length === 0 && session.transfers.length === 0 && (
                 <p className="chat-empty">{t('chat.empty')}</p>
               )}
@@ -1328,7 +1439,12 @@ export default function RoomView({
                 const mine = message.from.id === session.selfId;
                 return (
                   <div key={entry.key} className={`chat-bubble ${mine ? 'mine' : ''}`}>
-                    {!mine && <span className="chat-author">{message.from.name}</span>}
+                    {mine ? (
+                      // Said by the colour of the bubble to the eye; said in a word here.
+                      <span className="visually-hidden">{t('room.you')}</span>
+                    ) : (
+                      <span className="chat-author">{message.from.name}</span>
+                    )}
                     {message.quote && (
                       <blockquote className="chat-quote">
                         <span className="chat-quote-name">{message.quote.name}</span>
@@ -1340,6 +1456,9 @@ export default function RoomView({
                     ) : (
                       <div className="chat-md">{renderMarkdown(message.text)}</div>
                     )}
+                    <time className="chat-time" dateTime={new Date(message.ts).toISOString()}>
+                      {timeFormat.format(message.ts)}
+                    </time>
                     {!message.unreadable && (
                       <button
                         type="button"
@@ -1357,6 +1476,12 @@ export default function RoomView({
                 );
               })}
               <div ref={chatEndRef} />
+              {newBelow && (
+                <button type="button" className="chat-jump" onClick={jumpToLatest}>
+                  {t('chat.jumpToLatest')}
+                  <span aria-hidden="true">↓</span>
+                </button>
+              )}
             </div>
             {fileNote && (
               <p className="chat-file-note" role="status">
@@ -1394,15 +1519,20 @@ export default function RoomView({
             />
           </aside>
         )}
-      </div>
+      </main>
 
-      <footer className="room-footer" ref={footerRef}>
+      <footer className="room-footer" ref={footerRef} aria-label={t('controls.dock')}>
         {session.camDenied && (
           <p className="cam-denied-note" role="status">
             {t('room.camDenied')}
           </p>
         )}
         {!chatOpen && unread > 0 && badgeAt && <ChatUnreadBadge count={unread} at={badgeAt} />}
+        {/* The badge is decoration; this is what a screen reader hears when
+            a message lands while the panel is shut. */}
+        <span className="visually-hidden" role="status">
+          {!chatOpen && unread > 0 ? `${unread} ${t('chat.unread', { count: unread })}` : ''}
+        </span>
         {settingsOpen && (
           <SettingsMenu
             screenQuality={session.screenQuality}
@@ -1427,10 +1557,14 @@ export default function RoomView({
             type="button"
             className={`control ${session.micOn ? '' : 'control-off'}`}
             aria-pressed={!session.micOn}
+            aria-label={micLabel}
+            aria-keyshortcuts="m"
             data-key="M"
             // Where the doorstep's mic pill lands (web/src/hero.css).
             data-device="mic"
-            title={session.micOn ? t('controls.muteMic') : t('controls.unmuteMic')}
+            // The tooltip is where the shortcut is taught: the name stays
+            // clean for whoever hears it instead of reading it.
+            title={`${micLabel} · M`}
             onClick={session.toggleMic}
           >
             {session.micOn ? <MicIcon /> : <MicOffIcon />}
@@ -1439,8 +1573,10 @@ export default function RoomView({
             type="button"
             className={`control ${session.speakerOn ? '' : 'control-off'}`}
             aria-pressed={!session.speakerOn}
+            aria-label={speakerLabel}
+            aria-keyshortcuts="d"
             data-key="D"
-            title={session.speakerOn ? t('controls.muteSpeaker') : t('controls.unmuteSpeaker')}
+            title={`${speakerLabel} · D`}
             onClick={session.toggleSpeaker}
           >
             {session.speakerOn ? <SpeakerIcon /> : <SpeakerOffIcon />}
@@ -1452,56 +1588,44 @@ export default function RoomView({
             className={`control ${session.camOn || session.cameraSlotsFull ? '' : 'control-off'}`}
             aria-pressed={!session.camOn}
             disabled={session.cameraSlotsFull}
+            aria-keyshortcuts="v"
             data-key="V"
             data-device="cam"
             data-camera-slots={session.cameraSlotsFull ? 'full' : undefined}
-            title={
-              session.cameraSlotsFull
-                ? t('room.camSlotsFull')
-                : session.camOn
-                  ? t('controls.camOff')
-                  : t('controls.camOn')
-            }
-            aria-label={
-              session.cameraSlotsFull
-                ? t('room.camSlotsFull')
-                : session.camOn
-                  ? t('controls.camOff')
-                  : t('controls.camOn')
-            }
+            title={`${camLabel} · V`}
+            aria-label={camLabel}
             onClick={session.toggleCam}
           >
             {session.camOn ? <CamIcon /> : <CamOffIcon />}
           </button>
           <span className="dock-sep" aria-hidden="true" />
-          <button
-            type="button"
-            className={`control ${iAmSharing ? 'control-active' : ''}`}
-            aria-pressed={iAmSharing}
-            disabled={screensFull}
-            data-key="S"
-            title={
-              screensFull
-                ? t('controls.screensFull')
-                : iAmSharing
-                  ? t('controls.stopSharing')
-                  : t('controls.shareScreen')
-            }
-            onClick={() => {
-              if (iAmSharing) {
-                session.stopScreenShare();
-              } else {
-                void session.startScreenShare();
-              }
-            }}
-          >
-            <ScreenIcon />
-          </button>
+          {canShareScreen && (
+            <button
+              type="button"
+              className={`control ${iAmSharing ? 'control-active' : ''}`}
+              aria-pressed={iAmSharing}
+              aria-label={screenLabel}
+              aria-keyshortcuts="s"
+              disabled={screensFull}
+              data-key="S"
+              title={`${screenLabel} · S`}
+              onClick={() => {
+                if (iAmSharing) {
+                  session.stopScreenShare();
+                } else {
+                  void session.startScreenShare();
+                }
+              }}
+            >
+              <ScreenIcon />
+            </button>
+          )}
           <button
             type="button"
             className={`control ${settingsOpen ? 'control-active' : ''}`}
             aria-haspopup="dialog"
             aria-expanded={settingsOpen}
+            aria-label={t('controls.settings')}
             data-key="Q"
             title={t('controls.settings')}
             onClick={() => setSettingsOpen((open) => !open)}
@@ -1543,13 +1667,14 @@ export default function RoomView({
             type="button"
             className={`control ${chatOpen ? 'control-active' : ''}`}
             aria-pressed={chatOpen}
+            aria-keyshortcuts="c"
             data-key="C"
-            title={chatOpen ? t('controls.closeChat') : t('controls.openChat')}
+            title={`${chatLabel} · C`}
             // The badge is decorative, so the count is spoken here instead.
             aria-label={
               !chatOpen && unread > 0
-                ? `${t('controls.openChat')} — ${unread} ${t('chat.unread', { count: unread })}`
-                : undefined
+                ? `${chatLabel} — ${unread} ${t('chat.unread', { count: unread })}`
+                : chatLabel
             }
             onClick={() => setChatOpen((open) => !open)}
           >
@@ -1559,6 +1684,7 @@ export default function RoomView({
           <button
             type="button"
             className="control control-leave"
+            aria-label={t('controls.leave')}
             title={t('controls.leave')}
             onClick={session.leave}
           >

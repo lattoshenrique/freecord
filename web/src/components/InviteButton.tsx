@@ -22,10 +22,15 @@ export default function InviteButton() {
     <button
       type="button"
       className={`control control-invite ${copied ? 'invite-copied' : ''}`}
+      // The word is hidden on a narrow dock; the name must not go with it.
+      aria-label={copied ? t('invite.copied') : t('invite.copy')}
       onClick={copyLink}
     >
       {copied ? <CheckIcon /> : <LinkIcon />}
-      <span className="control-label">{copied ? t('invite.copied') : t('invite.copy')}</span>
+      {/* Announced when it changes to "copied", eyes on the page or not. */}
+      <span className="control-label" aria-live="polite">
+        {copied ? t('invite.copied') : t('invite.copy')}
+      </span>
     </button>
   );
 }

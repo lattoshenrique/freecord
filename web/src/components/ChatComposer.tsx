@@ -93,6 +93,17 @@ const SHORTCUTS: Record<string, MarkdownAction> = {
 };
 
 /**
+ * A finger on a glass keyboard. There, Enter is the line break every phone
+ * app makes it, and the send key is the one that sends: a return that
+ * fires the message off mid-sentence is the classic mobile chat mistake.
+ * Decided once — a device does not change its pointer mid-call.
+ */
+const COARSE_POINTER =
+  typeof window !== 'undefined' &&
+  typeof window.matchMedia === 'function' &&
+  window.matchMedia('(pointer: coarse)').matches;
+
+/**
  * Chat composer: a textarea with markdown formatting.
  *
  * It has to be a textarea, not an input — an input has no line breaks, and
@@ -248,9 +259,29 @@ export default function ChatComposer({
     onPasteFiles(files);
   }
 
+  /**
+   * Arrow keys walk the toolbar, as a toolbar is expected to: one Tab stop
+   * for the row, then left and right between the keys. Tab itself still
+   * moves through every key, so nothing is lost on whoever never learnt it.
+   */
+  function handleToolbarKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') {
+      return;
+    }
+    const keys = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('button'));
+    const index = keys.indexOf(document.activeElement as HTMLButtonElement);
+    if (index === -1) {
+      return;
+    }
+    event.preventDefault();
+    const step = event.key === 'ArrowRight' ? 1 : -1;
+    keys[(index + step + keys.length) % keys.length]?.focus();
+  }
+
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>): void {
     // Enter sends; Shift+Enter breaks the line — every chat's convention.
-    if (event.key === 'Enter' && !event.shiftKey) {
+    // On a touch keyboard Enter is a line break and the send key sends.
+    if (event.key === 'Enter' && !event.shiftKey && !COARSE_POINTER) {
       event.preventDefault();
       onSend();
       return;
@@ -303,7 +334,12 @@ export default function ChatComposer({
         </div>
       )}
       {/* Every key lives on its own row: the field below keeps the full width. */}
-      <div className="chat-toolbar" role="toolbar" aria-label={t('chat.toolbar')}>
+      <div
+        className="chat-toolbar"
+        role="toolbar"
+        aria-label={t('chat.toolbar')}
+        onKeyDown={handleToolbarKeyDown}
+      >
         <button
           type="button"
           className={`chat-tool ${formatOpen ? 'chat-tool-on' : ''}`}
@@ -383,6 +419,8 @@ export default function ChatComposer({
           maxLength={maxLength}
           placeholder={t('chat.placeholder')}
           aria-label={t('chat.messageLabel')}
+          // The return key on a phone's keyboard says what it will do.
+          enterKeyHint={COARSE_POINTER ? 'enter' : 'send'}
           onChange={(event) => onChange(event.target.value)}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
