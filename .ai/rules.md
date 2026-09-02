@@ -38,6 +38,15 @@ Shipping locales: `en-US` (source of truth), `pt-BR`, `es`, `zh-CN`, `ja`.
 Language is auto-detected (`navigator.language`, system locale in Electron),
 falls back to `en-US`, and a picker persists the choice.
 
+## Project skills
+
+Versioned, provider-neutral workflows live in `.ai/skills/<name>/SKILL.md`.
+Use the frontmatter name and description for discovery. When a user names a
+project skill, or the request clearly matches its description, read that
+`SKILL.md` completely before acting and follow its routing instructions. Read
+supporting references only when the skill routes the current task to them. Do
+not copy project skills into a provider-specific tracked directory.
+
 ## The shape of the system
 
 ```
