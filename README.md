@@ -133,10 +133,13 @@ localhost. `CORS_ORIGIN` restricts the origin in production.
 - Call settings live in a dialog: microphone profile (voice or studio),
   camera quality, computer audio in the share, sounds, language, and the
   desktop app download for the visitor's own OS.
-- A **tool shelf** in the dock, one tool so far: watching a YouTube video
+- A **tool shelf** in the dock, one tool so far: watching YouTube
   together. Paste a link and it opens for the room — everyone's own player,
   one shared timeline. Anyone plays, pauses or skips, and whoever joins
-  late lands where the room already is.
+  late lands where the room already is. There is a shared **queue** behind
+  what is playing (anyone adds to it, jumps to one, or drops one), and a
+  **playlist link** plays as itself: when it steps to its next video the
+  room follows, and when it runs out the queue takes over.
 - Tools are a **plugin contract**, not a feature list: a tool is a folder
   that gets one shared value the whole room reads and writes, and the
   server carries it without knowing what it means — so a new tool needs no
