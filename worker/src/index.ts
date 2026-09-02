@@ -23,7 +23,13 @@ import {
   type RoomCompany,
 } from '../../server/src/domain/room-stats.js';
 import { computeScreenTree } from '../../server/src/domain/screen-tree.js';
-import { projectWatch, type WatchState } from '../../server/src/domain/watch.js';
+import {
+  clearToolState,
+  projectTool,
+  projectTools,
+  setToolState,
+  type ToolStates,
+} from '../../server/src/domain/tools.js';
 import {
   EMPTY_DESKTOP_CATALOG,
   desktopDownloadUrl,
@@ -118,10 +124,11 @@ type Deafened = string[];
 /** Peers with their microphone off (`mute`) — same storage discipline. */
 type Muted = string[];
 /**
- * What the room is watching together — storage key 'watch', absent while
- * nobody has the tool open (server/src/domain/watch.ts).
+ * What each tool on the shelf has going — storage key 'tools', absent
+ * until the first one is turned on (server/src/domain/tools.ts). The
+ * states are opaque here as everywhere on this side of the wire.
  */
-type Watch = WatchState;
+type Tools = ToolStates;
 
 /**
  * Name of the one instance of StatsDurableObject. A single object holds the
@@ -293,9 +300,9 @@ export class RoomDurableObject {
       cameras: await this.cameras(),
       deafened: await this.deafened(),
       muted: await this.muted(),
-      // Late to the film: the position is projected to right now, so the
-      // newcomer seeks once and is where everyone else is.
-      watch: projectWatch(await this.watch(), Date.now()),
+      // Late to the film: each tool's state goes out with its age, so a
+      // newcomer catches up on a video already playing without asking.
+      tools: projectTools(await this.tools(), Date.now()),
     });
     this.broadcast({ t: 'peer-joined', peer: { id: peerId, name } }, peerId);
     // Screen share in progress: the newcomer needs a route, and the tree changes.
@@ -378,9 +385,9 @@ export class RoomDurableObject {
       cameras: await this.cameras(),
       deafened: await this.deafened(),
       muted: await this.muted(),
-      // Late to the film: the position is projected to right now, so the
-      // newcomer seeks once and is where everyone else is.
-      watch: projectWatch(await this.watch(), Date.now()),
+      // Late to the film: each tool's state goes out with its age, so a
+      // newcomer catches up on a video already playing without asking.
+      tools: projectTools(await this.tools(), Date.now()),
     });
     for (const held of pending) {
       this.send(server, held);
@@ -437,18 +444,26 @@ export class RoomDurableObject {
         }
         return;
       }
-      case 'watch': {
-        // No lock and no host: the shelf's video belongs to the room, and
-        // whoever touches it last says where it is. Closing (`video: null`)
-        // is the same message with nothing in it.
-        const watch: Watch | null = message.video
-          ? { video: message.video, playing: message.playing, time: message.time, at: Date.now() }
-          : null;
-        await this.putWatch(watch);
-        // Echoed to the sender too: its player is the one that moved, but
-        // a client that guessed wrong (a seek the player rounded) must end
-        // up on the room's number, not on its own.
-        this.broadcast({ t: 'watch-state', watch: projectWatch(watch, Date.now()), by: peerId });
+      case 'tool-state': {
+        // No lock and no host: the shelf belongs to the room, and whoever
+        // touches a tool last says what it is doing. `state: null` turns
+        // it off for everybody. Mirror of the Node edge.
+        const now = Date.now();
+        const states = await this.tools();
+        if (message.state === null) {
+          await this.putTools(clearToolState(states, message.tool));
+          this.broadcast({ t: 'tool-state', tool: message.tool, state: null, by: peerId, age: 0 });
+          return;
+        }
+        const next = setToolState(states, message.tool, { state: message.state, by: peerId, at: now });
+        if (!next) {
+          // As many tools as the room may carry are already on: only the
+          // one that asked hears it, nothing changed for the others.
+          this.send(ws, { t: 'tool-denied', tool: message.tool });
+          return;
+        }
+        await this.putTools(next);
+        this.broadcast({ t: 'tool-state', ...projectTool(message.tool, next[message.tool], now)! });
         return;
       }
       case 'screen-request': {
@@ -908,14 +923,14 @@ export class RoomDurableObject {
     }
   }
 
-  private async watch(): Promise<Watch | null> {
-    return (await this.ctx.storage.get<Watch>('watch')) ?? null;
+  private async tools(): Promise<Tools> {
+    return (await this.ctx.storage.get<Tools>('tools')) ?? {};
   }
-  private async putWatch(watch: Watch | null): Promise<void> {
-    if (watch) {
-      await this.ctx.storage.put('watch', watch);
+  private async putTools(tools: Tools): Promise<void> {
+    if (Object.keys(tools).length === 0) {
+      await this.ctx.storage.delete('tools');
     } else {
-      await this.ctx.storage.delete('watch');
+      await this.ctx.storage.put('tools', tools);
     }
   }
 

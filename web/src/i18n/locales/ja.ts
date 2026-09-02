@@ -238,21 +238,9 @@ export const jaJP: Catalog = {
   'controls.tools': 'ツール',
 
   'tools.title': 'ツール',
-  'tools.youtube': 'YouTube',
-  'tools.youtubeHint': [
-    '動画をいっしょに見る。再生も一時停止もスキップも誰でも——ひとつの部屋に、ひとつの時間軸。',
-    '部屋みんなでひとつの動画。プレーヤーを触れば、全員の画面が動きます。',
-    '動画もいまの位置もひとつ。「どこまで見た？」はもう不要。操作は誰でも。',
-  ],
-  'watch.linkPlaceholder': 'https://youtube.com/watch?v=…',
-  'watch.linkLabel': 'YouTube のリンク',
-  'watch.replaceLabel': '別の動画を流す',
-  'watch.open': '全員に流す',
-  'watch.invalid': 'このリンクに YouTube の動画はありません。',
-  'watch.closeForAll': '全員の動画を閉じる',
-  'watch.stageLabel': 'いっしょに視聴中',
-  'watch.blocked': 'この動画は YouTube でここでは再生できません（限定公開・削除済み・埋め込み不可のいずれか）。',
-  'watch.openOnYouTube': 'YouTube で開く',
+  'tools.on': '実行中',
+  'tools.empty': 'このビルドにツールはありません。',
+  'tools.full': 'この部屋で開けるツールはもう上限です。',
 
   'chat.title': 'ルームチャット',
   'chat.empty': [

@@ -4,6 +4,26 @@
  * but anchored to the footer rather than centred: it is a shelf you reach
  * from a key, not a place you go.
  *
+ * Two halves, and every tool gets both in the same shape:
+ *
+ *   .tool-head   the row. Icon tile, name, the "on" chip in its fixed
+ *                corner, and two lines of summary — clamped, so no tool's
+ *                copy decides how tall the shelf is.
+ *   .tool-panel  the frame under the open row. A tool fills it with the
+ *                kit below and nothing else, which is why six tools by
+ *                six authors still read as one list.
+ *
+ * The kit a tool's panel is written from:
+ *
+ *   .tool-label    a label over a control
+ *   .tool-field    a text input; fills its line
+ *   .tool-row      controls side by side, wrapping when they must
+ *   .tool-actions  the panel's buttons, stacked and full width
+ *   .tool-open     the one action that starts something for the room
+ *   .tool-stop     the one that ends it for everybody
+ *   .tool-note     a quiet line of context
+ *   .tool-error    something went wrong; pair it with role="alert"
+ *
  * The --hud-* tokens come from the room's stylesheet; the fallbacks keep
  * the shelf whole if that refactor ever moves.
  */
@@ -14,7 +34,10 @@
   left: 50%;
   transform: translateX(-50%);
   z-index: 32;
-  width: min(24rem, calc(100vw - 2 * var(--room-pad, 1rem)));
+  width: min(27rem, calc(100vw - 2 * var(--room-pad, 1rem)));
+  max-height: min(30rem, calc(100vh - 8rem));
+  display: flex;
+  flex-direction: column;
   background: var(--hud-bg, rgba(11, 14, 20, 0.72));
   backdrop-filter: var(--glass-blur, blur(14px));
   -webkit-backdrop-filter: var(--glass-blur, blur(14px));
@@ -30,6 +53,18 @@
   animation: tools-rise 0.2s var(--ease, ease) both;
 }
 
+/* And back into the key it came out of. */
+.tools-menu[data-leaving='true'] {
+  animation: tools-fall var(--dur-quick, 0.15s) var(--ease-in, ease) both;
+}
+
+@keyframes tools-fall {
+  to {
+    opacity: 0;
+    transform: translate(-50%, 6px) scale(0.98);
+  }
+}
+
 @keyframes tools-rise {
   from {
     opacity: 0;
@@ -42,6 +77,7 @@
 }
 
 .tools-header {
+  flex: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -72,83 +108,217 @@
   border-radius: var(--hud-radius, 8px);
   color: var(--muted, #9aa3b2);
   cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .tools-close:hover,
 .tools-close:focus-visible {
+  outline: none;
+  background: rgba(255, 255, 255, 0.08);
   color: var(--text, #e6e8ee);
   border-color: var(--hud-border, rgba(255, 255, 255, 0.1));
 }
 
-/* ---- one tool ---- */
+/* ---- the shelf's rows ---- */
+
+/* A long shelf scrolls rather than growing past the top of the window. */
+.tool-list {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.tools-empty {
+  margin: 0;
+  padding: 0.9rem;
+  font-size: 0.8rem;
+  color: var(--muted, #9aa3b2);
+}
 
 .tool-card {
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
-  padding: 0.9rem;
 }
 
+.tool-card + .tool-card {
+  border-top: 1px solid var(--hud-border, rgba(255, 255, 255, 0.1));
+}
+
+/*
+ * The row is a heading when it is the only tool and a button when it
+ * chooses between several — same box either way, so the shelf does not
+ * change shape when a second tool ships.
+ *
+ * The grid, not flex: icon, text and the "on" chip land in the same three
+ * places in every row, whatever the tool called itself.
+ */
 .tool-head {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.6rem;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 0.7rem;
+  width: 100%;
+  margin: 0;
+  padding: 0.8rem 0.9rem;
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  transition: background 0.15s ease;
+}
+
+button.tool-head {
+  cursor: pointer;
+}
+
+button.tool-head:hover,
+button.tool-head:focus-visible {
+  outline: none;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+button.tool-head:hover .tool-name,
+button.tool-head:focus-visible .tool-name {
+  color: var(--accent, #5b8cff);
+}
+
+/*
+ * The open tool is marked on its edge, not by moving anything: the rows
+ * stay where they were when you picked one. Nothing to mark when the
+ * build ships a single tool — there was no choice to record.
+ */
+.tool-card.is-open:not(.is-only) {
+  box-shadow: inset 2px 0 0 var(--accent, #5b8cff);
 }
 
 .tool-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.1rem;
-  height: 2.1rem;
+  width: 2.25rem;
+  height: 2.25rem;
   flex: none;
   border: 1px solid var(--hud-border, rgba(255, 255, 255, 0.1));
   border-radius: var(--hud-radius, 8px);
   color: var(--text, #e6e8ee);
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+/* Colour only on state: the tile lights up for the tool the room has going. */
+.tool-card.is-live .tool-icon {
+  border-color: var(--accent, #5b8cff);
+  color: var(--accent, #5b8cff);
 }
 
 .tool-text {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: 0.2rem;
   min-width: 0;
 }
 
 .tool-name {
-  font-size: 0.88rem;
+  font-size: 0.86rem;
   font-weight: 600;
+  line-height: 1.3;
   color: var(--text, #e6e8ee);
+  transition: color 0.15s ease;
 }
 
-.tool-hint,
-.tool-label {
-  font-size: 0.76rem;
-  line-height: 1.35;
+/*
+ * Two lines, then an ellipsis. A tool's summary is a sales line, and one
+ * written long — or translated long — must not push the controls under
+ * the fold.
+ */
+.tool-hint {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  font-size: 0.74rem;
+  line-height: 1.4;
   color: var(--muted, #9aa3b2);
+}
+
+/* A tool the room already has going. Same corner in every row. */
+.tool-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex: none;
+  margin-top: 0.15rem;
+  padding: 0.15rem 0.4rem;
+  border: 1px solid var(--accent, #5b8cff);
+  border-radius: 999px;
+  color: var(--accent, #5b8cff);
+  font-family: var(--mono, monospace);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.tool-live::before {
+  content: '';
+  width: 0.32rem;
+  height: 0.32rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* ---- the frame a tool's controls sit in ---- */
+
+.tool-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.15rem 0.9rem 0.9rem;
 }
 
 .tool-label {
   font-family: var(--mono, monospace);
+  font-size: 0.66rem;
   letter-spacing: var(--track-label);
   text-transform: uppercase;
-  font-size: 0.68rem;
+  line-height: 1.35;
+  color: var(--muted, #9aa3b2);
+}
+
+.tool-note {
+  margin: 0;
+  font-size: 0.74rem;
+  line-height: 1.4;
+  color: var(--muted, #9aa3b2);
 }
 
 .tool-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.4rem;
 }
 
 .tool-field {
   flex: 1;
+  width: 100%;
   min-width: 0;
-  padding: 0.45rem 0.6rem;
+  padding: 0.5rem 0.65rem;
   background: rgba(0, 0, 0, 0.25);
   border: 1px solid var(--hud-border, rgba(255, 255, 255, 0.1));
   border-radius: var(--hud-radius, 8px);
   color: var(--text, #e6e8ee);
   font: inherit;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
+  transition: border-color 0.15s ease;
 }
 
 .tool-field::placeholder {
@@ -165,25 +335,50 @@
   border-color: var(--danger, #e5484d);
 }
 
+/*
+ * A panel's buttons: one under the other, each the full width of the
+ * frame. The primary action is never squeezed by however long its verb
+ * came out in Japanese, and the row reads the same in every tool.
+ */
+.tool-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.1rem;
+}
+
 .tool-open,
 .tool-stop {
-  padding: 0.45rem 0.8rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 0.5rem 0.8rem;
   border-radius: var(--hud-radius, 8px);
   border: 1px solid transparent;
   font: inherit;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 600;
   cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .tool-open {
-  flex: none;
   background: var(--accent, #5b8cff);
   color: #fff;
 }
 
+.tool-open:hover:not(:disabled),
+.tool-open:focus-visible:not(:disabled) {
+  outline: none;
+  filter: brightness(1.1);
+}
+
 .tool-open:disabled {
-  opacity: 0.45;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
@@ -195,27 +390,28 @@
 
 .tool-stop:hover,
 .tool-stop:focus-visible {
+  outline: none;
   color: var(--danger, #e5484d);
   border-color: var(--danger, #e5484d);
 }
 
 .tool-error {
   margin: 0;
-  font-size: 0.76rem;
+  font-size: 0.74rem;
+  line-height: 1.4;
   color: var(--danger, #e5484d);
 }
 
-/* A phone: the shelf spans the dock's width and the field takes the row. */
+/* A phone: the shelf spans the dock's width and stands a little taller. */
 @media (max-width: 480px) {
   .tools-menu {
     width: calc(100vw - 2 * var(--room-pad, 0.75rem));
+    max-height: min(24rem, calc(100vh - 7rem));
   }
+}
 
-  .tool-row {
-    flex-wrap: wrap;
-  }
-
-  .tool-open {
-    flex: 1;
+@media (prefers-reduced-motion: reduce) {
+  .tools-menu {
+    animation: none;
   }
 }

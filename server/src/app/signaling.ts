@@ -11,7 +11,14 @@ import {
   type ServerMessage,
 } from '../domain/room.js';
 import { computeScreenTree } from '../domain/screen-tree.js';
-import { isPosition, isVideoId, projectWatch } from '../domain/watch.js';
+import {
+  clearToolState,
+  isStorableState,
+  isToolId,
+  projectTool,
+  projectTools,
+  setToolState,
+} from '../domain/tools.js';
 import type { RoomRegistry } from './room-registry.js';
 
 function broadcast(room: Room, message: ServerMessage, exceptId?: string): void {
@@ -147,9 +154,9 @@ export class SignalingSession {
       cameras: [...room.cameras],
       deafened: [...room.deafened],
       muted: [...room.muted],
-      // Late to the film: the position is projected to right now, so the
-      // newcomer seeks once and is where everyone else is.
-      watch: projectWatch(room.watch, Date.now()),
+      // Late to the film: each tool's state goes out with its age, so a
+      // newcomer catches up on a video already playing without asking.
+      tools: projectTools(room.tools ?? {}, Date.now()),
     });
   }
 
@@ -197,21 +204,34 @@ export class SignalingSession {
         });
         return;
       }
-      case 'watch': {
-        // No lock and no host: the shelf's video belongs to the room, and
-        // whoever touches it last says where it is. Closing (`video: null`)
-        // is the same message with nothing in it.
-        room.watch = message.video
-          ? { video: message.video, playing: message.playing, time: message.time, at: Date.now() }
-          : null;
-        // Echoed to the sender too: its player is the one that moved, but
-        // a client that guessed wrong (a seek the player rounded) must end
-        // up on the room's number, not on its own.
-        broadcast(room, {
-          t: 'watch-state',
-          watch: projectWatch(room.watch, Date.now()),
+      case 'tool-state': {
+        // No lock and no host: the shelf belongs to the room, and whoever
+        // touches a tool last says what it is doing. `state: null` turns
+        // it off for everybody.
+        const now = Date.now();
+        const states = room.tools ?? {};
+        if (message.state === null) {
+          room.tools = clearToolState(states, message.tool);
+          broadcast(room, { t: 'tool-state', tool: message.tool, state: null, by: this.peerId, age: 0 });
+          return;
+        }
+        const next = setToolState(states, message.tool, {
+          state: message.state,
           by: this.peerId,
+          at: now,
         });
+        if (!next) {
+          // The room is already carrying as many tools as it may. Only
+          // the one that asked hears it: nothing changed for the others.
+          this.channel.send({ t: 'tool-denied', tool: message.tool });
+          return;
+        }
+        room.tools = next;
+        // Echoed to the sender too: its own copy is the one that moved,
+        // but a client that guessed wrong must end up on the room's
+        // numbers rather than on its own.
+        const projection = projectTool(message.tool, next[message.tool], now)!;
+        broadcast(room, { t: 'tool-state', ...projection });
         return;
       }
       case 'screen-request': {
@@ -434,16 +454,18 @@ export function parseClientMessage(raw: unknown): ClientMessage | null {
         message.streamId.length <= 128
         ? { t: 'screen-relay', of: message.of, streamId: message.streamId }
         : null;
-    case 'watch': {
-      // The id is echoed to the whole room, so its shape is checked here
-      // rather than trusted: what comes out of this must be loadable by a
-      // player and nothing else.
-      const video = message.video ?? null;
-      if (video !== null && !isVideoId(video)) {
+    case 'tool-state': {
+      // The server cannot know what a tool's state should look like — it
+      // does not know the tool. What it checks is what it has to store
+      // and key by: an id it can use, and a value that fits (tools.ts).
+      // The shape inside is the tool's own business, checked by every
+      // client that receives it (`parseState`, docs/tools.md).
+      if (!isToolId(message.tool)) {
         return null;
       }
-      return typeof message.playing === 'boolean' && isPosition(message.time)
-        ? { t: 'watch', video, playing: message.playing, time: message.time }
+      const state = message.state ?? null;
+      return state === null || isStorableState(state)
+        ? { t: 'tool-state', tool: message.tool, state }
         : null;
     }
     case 'screen-stop':

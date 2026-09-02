@@ -3,15 +3,20 @@
  * box, hairline, rounded corners) so a video and a shared screen sit in
  * the room the same way, and adds only what an iframe needs: something to
  * fill, and a place to say so when YouTube refuses to play here.
+ *
+ * Every class here is prefixed with this tool's id. Stylesheets are
+ * global once they are in the page, so a tool that names a class
+ * `.stage` is a tool that will one day fight another one — the shelf's
+ * own classes (docs/tools.md) are the only shared names.
  */
 
-.watch-stage {
+.youtube-stage {
   display: flex;
   flex-direction: column;
 }
 
 /* The room's strip: what this is, and the key that ends it for everyone. */
-.watch-bar {
+.youtube-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -21,7 +26,7 @@
   border-bottom: 1px solid var(--hud-border, rgba(255, 255, 255, 0.1));
 }
 
-.watch-title {
+.youtube-title {
   font-family: var(--mono, monospace);
   font-size: 0.72rem;
   letter-spacing: var(--track-label);
@@ -29,7 +34,7 @@
   color: var(--muted, #9aa3b2);
 }
 
-.watch-close {
+.youtube-close {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -43,25 +48,25 @@
   cursor: pointer;
 }
 
-.watch-close:hover,
-.watch-close:focus-visible {
+.youtube-close:hover,
+.youtube-close:focus-visible {
   color: var(--danger, #e5484d);
   border-color: var(--danger, #e5484d);
 }
 
-.watch-frame {
+.youtube-frame {
   flex: 1;
   min-height: 0;
 }
 
-.watch-frame,
-.watch-frame iframe {
+.youtube-frame,
+.youtube-frame iframe {
   width: 100%;
   height: 100%;
   border: 0;
 }
 
-.watch-blocked {
+.youtube-blocked {
   position: absolute;
   inset: 0;
   z-index: 1;
@@ -76,13 +81,13 @@
   color: var(--text, #e6e8ee);
 }
 
-.watch-blocked p {
+.youtube-blocked p {
   margin: 0;
   max-width: 28rem;
   font-size: 0.9rem;
 }
 
-.watch-blocked-link {
+.youtube-blocked-link {
   color: var(--text, #e6e8ee);
   font-size: 0.82rem;
   text-decoration: underline;

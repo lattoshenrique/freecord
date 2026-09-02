@@ -34,15 +34,18 @@ export function cameraSlotsFor(participantCount: number): number {
 }
 
 /**
- * What the room is watching together — mirror of the server's
- * WatchProjection (server/src/domain/watch.ts). The position is where the
- * video was as the message left the server, so a receiver seeks to it.
+ * One tool's shared state — mirror of the server's ToolProjection
+ * (server/src/domain/tools.ts). The state is whatever the tool put there:
+ * opaque on the wire and to the server, checked on arrival by the tool
+ * itself (`parseState`, web/src/tools/contract.ts).
  */
-export interface WatchProjection {
-  /** YouTube video id; see lib/youtube.ts for how a pasted link becomes one. */
-  video: string;
-  playing: boolean;
-  time: number;
+export interface ToolProjection {
+  tool: string;
+  state: unknown;
+  /** The peer that set it. */
+  by: string;
+  /** Milliseconds since it was set, by the server's clock. */
+  age: number;
 }
 
 /** An ICE server handed out by the edge (STUN/TURN, ephemeral credentials). */
@@ -70,8 +73,8 @@ export type ServerMessage =
       deafened: string[];
       /** Who has their microphone off (see `mute`). */
       muted: string[];
-      /** What the room is watching, or null when nobody opened the tool. */
-      watch: WatchProjection | null;
+      /** Every tool with something on, with the age of each state. */
+      tools: ToolProjection[];
     }
   | { t: 'peer-joined'; peer: PeerInfo }
   | { t: 'peer-left'; id: string }
@@ -102,11 +105,13 @@ export type ServerMessage =
       quality: ScreenQualityId;
     }
   /**
-   * The room's shared video changed: someone opened one, played, paused,
-   * jumped, or closed it (`watch` null). `by` is who touched it — the
-   * actor's own player is already there and must not be corrected.
+   * A tool's state changed; `state` null means it was turned off for the
+   * room. `by` is who touched it — the actor's own copy is already there
+   * and must not be corrected.
    */
-  | { t: 'watch-state'; watch: WatchProjection | null; by: string }
+  | { t: 'tool-state'; tool: string; state: unknown; by: string; age: number }
+  /** The room is already carrying as many tools as it may. */
+  | { t: 'tool-denied'; tool: string }
   /** Ping echo: the client measures signaling latency with `ts`. */
   | { t: 'pong'; ts: number }
   | { t: 'error'; code: 'room_not_found' | 'room_full' | 'invalid_name' | 'resume_invalid' };
@@ -132,11 +137,10 @@ export type ClientMessage =
    */
   | { t: 'mute'; on: boolean }
   /**
-   * Whoever touches the shared player says what the room should be
-   * watching: a video id with its position, or `video: null` to close it
-   * for everyone. There is no host — the last word wins.
+   * Whoever touches a tool says what its state is, for everybody; `state`
+   * null turns it off for the room. There is no host — the last word wins.
    */
-  | { t: 'watch'; video: string | null; playing: boolean; time: number }
+  | { t: 'tool-state'; tool: string; state: unknown }
   /**
    * Deliberate goodbye: leave immediately instead of holding the seat for
    * a resume. A bare transport close is treated as an accident.

@@ -26,9 +26,12 @@ import { MAX_FILE_BYTES, formatBytes } from '../lib/file-transfer';
 import { bodyBudget, excerptOf, type ChatQuote } from '../lib/chat-body';
 import InviteButton from './InviteButton';
 import Logo from './Logo';
+import Brand from './Brand';
+import MeshBackground from './MeshBackground';
 import SettingsMenu from './SettingsMenu';
 import ToolsMenu from './ToolsMenu';
-import WatchStage from './WatchStage';
+import ToolStage from './ToolStage';
+import { hasLiveTool, stagedToolOf } from '../tools/registry';
 import { applySinkId } from '../lib/audio-devices';
 import {
   CamIcon,
@@ -891,16 +894,20 @@ export default function RoomView({
     };
   }, [status.kind]);
 
-  // A video opening for the room clears whatever this viewer had pinned:
-  // the pin was a choice made when the video did not exist yet, and
-  // keeping it would leave one person staring at a tile while the room
-  // watches something else — with nothing on screen to say why.
-  const openVideo = session.watch?.video ?? null;
+  // A tool taking the stage clears whatever this viewer had pinned: the
+  // pin was a choice made when the tool was not there yet, and keeping it
+  // would leave one person staring at a tile while the room watches
+  // something else — with nothing on screen to say why.
+  // Us, as a tool sees us: the roster's shape, so a tool can name people
+  // without learning the room hook.
+  const selfPeer = session.selfId ? { id: session.selfId, name: options.name } : null;
+  const stagedTool = stagedToolOf(session.tools);
+  const stagedToolId = stagedTool?.tool.id ?? null;
   useEffect(() => {
-    if (openVideo) {
+    if (stagedToolId) {
       setPinned(null);
     }
-  }, [openVideo]);
+  }, [stagedToolId]);
 
   const stageRef = useRef<HTMLDivElement>(null);
   const screenVideoRef = useRef<HTMLVideoElement>(null);
@@ -1039,11 +1046,11 @@ export default function RoomView({
     pinnedLive?.kind === 'screen'
       ? (screenItems.find((item) => item.share.id === pinnedLive.id) ?? null)
       : null;
-  // The room's video owns the stage while it is open: of everything in
-  // here, it is the one thing somebody deliberately put on for everyone.
-  // A pin is what overrules it — "I want to look at that instead" — and
-  // it is closed for the room from the shelf or the stage's own key.
-  const watchOnStage = session.watch !== null && pinnedLive === null;
+  // A tool owns the stage while it is on: of everything in here, it is
+  // the one thing somebody deliberately put on for everyone. A pin is
+  // what overrules it — "I want to look at that instead" — and it is
+  // turned off for the room from the shelf or the tool's own key.
+  const watchOnStage = stagedTool !== null && pinnedLive === null;
   // A pinned screen whose stream has not arrived yet leaves the stage empty until it has.
   const stageScreen =
     watchOnStage || layout === 'grid'
@@ -1300,12 +1307,14 @@ export default function RoomView({
       {/* The stage is the page's main content: a landmark to jump to. */}
       <main className="room-body">
         <div className="stage-area">
-          {watchOnStage && session.watch && (
-            <WatchStage
-              watch={session.watch}
-              muted={!session.speakerOn}
-              onChange={(video, playing, time) => session.setWatch(video, playing, time)}
-              onClose={() => session.setWatch(null, false, 0)}
+          {watchOnStage && stagedTool && (
+            <ToolStage
+              tool={stagedTool.tool}
+              room={stagedTool.room}
+              self={selfPeer}
+              peers={session.peers}
+              speakerOn={session.speakerOn}
+              onSetState={(state) => session.setToolState(stagedTool.tool.id, state)}
             />
           )}
           {stageStream && (
@@ -1571,9 +1580,12 @@ export default function RoomView({
         </span>
         {toolsOpen && (
           <ToolsMenu
-            watch={session.watch}
-            onOpenVideo={(video, start) => session.setWatch(video, true, start)}
-            onCloseVideo={() => session.setWatch(null, false, 0)}
+            tools={session.tools}
+            denied={session.toolDenied}
+            self={selfPeer}
+            peers={session.peers}
+            speakerOn={session.speakerOn}
+            onSetState={session.setToolState}
             onDismiss={() => setToolsOpen(false)}
           />
         )}
@@ -1668,7 +1680,7 @@ export default function RoomView({
               INTO the room, as opposed to what your own devices do. */}
           <button
             type="button"
-            className={`control ${toolsOpen || session.watch ? 'control-active' : ''}`}
+            className={`control ${toolsOpen || hasLiveTool(session.tools) ? 'control-active' : ''}`}
             aria-haspopup="dialog"
             aria-expanded={toolsOpen}
             aria-label={t('controls.tools')}

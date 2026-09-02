@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseVideo } from '../src/lib/youtube';
+import { parseVideo } from './player';
 
 describe('parseVideo', () => {
   it('reads the id out of the links people actually paste', () => {

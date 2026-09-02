@@ -238,21 +238,9 @@ export const zhCN: Catalog = {
   'controls.tools': '工具',
 
   'tools.title': '工具',
-  'tools.youtube': 'YouTube',
-  'tools.youtubeHint': [
-    '一起看视频。谁都可以播放、暂停、快进——一个房间，一条时间轴。',
-    '整个房间共用一个视频。谁动播放器，就是替所有人动。',
-    '一个视频、一个进度，不用再问“你放到哪儿了”。谁都能控制。',
-  ],
-  'watch.linkPlaceholder': 'https://youtube.com/watch?v=…',
-  'watch.linkLabel': 'YouTube 链接',
-  'watch.replaceLabel': '换一个视频',
-  'watch.open': '放给所有人',
-  'watch.invalid': '这个链接里没有 YouTube 视频。',
-  'watch.closeForAll': '为所有人关闭视频',
-  'watch.stageLabel': '一起观看',
-  'watch.blocked': 'YouTube 无法在这里播放该视频——它可能是私享的、已删除的，或不允许嵌入。',
-  'watch.openOnYouTube': '在 YouTube 中打开',
+  'tools.on': '进行中',
+  'tools.empty': '此版本未附带任何工具。',
+  'tools.full': '房间已经开着能开的所有工具了。',
 
   'chat.title': '房间聊天',
   'chat.empty': [

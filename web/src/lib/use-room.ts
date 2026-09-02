@@ -87,32 +87,25 @@ interface RelayLeg {
 }
 
 /**
- * What the room is watching together, as this client last heard it
- * (protocol.ts, `watch-state`). `time` is the position at `at` on THIS
- * machine's clock: the server projects the position on the way out, so
- * the only arithmetic left here is the time since it arrived.
+ * One tool's shared state, as this client last heard it (protocol.ts,
+ * `tool-state`). The state itself is opaque here — only the tool that
+ * owns it knows what is inside, and only the tool checks it.
  */
-export interface WatchRoom {
-  video: string;
-  playing: boolean;
-  time: number;
-  /** Local clock when the state arrived — the base for projecting it. */
-  at: number;
+export interface ToolRoomState {
+  state: unknown;
   /**
-   * This client caused the change. Its player is already there, so the
-   * correction pass leaves it alone (a round trip's worth of seeking
-   * would jump the very player that just moved).
+   * Local clock (ms) when the state was SET, not when it arrived: the
+   * server sends its age, so the time the message spent in flight is
+   * already paid. A tool that keeps time counts from here.
+   */
+  at: number;
+  /** The peer that set it. */
+  by: string;
+  /**
+   * This client caused the change. Its own copy is already there, so a
+   * tool leaves it alone rather than correcting a round trip late.
    */
   mine: boolean;
-}
-
-/**
- * Where the room's video is at `now`: a paused one sits where it was
- * left, a playing one has moved on since the state arrived. The mirror of
- * the server's projectWatch, for the time this side of the wire.
- */
-export function watchPosition(state: WatchRoom, now: number = Date.now()): number {
-  return state.playing ? state.time + Math.max(0, now - state.at) / 1000 : state.time;
 }
 
 export interface ChatMessage {
@@ -144,6 +137,8 @@ const STATS_INTERVAL_MS = 2_000;
 const AUDIO_ASK_BITRATE = 100_000;
 /** How long the "camera denied" feedback stays up before clearing itself. */
 const CAM_DENIED_MS = 4_000;
+/** Same, for a tool the room had no room for. */
+const TOOL_DENIED_MS = 4_000;
 const QUALITY_STORAGE_KEY = 'freecord:screen-quality';
 /** Pre-rename storage: key from the guest-rooms era, values in Portuguese. */
 const LEGACY_QUALITY_STORAGE_KEY = 'guest-rooms:screen-quality';
@@ -216,8 +211,10 @@ export function useRoomSession(options: JoinOptions) {
   const [screenSources, setScreenSources] = useState<
     Map<string, { id: string; streamId: string } | null>
   >(new Map());
-  /** What the room is watching together; null when the tool is closed. */
-  const [watch, setWatchRoom] = useState<WatchRoom | null>(null);
+  /** What each tool on the shelf has going, by tool id; empty when none. */
+  const [tools, setTools] = useState<ReadonlyMap<string, ToolRoomState>>(new Map());
+  /** The tool the room had no room for, until the shelf has shown it. */
+  const [toolDenied, setToolDenied] = useState<string | null>(null);
   /** The screen the view has on stage — its stats and stall watch follow it. */
   const [watchedScreenId, setWatchedScreenId] = useState<string | null>(null);
   const watchScreen = useCallback((id: string | null) => setWatchedScreenId(id), []);
@@ -275,6 +272,7 @@ export function useRoomSession(options: JoinOptions) {
   /** A camera-request is in flight: swallow double-clicks until it answers. */
   const camPendingRef = useRef(false);
   const camDeniedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const toolDeniedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** The door has opened once. A later welcome is a reconnection, not an arrival. */
   const arrivedRef = useRef(false);
   const lastPongRef = useRef(0);
@@ -658,9 +656,20 @@ export function useRoomSession(options: JoinOptions) {
               teardownRelay(id);
             }
           }
-          setWatchRoom(
-            message.watch ? { ...message.watch, at: Date.now(), mine: false } : null,
-          );
+          {
+            // Whatever the room already had on: each state's age is
+            // subtracted so a tool counts from when it was SET, not from
+            // when this seat heard about it.
+            const now = Date.now();
+            setTools(
+              new Map(
+                message.tools.map((entry) => [
+                  entry.tool,
+                  { state: entry.state, at: now - entry.age, by: entry.by, mine: false },
+                ]),
+              ),
+            );
+          }
           const cameraRoster = new Set(message.cameras);
           setCameras(cameraRoster);
           setDeafened(new Set(message.deafened));
@@ -970,12 +979,32 @@ export function useRoomSession(options: JoinOptions) {
           camDeniedTimerRef.current = setTimeout(() => setCamDenied(false), CAM_DENIED_MS);
           return;
         }
-        case 'watch-state':
-          setWatchRoom(
-            message.watch
-              ? { ...message.watch, at: Date.now(), mine: message.by === selfIdRef.current }
-              : null,
-          );
+        case 'tool-state': {
+          const at = Date.now() - message.age;
+          setTools((current) => {
+            const next = new Map(current);
+            if (message.state === null) {
+              next.delete(message.tool);
+            } else {
+              next.set(message.tool, {
+                state: message.state,
+                at,
+                by: message.by,
+                mine: message.by === selfIdRef.current,
+              });
+            }
+            return next;
+          });
+          return;
+        }
+        case 'tool-denied':
+          // The room is carrying as many tools as it may. Nothing changed
+          // for anybody, and the shelf says so where the person is looking.
+          setToolDenied(message.tool);
+          if (toolDeniedTimerRef.current) {
+            clearTimeout(toolDeniedTimerRef.current);
+          }
+          toolDeniedTimerRef.current = setTimeout(() => setToolDenied(null), TOOL_DENIED_MS);
           return;
         case 'pong':
           lastPongRef.current = Date.now();
@@ -1000,6 +1029,10 @@ export function useRoomSession(options: JoinOptions) {
       if (camDeniedTimerRef.current) {
         clearTimeout(camDeniedTimerRef.current);
         camDeniedTimerRef.current = null;
+      }
+      if (toolDeniedTimerRef.current) {
+        clearTimeout(toolDeniedTimerRef.current);
+        toolDeniedTimerRef.current = null;
       }
       signalingRef.current?.close();
       signalingRef.current = null;
@@ -1547,21 +1580,13 @@ export function useRoomSession(options: JoinOptions) {
   }, [dropLocalScreen]);
 
   /**
-   * Says what the room should be watching: a video with its position, or
-   * `video: null` to close it for everyone. Nothing is applied locally —
-   * the state that comes back from the server is the one the whole room
-   * (this client included) plays from, so nobody can drift into a private
-   * idea of where the video is.
+   * Says what a tool's state is, for everybody; null turns it off for the
+   * room. Nothing is applied locally — the state that comes back from the
+   * server is the one the whole room (this client included) works from,
+   * so nobody can drift into a private idea of what is going on.
    */
-  const setWatch = useCallback((video: string | null, playing: boolean, time: number) => {
-    signalingRef.current?.send({
-      t: 'watch',
-      video,
-      playing,
-      // The server drops a position it cannot store; rounding here keeps a
-      // player's stray float from being that reason.
-      time: Math.max(0, Math.round(time * 1000) / 1000),
-    });
+  const setToolState = useCallback((tool: string, state: unknown) => {
+    signalingRef.current?.send({ t: 'tool-state', tool, state: state ?? null });
   }, []);
 
   const leave = useCallback(() => {
@@ -1609,7 +1634,8 @@ export function useRoomSession(options: JoinOptions) {
     peerLatency,
     signalRttMs,
     screenStats,
-    watch,
+    tools,
+    toolDenied,
     mesh: meshRef.current,
     setScreenQuality,
     updateMediaSettings,
@@ -1625,7 +1651,7 @@ export function useRoomSession(options: JoinOptions) {
     toggleCam,
     startScreenShare,
     stopScreenShare,
-    setWatch,
+    setToolState,
     leave,
   };
 }

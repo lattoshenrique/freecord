@@ -253,21 +253,9 @@ export const ptBR: Catalog = {
   'controls.tools': 'Ferramentas',
 
   'tools.title': 'Ferramentas',
-  'tools.youtube': 'YouTube',
-  'tools.youtubeHint': [
-    'Assistam a um vídeo juntos. Qualquer um dá play, pausa e pula — uma sala, uma linha do tempo.',
-    'Um vídeo para a sala inteira. Quem mexer no player mexe para todo mundo.',
-    'Um vídeo, uma posição, sem “peraí, você está em que minuto?”. Qualquer um controla.',
-  ],
-  'watch.linkPlaceholder': 'https://youtube.com/watch?v=…',
-  'watch.linkLabel': 'Link do YouTube',
-  'watch.replaceLabel': 'Passar outro vídeo',
-  'watch.open': 'Passar para todos',
-  'watch.invalid': 'Não há um vídeo do YouTube nesse link.',
-  'watch.closeForAll': 'Fechar o vídeo para todos',
-  'watch.stageLabel': 'Assistindo juntos',
-  'watch.blocked': 'O YouTube não toca este vídeo aqui — ele pode estar privado, removido ou sem permissão de incorporação.',
-  'watch.openOnYouTube': 'Abrir no YouTube',
+  'tools.on': 'no ar',
+  'tools.empty': 'Esta build não traz nenhuma ferramenta.',
+  'tools.full': 'A sala já está com todas as ferramentas que cabem.',
 
   'chat.title': 'Chat da sala',
   'chat.empty': [

@@ -69,16 +69,24 @@ src/
   `deafened` rosters so a late joiner sees the same badges. A disabled
   audio track keeps flowing as silence, so nothing on the mesh could tell
   the others a mic was off — the server has to.
-- Watching together (`watch` → `watch-state`, plus a `watch` field in
+- The tool shelf (`tool-state` both ways, plus a `tools` roster in
   `welcome`) is room state for the same reason: a peer joining ten minutes
-  into the film has nobody to ask. The server keeps the video id, whether
-  it is playing, and the position stamped with its OWN clock — and projects
-  the position forward on the way out, so every client is told where the
-  video is *now* by the one clock all of them share and nobody has to trust
-  anybody else's. The video never touches the server: each browser embeds
-  YouTube's player and only the agreement travels. See
-  `server/src/domain/watch.ts` and, for how a person's seek is told apart
-  from a slow connection's buffering, `web/src/lib/watch-sync.ts`.
+  into the film has nobody to ask. What makes it different from everything
+  else on this list is that the server does not know what any of it means
+  — it keeps ONE OPAQUE JSON VALUE per tool id, capped at 4 KiB, and a new
+  tool costs zero lines at either edge (`server/src/domain/tools.ts`,
+  `docs/tools.md`). Two rules carry the weight: the last word wins, so
+  nobody is the host; and a state is stored with the server's own clock
+  reading and goes out with its AGE, so a tool that keeps time — where a
+  video is, how much of a timer is left — never compares one browser's
+  clock to another's. Because the value is opaque, validating it is the
+  tool's job in every client (`parseState`), not the server's.
+- The first tool is watching a YouTube video together
+  (`web/src/tools/youtube/`). The video never touches us: each browser
+  embeds YouTube's player and only the agreement travels. Its `sync.ts`
+  holds the rule that keeps a shared player honest — a person moving the
+  player tells the room, a player falling behind fixes itself — which are
+  told apart by comparing each reading against the wall time that passed.
 
 ## Client (web/src/lib)
 

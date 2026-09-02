@@ -138,10 +138,13 @@ and its installers are built by GitHub Actions on a `desktop-v*` tag.
   Anyone in the room can rename it (`PATCH /api/rooms/:slug`, both edges).
 - The tool shelf in the dock is **room state, not a private window**: a
   video someone opens plays for everybody, anyone controls it, and closing
-  it closes it for the room — the same shape as a screen share. The server
-  holds only the video id, the playing flag and the position (its own clock
-  stamps it, `domain/watch.ts`); the video itself is YouTube's player in
-  each browser and never passes through us.
+  it closes it for the room — the same shape as a screen share. Tools are
+  a **plugin contract** (`docs/tools.md`): the edges carry one opaque JSON
+  value per tool id (`domain/tools.ts`), so a new tool is a folder under
+  `web/src/tools/` plus a line in its registry, and never a protocol
+  change. Because the server cannot validate a state it does not
+  understand, every tool checks its own on arrival (`parseState`) — that
+  function is a security boundary, not a formality.
 - Chat is ephemeral and sealed, and it rides the mesh: text goes peer to peer
   on its own data channel, and through the server only for a seat whose
   channel is not up (joining, resuming, or a peer that can never connect

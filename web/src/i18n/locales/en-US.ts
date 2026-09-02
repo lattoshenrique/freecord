@@ -266,21 +266,9 @@ export const enUS = {
   'controls.tools': 'Tools',
 
   'tools.title': 'Tools',
-  'tools.youtube': 'YouTube',
-  'tools.youtubeHint': [
-    'Watch a video together. Anyone can play, pause and skip — one room, one timeline.',
-    'A video for the whole room. Whoever touches the player moves it for everybody.',
-    'One video, one position, no “wait, where are you?”. Anyone can drive.',
-  ],
-  'watch.linkLabel': 'YouTube link',
-  'watch.replaceLabel': 'Play another video',
-  'watch.linkPlaceholder': 'https://youtube.com/watch?v=…',
-  'watch.open': 'Play for everyone',
-  'watch.invalid': 'There is no YouTube video in that link.',
-  'watch.closeForAll': 'Close the video for everyone',
-  'watch.stageLabel': 'Watching together',
-  'watch.blocked': 'YouTube will not play this video here — it may be private, removed, or blocked from embedding.',
-  'watch.openOnYouTube': 'Open it on YouTube',
+  'tools.on': 'on',
+  'tools.empty': 'This build ships no tools.',
+  'tools.full': 'The room is already carrying as many tools as it can.',
 
   'chat.title': 'Room chat',
   'chat.empty': [

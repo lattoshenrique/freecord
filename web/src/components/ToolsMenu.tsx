@@ -1,45 +1,58 @@
 /**
  * The tool shelf: what a room can bring in besides the people in it.
  *
- * One tool today — watching a YouTube video together — and the shelf is
- * built as a list rather than a single button so the second one costs a
- * row, not a redesign. A tool is room state, never a private window: what
- * this menu does, it does for everybody.
+ * The shelf knows no tool. It lists whatever the registry ships
+ * (web/src/tools/), draws each row from that tool's own icon and strings,
+ * and hands the open one its panel plus everything the contract promises
+ * — the room's shared state for that tool, a way to change it for
+ * everybody, who is here, and whether the speakers are on. Adding a tool
+ * never touches this file.
+ *
+ * Every tool is shown the same way, and that is the point: one row of a
+ * fixed shape — icon, name, whether the room has it going, two lines of
+ * what it is for — and, under the open one, a panel in a frame the shelf
+ * owns. A tool decides what goes inside the frame, never how its row
+ * looks, so a shelf with six tools reads as one list instead of six
+ * designs.
  *
  * It hangs off the footer instead of the glass dock (which clips its own
- * children) and closes on Escape, on the backdrop, and on opening.
+ * children) and closes on Escape, on the backdrop, and when a tool says
+ * it is done.
  */
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useI18n } from '../i18n';
-import type { WatchRoom } from '../lib/use-room';
-import { parseVideo } from '../lib/youtube';
-import { CloseIcon, YouTubeIcon } from './icons';
+import type { PeerInfo } from '../lib/protocol';
+import type { ToolRoomState } from '../lib/use-room';
+import { useToolText, type RegisteredTool } from '../tools/contract';
+import { TOOLS } from '../tools/registry';
+import { CloseIcon } from './icons';
 import './tools-menu.css';
 
 export default function ToolsMenu({
-  watch,
-  onOpenVideo,
-  onCloseVideo,
+  tools,
+  denied,
+  self,
+  peers,
+  speakerOn,
+  onSetState,
   onDismiss,
 }: {
-  /** What the room is watching, if anything — the shelf shows the tool in use. */
-  watch: WatchRoom | null;
-  onOpenVideo: (video: string, start: number) => void;
-  onCloseVideo: () => void;
+  /** What each tool has going right now, by tool id. */
+  tools: ReadonlyMap<string, ToolRoomState>;
+  /** A tool the room had no room for, if one was just refused. */
+  denied: string | null;
+  self: PeerInfo | null;
+  peers: readonly PeerInfo[];
+  speakerOn: boolean;
+  onSetState: (tool: string, state: unknown) => void;
   onDismiss: () => void;
 }) {
   const { t } = useI18n();
-  const [link, setLink] = useState('');
-  const [rejected, setRejected] = useState(false);
-  const fieldId = useId();
-  const errorId = useId();
-  const fieldRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    // The field is the only thing here to type into; landing on it saves
-    // the paste a tab press.
-    fieldRef.current?.focus();
-  }, []);
+  // With more than one tool the shelf opens on whichever is already
+  // running, else on the first.
+  const [selectedId, setSelectedId] = useState(
+    () => TOOLS.find((tool) => tools.has(tool.id))?.id ?? TOOLS[0]?.id ?? null,
+  );
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -51,19 +64,6 @@ export default function ToolsMenu({
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [onDismiss]);
-
-  function submit(): void {
-    const parsed = parseVideo(link);
-    if (!parsed) {
-      setRejected(true);
-      fieldRef.current?.focus();
-      return;
-    }
-    onOpenVideo(parsed.video, parsed.start);
-    setLink('');
-    setRejected(false);
-    onDismiss();
-  }
 
   return (
     <>
@@ -87,66 +87,144 @@ export default function ToolsMenu({
           </button>
         </header>
 
-        <section className="tool-card">
-          <div className="tool-head">
-            <span className="tool-icon" aria-hidden>
-              <YouTubeIcon />
-            </span>
-            <span className="tool-text">
-              <span className="tool-name">{t('tools.youtube')}</span>
-              <span className="tool-hint">{t('tools.youtubeHint')}</span>
-            </span>
+        {TOOLS.length === 0 ? (
+          <p className="tools-empty">{t('tools.empty')}</p>
+        ) : (
+          <div className="tool-list">
+            {TOOLS.map((tool) => (
+              <ToolCard
+                key={tool.id}
+                tool={tool}
+                room={tools.get(tool.id) ?? null}
+                open={tool.id === selectedId}
+                only={TOOLS.length === 1}
+                denied={denied === tool.id}
+                self={self}
+                peers={peers}
+                speakerOn={speakerOn}
+                onSelect={() => setSelectedId(tool.id)}
+                onSetState={(state) => onSetState(tool.id, state)}
+                onDismiss={onDismiss}
+              />
+            ))}
           </div>
+        )}
+      </div>
+    </>
+  );
+}
 
-          <label className="tool-label" htmlFor={fieldId}>
-            {watch ? t('watch.replaceLabel') : t('watch.linkLabel')}
-          </label>
-          <div className="tool-row">
-            <input
-              id={fieldId}
-              ref={fieldRef}
-              type="url"
-              inputMode="url"
-              className="tool-field"
-              placeholder={t('watch.linkPlaceholder')}
-              value={link}
-              aria-invalid={rejected || undefined}
-              aria-describedby={rejected ? errorId : undefined}
-              onChange={(event) => {
-                setLink(event.target.value);
-                setRejected(false);
-              }}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  event.preventDefault();
-                  submit();
-                }
-              }}
-            />
-            <button type="button" className="tool-open" disabled={!link.trim()} onClick={submit}>
-              {t('watch.open')}
-            </button>
-          </div>
-          {rejected && (
-            <p className="tool-error" id={errorId} role="alert">
-              {t('watch.invalid')}
+/** One row on the shelf, plus the tool's own panel when it is the open one. */
+function ToolCard({
+  tool,
+  room,
+  open,
+  only,
+  denied,
+  self,
+  peers,
+  speakerOn,
+  onSelect,
+  onSetState,
+  onDismiss,
+}: {
+  tool: RegisteredTool;
+  room: ToolRoomState | null;
+  open: boolean;
+  only: boolean;
+  denied: boolean;
+  self: PeerInfo | null;
+  peers: readonly PeerInfo[];
+  speakerOn: boolean;
+  onSelect: () => void;
+  onSetState: (state: unknown) => void;
+  onDismiss: () => void;
+}) {
+  const { t } = useI18n();
+  const toolText = useToolText(tool);
+  const Panel = tool.Shelf;
+  // Never the raw wire value: a tool sees its state only after its own
+  // check, so a peer cannot hand it something it never expected.
+  const state = room ? tool.parseState(room.state) : null;
+  const head = <ToolHead tool={tool} text={toolText} live={state !== null} />;
+
+  return (
+    <section
+      className={[
+        'tool-card',
+        open ? 'is-open' : '',
+        only ? 'is-only' : '',
+        state !== null ? 'is-live' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    >
+      {/* With one tool there is nothing to choose between: the row is a
+          heading rather than a button nobody needs to press. Same box
+          either way, so the shelf does not change shape when a second
+          tool ships. */}
+      {only ? (
+        <div className="tool-head">{head}</div>
+      ) : (
+        <button type="button" className="tool-head" aria-expanded={open} onClick={onSelect}>
+          {head}
+        </button>
+      )}
+      {open && (
+        /* The frame every tool's controls sit in. A tool fills it with
+           the shelf's own kit — .tool-label, .tool-field, .tool-row,
+           .tool-actions, .tool-open, .tool-stop, .tool-error — so two
+           tools written by two people still line up. */
+        <div className="tool-panel">
+          <Panel
+            state={state}
+            at={room?.at ?? 0}
+            mine={room?.mine ?? false}
+            by={room?.by ?? null}
+            setState={onSetState}
+            self={self}
+            peers={peers}
+            speakerOn={speakerOn}
+            t={toolText}
+            dismiss={onDismiss}
+          />
+          {denied && (
+            <p className="tool-error" role="alert">
+              {t('tools.full')}
             </p>
           )}
+        </div>
+      )}
+    </section>
+  );
+}
 
-          {watch && (
-            <button
-              type="button"
-              className="tool-stop"
-              onClick={() => {
-                onCloseVideo();
-                onDismiss();
-              }}
-            >
-              {t('watch.closeForAll')}
-            </button>
-          )}
-        </section>
-      </div>
+function ToolHead({
+  tool,
+  text,
+  live,
+}: {
+  tool: RegisteredTool;
+  text: (key: string) => string;
+  live: boolean;
+}) {
+  const { t } = useI18n();
+  const Icon = tool.Icon;
+  return (
+    <>
+      <span className="tool-icon" aria-hidden>
+        <Icon />
+      </span>
+      <span className="tool-text">
+        <span className="tool-name">{text('name')}</span>
+        {/* Two lines at most, whatever the tool wrote and whatever the
+            language does to it: the row's height is the shelf's to keep,
+            not the copywriter's. */}
+        <span className="tool-hint">{text('summary')}</span>
+      </span>
+      {/* Always the same corner, so the eye finds what the room has going
+          without reading a single name. */}
+      {live && <span className="tool-live">{t('tools.on')}</span>}
     </>
   );
 }

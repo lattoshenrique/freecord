@@ -253,21 +253,9 @@ export const esES: Catalog = {
   'controls.tools': 'Herramientas',
 
   'tools.title': 'Herramientas',
-  'tools.youtube': 'YouTube',
-  'tools.youtubeHint': [
-    'Vean un video juntos. Cualquiera da play, pausa y salta — una sala, una línea de tiempo.',
-    'Un video para toda la sala. Quien toca el reproductor lo mueve para todos.',
-    'Un video, una posición, sin “espera, ¿en qué minuto vas?”. Cualquiera lo controla.',
-  ],
-  'watch.linkPlaceholder': 'https://youtube.com/watch?v=…',
-  'watch.linkLabel': 'Enlace de YouTube',
-  'watch.replaceLabel': 'Poner otro video',
-  'watch.open': 'Poner para todos',
-  'watch.invalid': 'No hay ningún video de YouTube en ese enlace.',
-  'watch.closeForAll': 'Cerrar el video para todos',
-  'watch.stageLabel': 'Viendo juntos',
-  'watch.blocked': 'YouTube no reproduce este video aquí: puede ser privado, estar eliminado o no permitir incrustación.',
-  'watch.openOnYouTube': 'Abrirlo en YouTube',
+  'tools.on': 'en marcha',
+  'tools.empty': 'Esta compilación no trae ninguna herramienta.',
+  'tools.full': 'La sala ya lleva todas las herramientas que caben.',
 
   'chat.title': 'Chat de la sala',
   'chat.empty': [

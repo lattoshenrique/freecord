@@ -135,6 +135,9 @@ localhost. `CORS_ORIGIN` restricts the origin in production.
   desktop app download for the visitor's own OS.
 - A **tool shelf** in the dock, one tool so far: watching a YouTube video
   together. Paste a link and it opens for the room — everyone's own player,
-  one shared timeline. Anyone plays, pauses or skips, whoever joins late
-  lands where the room already is, and the server keeps only the video id,
-  whether it is playing and where (the video itself never touches it).
+  one shared timeline. Anyone plays, pauses or skips, and whoever joins
+  late lands where the room already is.
+- Tools are a **plugin contract**, not a feature list: a tool is a folder
+  that gets one shared value the whole room reads and writes, and the
+  server carries it without knowing what it means — so a new tool needs no
+  server code and no protocol change. See [docs/tools.md](docs/tools.md).

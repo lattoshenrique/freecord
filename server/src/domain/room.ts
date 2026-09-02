@@ -4,7 +4,7 @@
  * screen at a time, expiration).
  */
 
-import type { WatchProjection, WatchState } from './watch.js';
+import type { ToolProjection, ToolStates } from './tools.js';
 
 export interface PeerInfo {
   id: string;
@@ -83,11 +83,11 @@ export interface Room {
    */
   screenRelays: Map<string, Map<string, string>>;
   /**
-   * What the room is watching together (domain/watch.ts). Absent while
-   * nobody has opened the tool — a room only grows the field the first
-   * time someone puts a video on.
+   * What each tool on the shelf has going, by tool id (domain/tools.ts).
+   * Absent until the first tool is used — a room only grows the field
+   * when somebody turns something on.
    */
-  watch?: WatchState | null;
+  tools?: ToolStates;
   /** When the room became empty, for expiration. */
   emptyAt: number | null;
 }
@@ -267,10 +267,11 @@ export type ServerMessage =
       /** Who has their microphone off (see `mute`). */
       muted: string[];
       /**
-       * What the room is watching, position already brought up to date;
-       * null when nobody has the tool open (see domain/watch.ts).
+       * Every tool with something on, each with the age of its state —
+       * how a joiner catches up on a video already playing, a board
+       * already drawn on (see domain/tools.ts).
        */
-      watch: WatchProjection | null;
+      tools: ToolProjection[];
     }
   | { t: 'peer-joined'; peer: PeerInfo }
   | { t: 'peer-left'; id: string }
@@ -304,11 +305,14 @@ export type ServerMessage =
       quality: ScreenQuality;
     }
   /**
-   * The room's shared video changed: someone opened one, played, paused,
-   * jumped, or closed it (`watch` null). `time` is where the video is as
-   * this message leaves the server, so a receiver seeks to it directly.
+   * A tool's state changed: `state` null means it was turned off for the
+   * room. `age` is how old the state is as this message leaves the
+   * server, which is what lets a tool keep time without trusting
+   * anybody's clock (domain/tools.ts).
    */
-  | { t: 'watch-state'; watch: WatchProjection | null; by: string }
+  | { t: 'tool-state'; tool: string; state: unknown; by: string; age: number }
+  /** The room is already carrying as many tools as it may (`maxTools`). */
+  | { t: 'tool-denied'; tool: string }
   /** Ping echo: the client measures signaling latency with `ts`. */
   | { t: 'pong'; ts: number }
   | { t: 'error'; code: 'room_not_found' | 'room_full' | 'invalid_name' | 'resume_invalid' };
@@ -335,12 +339,12 @@ export type ClientMessage =
    */
   | { t: 'mute'; on: boolean }
   /**
-   * Whoever touches the shared player says what the room should be
-   * watching: a video id with its position, or `video: null` to close it
-   * for everyone. There is no host — the tool belongs to the room, like
-   * the screen slots, and the last word wins.
+   * Whoever touches a tool says what its state is, for everybody; `state`
+   * null turns it off for the room. There is no host and no lock — the
+   * shelf belongs to the room and the last word wins. The server never
+   * looks inside `state` (domain/tools.ts).
    */
-  | { t: 'watch'; video: string | null; playing: boolean; time: number }
+  | { t: 'tool-state'; tool: string; state: unknown }
   /**
    * Deliberate goodbye: leave immediately instead of holding the seat for
    * a resume. A bare transport close is treated as an accident.

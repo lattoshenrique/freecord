@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { decideSync, type PlayerSample } from '../src/lib/watch-sync';
+import { decideSync, type PlayerSample } from './sync';
 
 /** A reading one second after `previous`, as the sampler takes them. */
 function tick(previous: PlayerSample, time: number, playing = previous.playing): PlayerSample {
@@ -75,6 +75,38 @@ describe('decideSync', () => {
     // seeking a paused player would fight whoever pauses next.
     const previous = pausedAt(30);
     expect(decideSync(previous, tick(previous, 30), { playing: false, time: 30 })).toEqual({
+      kind: 'idle',
+    });
+  });
+
+  it('a player still on its way says nothing about position', () => {
+    // The joiner's bug: a video asked to start at 9:30 reads 0:00 while
+    // it loads. Reported, that drags the whole room back to the start.
+    const previous: PlayerSample = { time: 570, playing: true, at: 10_000 };
+    const loading = tick(previous, 0);
+    expect(decideSync(previous, loading, { playing: true, time: 571 }, true)).toEqual({
+      kind: 'wait',
+    });
+    // Without the settling flag, the same reading is a person seeking.
+    expect(decideSync(previous, loading, { playing: true, time: 571 }, false)).toMatchObject({
+      kind: 'report',
+      time: 0,
+    });
+  });
+
+  it('a player on its way still reports a hand on the pause button', () => {
+    const previous = playingAt(570);
+    const paused = tick(previous, 0, false);
+    expect(decideSync(previous, paused, { playing: true, time: 571 }, true)).toMatchObject({
+      kind: 'report',
+      playing: false,
+    });
+  });
+
+  it('once it arrives it is a player like any other', () => {
+    const previous = playingAt(569);
+    const arrived = tick(previous, 570);
+    expect(decideSync(previous, arrived, { playing: true, time: 571 }, true)).toEqual({
       kind: 'idle',
     });
   });
