@@ -217,9 +217,28 @@ export function openVideoPicker(options: VideoPickerOptions): Promise<PickedSour
       void siteSession.clearStorageData().catch(() => undefined);
     };
 
+    /**
+     * Who may end the picking, and on what terms.
+     *
+     * The strip may do either: it is the only view that has seen what
+     * was found, so "use these" is its to say. The window that ASKED —
+     * the app's own page — may only cancel. It never saw the sources,
+     * so letting it claim them would be letting a page take delivery of
+     * something it was not shown.
+     *
+     * Found by driving it: the page's `video.cancel()` went out on this
+     * channel from the main window, the guard ignored it, and the
+     * promise never resolved — leaving the shelf waiting on a window
+     * nobody could dismiss from inside the app.
+     */
+    const asked = options.parent?.webContents ?? null;
     const onDone = (event: IpcMainEvent, take: unknown): void => {
       if (event.sender === strip.webContents) {
         finish(take === true ? [...found.values()] : []);
+        return;
+      }
+      if (asked && event.sender === asked) {
+        finish([]);
       }
     };
     ipcMain.on('video-pick:done', onDone);
