@@ -95,7 +95,9 @@ src/
 - `protocol.ts` — mirror of the server's message types.
 - `signaling.ts` — WebSocket client with **automatic resume**: a dropped
   transport reconnects with backoff and presents the `resumeToken` from
-  `welcome`, reclaiming the same peerId (see "How a room dies").
+  `welcome`, reclaiming the same peerId (see "How a room dies"). It keeps
+  knocking for five minutes, and a seat that was swept meanwhile is not the
+  end of the room: it comes back through the door as a newcomer.
 - `mesh.ts` — one `RTCPeerConnection` per peer, with **perfect negotiation**
   (the MDN pattern): renegotiations (turning the camera on, sharing a screen
   mid-call) work from both sides without glare. Whoever joins initiates the
@@ -544,9 +546,16 @@ never extends the worst case):
 
 The client runs the same clock in reverse — but silence no longer ends the
 session: with no `pong` in time it forces the transport down and goes through
-the resume path (backoff capped well inside the 35 s grace). The session only
-ends when the resume is refused (`resume_invalid`: the seat was swept) or the
-attempts run out.
+the resume path. It then knocks for up to **five minutes**, each wait drawn
+from the top half of its window (a server that comes back finds every browser
+of every room at the door on the same second), and the room stays on screen
+the whole time behind a note saying so — because the media is P2P and never
+stopped. A refused resume (`resume_invalid`: the seat was swept) is not the
+end either: the client drops the dead token and joins again as a newcomer, on
+a fresh seat and a fresh mesh. What does end the session is the room refusing
+us (`room_full`, `room_not_found`), the budget running out, and the leave
+button. This is why a deploy no longer empties every room: see "A restart is
+not a goodbye" below.
 
 **Signals do not die with the transport.** A renegotiation that lands in the
 grace window — someone turning a camera on, a route change, an ICE restart
@@ -612,8 +621,24 @@ never repairs itself:
 
 On the Cloudflare edge a peer survives DO hibernation: participant identity
 (with its resume token) goes in the socket's `serializeAttachment`, and the
-screen shares, presence rosters, detached seats and metadata go in storage —
-nothing depends on process memory.
+screen shares, presence rosters, seats and metadata go in storage — nothing
+depends on process memory.
+
+**A restart is not a goodbye.** Hibernation is the easy case; a *restart* — a
+deploy, an eviction — brings the object back with no sockets and no memory of
+who was in the room. So the seat (peerId, name, resume token) is written to
+storage from the moment of the **join**, not only when a socket drops: it is
+the one thing that crosses a restart, and it is enough. The object that comes
+back finds seats with no sockets on them, marks each as dropped *now* — the
+last ping it answered was counted by an object that no longer exists — and
+hands them the usual grace, with the sweep armed for the ones nobody comes
+back for. Everyone who returns within it returns with the same peerId, so the
+mesh never learns there was a new server in the middle. `detachedPeers` is no
+longer a map of its own but a reading over the seats: the ones nobody is
+sitting in. The price is bookkeeping — `leave` now has to delete the seat,
+because an empty chair nobody can claim would be counted as a person until
+the room expired. `e2e/worker/restart-resume.mjs` drives the whole thing
+against a real `wrangler dev` that is killed and started again.
 
 ## Conscious MVP debts (mapped, not forgotten)
 
