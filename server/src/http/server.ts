@@ -2,9 +2,12 @@ import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
 import websocket from '@fastify/websocket';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import Fastify, { type FastifyInstance } from 'fastify';
 import type { RoomRegistry } from '../app/room-registry.js';
 import { TurnCredentialProvider } from '../app/turn.js';
+import { roomPreviewHtml } from '../domain/preview.js';
 import { registerRoutes } from './routes.js';
 
 export interface BuildServerOptions {
@@ -34,6 +37,10 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
 
   if (options.webDist) {
     await app.register(fastifyStatic, { root: options.webDist, wildcard: false });
+    // Read once: the page a room link is answered with differs from the file
+    // on disk only by its preview image, and re-reading it per request would
+    // buy nothing (fastify-static caches the home page too).
+    const index = await readFile(join(options.webDist, 'index.html'), 'utf8');
     // SPA fallback: /r/:slug lands on index.html.
     app.setNotFoundHandler((request, reply) => {
       if (
@@ -43,6 +50,11 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
         // Room links stay out of search indexes (mirror of the Worker edge).
         if (request.url.startsWith('/r/')) {
           void reply.header('X-Robots-Tag', 'noindex, nofollow');
+          // And they preview as an invite, not as the front page.
+          // `host`, not `hostname`: the port is part of the origin a
+          // self-hosted install is reached on.
+          const origin = `${request.protocol}://${request.host}`;
+          return reply.type('text/html; charset=utf-8').send(roomPreviewHtml(index, origin));
         }
         return reply.sendFile('index.html');
       }

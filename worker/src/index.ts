@@ -23,6 +23,7 @@ import {
   findDesktopBuild,
   type DesktopCatalog,
 } from '../../server/src/domain/downloads.js';
+import { roomPreviewHtml } from '../../server/src/domain/preview.js';
 import { parseClientMessage } from '../../server/src/app/signaling.js';
 import { TurnCredentialProvider } from '../../server/src/app/turn.js';
 import { fetchDesktopCatalog } from '../../server/src/app/desktop-catalog.js';
@@ -1079,17 +1080,32 @@ export default {
     // bots and uptime monitors probe with it, and a 404 there reads as a
     // dead link (the runtime drops the body on its own).
     if (request.method === 'GET' || request.method === 'HEAD') {
-      const response = await env.ASSETS.fetch(new Request(new URL('/', url), request));
+      const room = url.pathname.startsWith('/r/');
+      // A room answer rewrites the body, so it must not be a 304: ask the
+      // assets layer for the page itself, not for a revalidation of the
+      // home page the bot may already have cached.
+      const index = new Request(new URL('/', url), request);
+      if (room) {
+        index.headers.delete('if-none-match');
+        index.headers.delete('if-modified-since');
+      }
+      const response = await env.ASSETS.fetch(index);
+      if (!room) {
+        return response;
+      }
       // The room link is the credential: an indexed slug would be a
       // world-readable room. The header reaches crawlers that never run
       // our JS — unlike the meta tag — and does not rely on robots.txt
       // being honored.
-      if (url.pathname.startsWith('/r/')) {
-        const headers = new Headers(response.headers);
-        headers.set('X-Robots-Tag', 'noindex, nofollow');
-        return new Response(response.body, { status: response.status, headers });
-      }
-      return response;
+      const headers = new Headers(response.headers);
+      headers.set('X-Robots-Tag', 'noindex, nofollow');
+      // The invite card instead of the front page's. Same reason as the
+      // header: the bot that draws the preview never runs RouteMeta.
+      const html = roomPreviewHtml(await response.text(), url.origin);
+      // The body is no longer the asset the assets layer validated.
+      headers.delete('etag');
+      headers.delete('content-length');
+      return new Response(html, { status: response.status, headers });
     }
     return new Response('not found', { status: 404 });
   },
