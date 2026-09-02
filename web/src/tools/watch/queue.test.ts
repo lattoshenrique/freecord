@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   advance,
+  carried,
   enqueue,
   fits,
   hasRoomFor,
@@ -80,6 +81,33 @@ describe('the queue', () => {
     // The room chose to jump to c: b was passed on, not postponed.
     expect(playAt(state, 1)).toEqual({ now: c, playing: true, time: 0, queue: [] });
     expect(playAt(state, 9)).toBe(state);
+  });
+});
+
+describe('a move that says nothing about the position', () => {
+  // Every state carries a `time` and the moment it was set, and a viewer
+  // reads the two together. Write one without touching the position and
+  // it carries yesterday's number with today's timestamp — which every
+  // player in the room obediently seeks back to.
+  const playing = { now: a, playing: true, time: 30, queue: [] };
+
+  it('carries the position forward instead of rewinding the room', () => {
+    // Set at t=1s, read at t=91s: the video is ninety seconds further on.
+    expect(carried(playing, 1_000, 91_000).time).toBe(120);
+    // A paused room has not moved, and must not be nudged.
+    expect(carried({ ...playing, playing: false }, 1_000, 91_000).time).toBe(30);
+  });
+
+  it('is what lining something up writes through', () => {
+    const lined = enqueue(carried(playing, 1_000, 91_000), b);
+    expect(lined).toMatchObject({ now: a, time: 120, queue: [b] });
+    // Without it: the queue grows and the room jumps back ninety seconds.
+    expect(enqueue(playing, b).time).toBe(30);
+  });
+
+  it('and what taking something out writes through', () => {
+    const full = { ...playing, queue: [b, c] };
+    expect(removeAt(carried(full, 1_000, 91_000), 0)).toMatchObject({ time: 120, queue: [c] });
   });
 });
 
