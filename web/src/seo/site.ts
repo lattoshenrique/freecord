@@ -41,7 +41,7 @@ const COMMUNITY: RouteSeo = {
 const HOW_IT_WORKS: RouteSeo = {
   title: 'How Freecord works — peer-to-peer rooms, no media server',
   description:
-    'What happens when you open a Freecord room: the link is the credential, voice, video and screen go browser to browser over native WebRTC, and the server only carries signaling. Chat is encrypted in the browser with a key that never leaves the URL fragment, screen sharing is relayed as a tree, and rooms hold eight people and close fifteen minutes after the last person leaves.',
+    'What happens when you open a Freecord room: the link is the credential, voice, video, chat, files and screens go browser to browser over native WebRTC, and the server only carries signaling. Chat is encrypted in the browser with a key that never leaves the URL fragment, up to three shared screens are each relayed as a tree, and rooms hold twenty people and close fifteen minutes after the last person leaves.',
   path: '/how-it-works',
   indexable: true,
 };

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  Only the two public pages. Room URLs are deliberately absent: the slug in
+  Only the three public pages. Room URLs are deliberately absent: the slug in
   /r/<slug> is the access credential, and listing one here would publish it.
 -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -8,6 +8,11 @@
     <loc>https://freecord.lattoshenrique.workers.dev/</loc>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://freecord.lattoshenrique.workers.dev/how-it-works</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
   </url>
   <url>
     <loc>https://freecord.lattoshenrique.workers.dev/community</loc>

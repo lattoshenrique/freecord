@@ -7,9 +7,10 @@ exist because we already paid for breaking them.
 ## What this project is
 
 Guest-first rooms: anyone creates a room, shares the link, friends join with no
-signup — voice, video, text chat and screen sharing (one person at a time).
-Media is native WebRTC in a P2P mesh; the server only owns room state and
-signaling. No media vendor, no third-party SDK, no external credentials.
+signup — voice, video, text chat, peer-to-peer files and screen sharing (up to
+three screens at once). Media, chat and files are native WebRTC in a P2P mesh;
+the server only owns room state, presence and signaling. No media vendor, no
+third-party SDK, no external credentials.
 
 Open source under the [MIT license](LICENSE).
 Production: <https://freecord.lattoshenrique.workers.dev>.
@@ -50,18 +51,29 @@ skins over them. Consequences you must respect:
    Worker.
 2. Put the decision logic in `domain/`, so one test covers both edges.
    `server/test/` tests the core, not the Fastify transport.
-3. Screen-share quality values (`nitida`/`equilibrada`/`fluida`), message types
+3. Screen-share quality values (`sharp`/`balanced`/`smooth`), message types
    and `ROOM_LIMITS` are **wire protocol**. Renaming one is a coordinated
    change across `server/`, `worker/` and `web/` in a single deploy — never a
    drive-by rename.
+4. The Worker's Durable Object runs every sweep on **one alarm**. A join or a
+   resume may move that alarm earlier, never later — setting it outright once
+   postponed a dropped sharer's slot release indefinitely. Check DO timing
+   with `npm run check:worker --workspace e2e` against `wrangler dev`.
 
 ## Before you commit or deploy
 
 ```bash
 npm run typecheck   # server, web AND worker (worker imports from server/src)
-npm test            # core: registry, signaling, routes, screen tree, downloads
+npm test            # every workspace: core (registry, signaling, routes, screen
+                    # trees, downloads), web unit tests AND the e2e Playwright suite
 npm run build       # production build of web + server
 ```
+
+A UI change is not green until the browser project has run against a fresh
+build (`E2E_BUILD_WEB=1 npm run test:browser --workspace e2e`): a stale
+`web/dist` makes a passing suite lie about what it tested. Anything touching
+the Worker's alarm or the screen slots also runs `npm run check:worker
+--workspace e2e`.
 
 Never `git add -A`: several agents have uncommitted work in this tree. Commit
 explicit paths, and only files you own.
@@ -108,16 +120,28 @@ and its installers are built by GitHub Actions on a `desktop-v*` tag.
   quality at any size, while **camera slots** shrink as the room grows (≤6:
   everyone; 7–9: four; 10–16: three; 17–20: two, server-granted) and camera
   bitrate splits a fixed uplink budget across peers.
-- Screen share: **one at a time**, locked on the server, released even on a
-  dropped connection. The sharer picks the quality preset; screen video
-  propagates through a **relay tree** (fanout 3), not a star.
+- Screen share: **up to three at once** (`ROOM_LIMITS.maxScreens`), slots
+  granted on the server in start order and released even on a dropped
+  connection (a dropped sharer's slot frees at a 10 s grace, ahead of the
+  seat). The sharer picks the quality preset; each screen propagates through
+  a **relay tree** of its own (fanout 3), not a star, and a peer may be a leaf
+  in one tree and a relay in another.
+- Presence is server state: mic and speaker mutes are broadcast and listed in
+  `welcome`, because a muted track still flows as silence and the mesh cannot
+  tell.
 - A peer with no heartbeat for 35 s is dropped by the server — without that,
   ghosts hold seats and rooms never expire. Signals addressed to a peer
   inside that grace are **held, not dropped** (both edges), and the client
   mesh has a watchdog that rolls back a negotiation left open and retries a
   dead ICE path: a frozen tile must heal without F5.
 - The room link is the credential: unguessable random slug, no accounts.
-- Chat is ephemeral. Zero content storage, on purpose.
+  Anyone in the room can rename it (`PATCH /api/rooms/:slug`, both edges).
+- Chat is ephemeral and sealed, and it rides the mesh: text goes peer to peer
+  on its own data channel, and through the server only for a seat whose
+  channel is not up (joining, resuming, or a peer that can never connect
+  directly). One path per message, no dedup. Files go peer to peer on a
+  second data channel, up to 1 GB, never through a server. Zero content
+  storage, on purpose.
 
 ## Desktop app
 
@@ -130,4 +154,11 @@ simply fails), system media permissions, and a real window.
 Installers are too big for Cloudflare assets (25 MiB per file cap, ~130 MB per
 installer), so they live in GitHub Releases with **fixed filenames** — that's
 what makes `/releases/latest/download/<file>` a permanent link. The page detects
-the visitor's OS (and Intel vs Apple Silicon) and offers exactly one build.
+the visitor's OS (and Intel vs Apple Silicon) and offers exactly one build, on
+the home and again inside the call settings dialog. The shell polls the same
+`/api/downloads` catalog and offers to update itself, one prompt per version.
+
+The `desktop-v*` tag is the release: CI builds the installers on the tag push
+and **clobbers** anything uploaded to that release by hand, so a local build is
+for testing only. Push the tag before creating the GitHub release, never the
+other way round.

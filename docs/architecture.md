@@ -3,11 +3,11 @@
 ## The picture
 
 ```
-browser A ◄────────── WebRTC P2P (voice/video/screen) ──────────► browser B
-     │                                                              │
-     └──WS /ws/rooms/:slug──► our own server ◄──WS─────────────────┘
-                              (rooms, SDP/ICE signaling,
-                               chat, screen lock)
+browser A ◄──── WebRTC P2P (voice/video/screen, chat + files on data channels) ────► browser B
+     │                                                                                │
+     └──WS /ws/rooms/:slug──► our own server ◄──WS───────────────────────────────────┘
+                              (rooms, SDP/ICE signaling, presence,
+                               screen and camera slots, chat fallback)
 ```
 
 **Fully self-owned.** Media flows straight between browsers in a P2P mesh (each
@@ -53,13 +53,22 @@ src/
   the wire; the labels a user sees are translated in the client's i18n layer.
 - `ping`/`pong` is the heartbeat: the client times the echo (signaling latency)
   and the server uses the silence to evict zombie connections.
-- The "one screen at a time" lock lives on the server (`screen-request` →
-  `screen-started`/`screen-denied`) and is released even on a dropped
-  connection.
+- Screen slots live on the server: a room holds a set of shares, at most
+  `ROOM_LIMITS.maxScreens` (3) in start order (`screen-request` →
+  `screen-started`/`screen-denied`, `screen-stopped` when one ends), each
+  released even on a dropped connection. `welcome` lists the `screens` in
+  progress. Three is a downlink budget more than an uplink one — every viewer
+  receives every screen — and it fits a whiteboard, a document and a demo on
+  a laptop link.
 - Camera slots follow the same shape (`camera-request` → grant/deny plus a
   roster in `welcome`): the arithmetic is pure domain code shared by both
-  edges, and the server is the referee so twelve clients cannot race each
+  edges, and the server is the referee so twenty clients cannot race each
   other into more cameras than the room can carry.
+- Presence rides signaling too: `mute` and `deafen` are broadcast as
+  `peer-muted`/`peer-deafened`, and `welcome` carries the `muted` and
+  `deafened` rosters so a late joiner sees the same badges. A disabled
+  audio track keeps flowing as silence, so nothing on the mesh could tell
+  the others a mic was off — the server has to.
 
 ## Client (web/src/lib)
 
@@ -73,6 +82,23 @@ src/
   offer toward whoever was already there. A 2 s **watchdog** covers what
   negotiation cannot fix by itself once a signal has been lost (see "A leg
   that dies quietly" below).
+- `chat-channel.ts` — chat text on a `chat` data channel of every peer
+  connection, sealed exactly as it would be for the server. One path per
+  message: text goes peer to peer only when **every** seat in the room has
+  an open channel to us; otherwise the whole message goes through the
+  signaling server, which relays it as it always has. Nobody receives a
+  message twice, so there is no message id and no dedup. The fallback
+  moments are short — someone joining, or a leg the mesh is still healing —
+  and a peer that can never reach us directly keeps getting chat through
+  the server, which is why chat works where media does not.
+- `file-transfer.ts` — files on a second, pre-negotiated `files` data channel
+  (id 0, created symmetrically so it exists the moment the connection does):
+  offer/accept/cancel, 16 KiB chunks with a transfer-id header,
+  `bufferedAmount` backpressure, one send queue per peer, sanitized names, a
+  1 GB cap and a receiver that refuses more bytes than were offered. Text
+  never rides this channel: it is ordered and may hold a megabyte of chunks,
+  and a line of chat stuck behind a transfer would arrive late. An image
+  pasted into the composer takes this path too, renamed with the moment.
 - `use-room.ts` — the hook that orchestrates signaling + mesh + UI state.
 
 ### TURN
@@ -143,7 +169,8 @@ uploaded N−1 times, that rationing behaved like a tax: with 6 people watching,
 each one's ceiling fell to a sixth and quality collapsed exactly when the room
 was full.
 
-The screen now propagates as a **tree**, not a star:
+Each screen now propagates as a **tree**, not a star — and with up to three
+shares at once, each share has a tree of its own:
 
 ```
         Sharer
@@ -155,10 +182,18 @@ The screen now propagates as a **tree**, not a star:
 
 - The server computes the tree (`computeScreenTree`: BFS, lexicographic order
   of peerIds, fanout 3) and sends each peer a `screen-route` with its children,
-  its source and the quality. Lexicographic order is what makes both edges
-  arrive at the **same** tree without coordinating.
+  its source, the quality and `of` — whose share this tree carries.
+  Lexicographic order is what makes both edges arrive at the **same** tree
+  without coordinating.
 - A peer with children forwards the track it received and announces
-  `screen-relay`; the server updates its children's source.
+  `screen-relay` for that tree; the server updates its children's source. A
+  peer may be a leaf in one tree and a relay in another: the client keeps a
+  route per tree and a relay leg per tree it forwards for.
+- On the viewer's side the stage follows the newest screen (someone else's
+  before our own) and the rest sit in the strip as tiles; a click pins any
+  tile — screen or person — and a grid layout gives everything equal area.
+  The HUD's quality readings and the stall watch follow whichever screen is
+  on stage; system audio plays for every shared screen regardless.
 - The rationing now divides by **children (≤3)**, not by N−1 — that is what
   removes the ceiling that used to fall with room size.
 - A relay dropping out: the tree is recomputed and the orphans get a new
@@ -291,11 +326,12 @@ to move the Electron shell itself, which changes rarely.
 | --- | --- |
 | Small rooms (≤ 20) | Keeps the mesh viable; audio is cheap at 19 copies, cameras are rationed |
 | Camera slots shrink as the room grows | Audio and screen never pay for a full room; cameras do |
-| One screen at a time | The screen is the most expensive stream; locked on the server |
+| At most three screens at once | The screen is the most expensive stream; slots granted on the server, one relay tree each |
 | Video off by default | A Discord-style room is mostly voice |
 | Empty room expires in 15 min | Nothing sits in memory without people |
-| Ephemeral chat over WS | Zero storage; broadcast is trivial |
-| Chat sealed end-to-end | The room key rides the link's fragment; the server relays envelopes it cannot read |
+| Ephemeral chat, peer to peer first | Zero storage; the server relays text only for a seat that is off the mesh |
+| Chat sealed end-to-end | The room key rides the link's fragment; neither the server nor a TURN relay can read the envelopes |
+| Files peer to peer, 1 GB cap | A data channel on the connection that already exists; the server never sees a byte |
 
 ## Security of the guest-first model
 
@@ -370,10 +406,13 @@ to move the Electron shell itself, which changes rarely.
 
 Three layers of proof live in `e2e/`, each catching what the others cannot:
 raw `ws` clients speaking the wire protocol against the real compiled server
-(capacity, camera slots, the screen tree checked against `computeScreenTree`
+(capacity, camera slots, the screen trees checked against `computeScreenTree`
 itself, resume in all its shapes), Playwright driving Chromium with fake
-media through the actual UI (including a 20-context full room behind
-`E2E_HEAVY=1`), and plain-Node load drivers. The browser suite paid for
+media through the actual UI (peer-to-peer chat, a file received byte for
+byte, several screens at once, presence and its sounds, plus a 20-context
+full room behind `E2E_HEAVY=1`), and plain-Node load drivers. A fourth,
+Worker-only probe runs the real Durable Object under `wrangler dev` (see
+"Two edges over one core"). The browser suite paid for
 itself on day one: it caught that a remote camera-off left viewers a black
 tile, because a received track stays `enabled` locally no matter what the
 sender does — the fix keys tiles off the camera roster.
@@ -401,8 +440,17 @@ two edges:
 | Rate limit | `@fastify/rate-limit` | `ratelimit` binding (60/min per IP) |
 
 What does **not** change between the two: the closed protocol, the
-`ROOM_LIMITS`, the one-screen-at-a-time lock and its release on a dropped
-connection. The core tests (`server/test/`) hold for both.
+`ROOM_LIMITS`, the screen slots and their release on a dropped connection.
+The core tests (`server/test/`) hold for both, and
+`e2e/worker/screen-drop.mjs` (`npm run check:worker --workspace e2e`) drives
+the real Worker under `wrangler dev` through the abrupt drop, the quick
+rejoin, the zombie and the mute presence, with timing budgets.
+
+One Worker-only rule, learned the hard way: the Durable Object runs every
+sweep on a single alarm, and a join or a resume must only ever move that
+alarm **earlier**, never later. Setting it outright postponed the release a
+dropped sharer's slot had scheduled, and every further join pushed it out
+again.
 
 ### Why signaling is not hosted in Brazil
 
@@ -441,11 +489,16 @@ never extends the worst case):
 
 1. With no `ping` for `peerTimeoutMs` (35 s), the seat expires — detached or
    zombie alike — and `peer-left` goes out. One exception is faster: a
-   detached **sharer** loses the screen lock after `screenLockGraceMs` (10 s),
-   because one frozen screen blocks the whole room while a frozen tile blocks
-   nobody. The seat itself survives the full 35 s. The 10 s is a cutoff, not
-   a deadline: release rides the sweep, so it lands at ~10 s on the Worker
-   (detach schedules an early alarm) and 10–20 s on Node (10 s sweep cadence).
+   detached **sharer** loses its screen slot after `screenLockGraceMs` (10 s),
+   because one frozen screen blocks a slot for the whole room while a frozen
+   tile blocks nobody. The seat itself survives the full 35 s. The 10 s is a
+   cutoff, not a deadline: release rides the sweep, so it lands at ~10 s on
+   the Worker (detach schedules an early alarm) and 10–20 s on Node (10 s
+   sweep cadence). With slots to spare, a sharer who drops and comes straight
+   back shares again at once; the ghost seat's share still frees at the
+   grace. And a `welcome` that says this seat holds a screen while the page
+   has no capture to back it (the seat came back without the stream)
+   releases the slot instead of leaving the room stuck behind it.
 2. A room with nobody in it for `emptyTimeoutMs` (15 min) ceases to exist; the
    link starts answering `room_not_found`. Detached seats count as occupancy
    (and toward `maxParticipants`) until they expire.
@@ -492,17 +545,18 @@ never repairs itself:
   microphone, so flat means the path, not the person.
 
 On the Cloudflare edge a peer survives DO hibernation: participant identity
-(with its resume token) goes in the socket's `serializeAttachment`, and
-`screenSharer`, detached seats and metadata go in storage — nothing depends on
-process memory.
+(with its resume token) goes in the socket's `serializeAttachment`, and the
+screen shares, presence rosters, detached seats and metadata go in storage —
+nothing depends on process memory.
 
 ## Conscious MVP debts (mapped, not forgotten)
 
 - **Chat does not persist** (reload and it is gone) — a privacy and a scope
   decision; persistence would require storage and a retention policy.
-- **No moderation/kick**: the room's creator has no powers yet; the protocol
-  can carry it (`kick` would be one more message type, with a moderation secret
-  in the creator's localStorage).
+- **No moderation/kick**: anyone in the room can rename it (`PATCH
+  /api/rooms/:slug`, both edges), and nobody has more power than that; the
+  protocol can carry it (`kick` would be one more message type, with a
+  moderation secret in the creator's localStorage).
 - **Observability**: structured Fastify logs; metrics land alongside the first
   serious deploy.
 - **The coturn escape hatch is argued for, never exercised**: the TURN section

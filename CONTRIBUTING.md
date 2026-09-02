@@ -29,12 +29,16 @@ origin, so no TLS setup is required for local work.
 
 ```bash
 npm run typecheck   # server, web and worker
-npm test            # the core: registry, signaling, routes, screen tree
+npm test            # every workspace: the core, the web unit tests, the e2e suite
 npm run build       # production build of web + server
 ```
 
 All three must pass. There is no CI gate that will catch it for you on the way
-in, so please run them.
+in, so please run them. `npm test` includes the Playwright suite in `e2e/`,
+which needs a one-time `npx playwright install chromium`; if you changed
+anything under `web/src`, run it against a fresh build
+(`E2E_BUILD_WEB=1 npm run test --workspace e2e`) — see
+[e2e/README.md](e2e/README.md).
 
 ## Things that will get a PR sent back
 
@@ -51,11 +55,11 @@ only means "works in dev, missing in production". Put the decision logic in
 `domain/` so a single test covers both.
 
 **The wire protocol is not yours to rename.** Screen-quality values
-(`nitida` / `equilibrada` / `fluida`), message types and `ROOM_LIMITS` are on
-the wire. Renaming one is a coordinated change across `server/`, `worker/` and
-`web/` shipped in a single deploy — never a drive-by rename. (Yes, those three
-values are Portuguese. They are protocol strings, not user-facing text; the
-labels the user sees are translated in the i18n layer.)
+(`sharp` / `balanced` / `smooth`), message types and `ROOM_LIMITS` are on the
+wire. Renaming one is a coordinated change across `server/`, `worker/` and
+`web/` shipped in a single deploy — never a drive-by rename. (Those values are
+protocol strings, not user-facing text; the labels the user sees are
+translated in the i18n layer.)
 
 **No new dependency without a reason that survives a question.** "It's only
 2 kB" is not one. The whole protocol lives in this repository on purpose.
@@ -81,14 +85,18 @@ makes one test cover both edges. `SignalingSession` takes a `PeerSender`
 function, so it is tested with fakes and no real WebSocket. If you are adding
 behaviour to a room, the test belongs there.
 
-Web tests are Vitest under `web/test/`.
+Web tests are Vitest under `web/test/`. End-to-end proof lives in `e2e/`:
+raw WebSocket clients against the real compiled server, Playwright driving
+Chromium with fake media through the actual UI, load drivers, and a
+Worker-only probe against `wrangler dev`. Anything a user would see in the
+browser — a new button, a changed selector — belongs in the browser project.
 
 ## Commits and pull requests
 
 - Commit messages in English, imperative mood, explaining *why* when the *what*
   is not obvious from the diff.
 - One concern per PR. A refactor bundled with a feature is two PRs.
-- If your change touches the protocol, the screen relay tree, or room
+- If your change touches the protocol, the screen relay trees, or room
   lifetimes, say so explicitly in the PR description and update
   [docs/architecture.md](docs/architecture.md) in the same PR.
 - Never `git add -A` in this repository — several people (and agents) may have
@@ -109,8 +117,11 @@ usually about the network path, not the code path. Please include:
   need a TURN relay to establish a path. TURN is supported and optional, and a
   deployment without `TURN_KEY_ID`/`TURN_API_TOKEN` set — which includes the
   hosted service today — falls back to public STUN, so those peers will not
-  connect. Chat still works either way, because it travels over the signaling
-  WebSocket rather than peer-to-peer — that asymmetry is a useful clue.
+  connect. Chat still works either way: text goes peer to peer when every seat
+  is reachable and falls back to the signaling WebSocket for a peer that is
+  not, so "I see their messages but never hear them" is a useful clue. Files
+  are the opposite — they only ever go peer to peer, so a transfer that never
+  starts points at the same network path.
 - Anything in the browser console.
 
 For a feature request, describe the situation you were in rather than the

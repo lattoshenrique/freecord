@@ -5,8 +5,8 @@
 # Freecord
 
 **Guest-first** conversation rooms: anyone creates a room, shares the link, and
-friends join with no signup — **voice, video, text chat and screen sharing
-(one person at a time)**.
+friends join with no signup — **voice, video, text chat, peer-to-peer files
+and screen sharing (up to three screens at once)**.
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-5865f2)](LICENSE)
 [![Node ≥ 20](https://img.shields.io/badge/node-%E2%89%A5%2020-a855f7)](#running-locally)
@@ -28,7 +28,8 @@ with [CONTRIBUTING.md](CONTRIBUTING.md).
 | Piece | Technology | Why |
 | --- | --- | --- |
 | Media | Native WebRTC (P2P mesh) | Voice/video/screen flow straight between browsers; server cost ~zero |
-| Signaling | Our own WebSocket (closed protocol) | Rooms, SDP/ICE relay, chat and screen lock in one place |
+| Signaling | Our own WebSocket (closed protocol) | Rooms, SDP/ICE relay, presence, screen and camera slots in one place |
+| Chat and files | WebRTC data channels on the same mesh | Text and files go peer to peer; the server relays text only for a seat that is off the mesh |
 | API/server | Node 20+ / Fastify / TypeScript | A single process serves the API, the WS and the built frontend |
 | Web | React + Vite | Our own UI; the room bundle is ~14 kB |
 | Desktop | Electron shell around the production page | Native screen picker and system media permissions |
@@ -54,9 +55,13 @@ open it in a private window to simulate a guest.
 
 ```bash
 npm run typecheck   # tsc across every workspace
-npm test            # vitest: room registry, signaling, HTTP routes
+npm test            # every workspace: vitest (core, web) and the Playwright e2e suite
 npm run build       # production build (server + web)
 ```
+
+`npm test` at the root runs the `e2e/` workspace too, which boots the real
+server and drives Chromium — see [e2e/README.md](e2e/README.md) for the
+one-time `npx playwright install chromium` and the individual suites.
 
 ## Deploy
 
@@ -90,21 +95,41 @@ localhost. `CORS_ORIGIN` restricts the origin in production.
   a technical and a product limit of the P2P mesh — see the architecture).
   Audio and screen sharing keep full quality at any room size; cameras adapt —
   fewer slots and less bitrate each as the room fills.
-- Screen sharing: **one person at a time**, enforced on the server (a room
-  lock, released even on a dropped connection). The sharer picks the preset —
-  **Sharp** (text/code), **Balanced**, **Smooth** (video/games) — and the
-  switch takes effect immediately.
+- Screen sharing: **up to three screens at once**, slots granted by the server
+  in start order and released even on a dropped connection (a dropped sharer's
+  slot frees within ~10 s, ahead of the seat itself). Each screen propagates
+  through a relay tree of its own (fanout 3), so nobody's upload grows with
+  the room. The sharer picks the preset — **Sharp** (text/code),
+  **Balanced**, **Smooth** (video/games) — and the switch takes effect
+  immediately. The stage follows the newest screen; a click on any tile — a
+  screen or a person — pins it on stage, and **L** flips between spotlight
+  and a grid where everything gets equal area. A shared screen goes
+  fullscreen or into a floating picture-in-picture window.
 - A peer with no sign of life for 35 s is **dropped by the server**: without
-  that, rooms would be held by ghosts and never expire.
-- Latency in plain sight: direct RTT with each person, plus the real
-  resolution/fps/bitrate of the shared screen.
-- The room link is the access credential: an unguessable random slug.
+  that, rooms would be held by ghosts and never expire. A dropped transport
+  is not a departure: the seat survives the grace and a reconnecting client
+  reclaims it, while the mesh heals a frozen leg on its own.
+- Presence is shared: a muted microphone and muted speakers show on the
+  tile for everyone, including people who join later. Muting the speakers
+  mutes the mic too.
+- Latency in plain sight: the real peer-to-peer RTT with each person (never
+  the hop to the server), plus the resolution/fps/bitrate of a shared screen.
+- The room link is the access credential: an unguessable random slug. The
+  room is renamed from its doorstep — the title on the prejoin screen is the
+  field.
 - Chat is sealed in the browser with a key that lives only in the room link's
-  fragment, so the server relays text it cannot read, and never persists it —
-  zero content storage. The seal covers message text, not metadata: sender
-  names, timestamps and membership are signaling and visible to the server,
-  there is no forward secrecy, and whoever holds the link holds the key.
-- Files go **peer to peer**: attach one in the chat and it streams over the
-  same WebRTC connection as the media (a data channel), never through a
-  server. The other side accepts first; both must be online, and when NAT
-  forces a TURN relay it forwards ciphertext it cannot read. Up to 1 GB.
+  fragment, and the sealed text rides **peer to peer** on a data channel of
+  its own; the server relays a message only for a seat whose channel is not
+  up yet (joining, resuming), and it cannot read what it relays — zero
+  content storage. Messages can be replied to with a quote. The seal covers
+  message text, not metadata: sender names, timestamps and membership are
+  signaling and visible to the server, there is no forward secrecy, and
+  whoever holds the link holds the key.
+- Files go **peer to peer**: attach one in the chat, or paste an image into
+  the composer, and it streams over the same WebRTC connection as the media
+  (a data channel), never through a server. Images preview inline and open
+  at full size. The other side accepts first; both must be online, and when
+  NAT forces a TURN relay it forwards ciphertext it cannot read. Up to 1 GB.
+- Call settings live in a dialog: microphone profile (voice or studio),
+  camera quality, computer audio in the share, sounds, language, and the
+  desktop app download for the visitor's own OS.

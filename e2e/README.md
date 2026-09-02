@@ -13,6 +13,7 @@ helpers/              room HTTP client, raw protocol client, browser page helper
 tests/protocol/       protocol-level E2E — raw `ws`, no browser, fast and deterministic
 tests/browser/        Playwright + Chromium with fake media
 load/                 plain-Node load drivers (no framework)
+worker/               the Cloudflare edge probed for real, against `wrangler dev`
 ```
 
 ## Prerequisites
@@ -34,9 +35,14 @@ force it fresh with `E2E_BUILD_WEB=1`.
 npm run test --workspace e2e
 
 # individual suites
-npm run test:protocol --workspace e2e     # ws-level: capacity, cameras, screen tree, resume
-npm run test:browser  --workspace e2e     # 3-context smoke, camera flow, screen share
+npm run test:protocol --workspace e2e     # ws-level: capacity, cameras, screen trees, resume
+npm run test:browser  --workspace e2e     # smoke, cameras, screen share (one and several),
+                                          # chat over WS and peer to peer, file transfer
+                                          # byte for byte, presence badges and sounds, speaking
 npm run test:heavy    --workspace e2e     # 20 headless contexts, full mesh (E2E_HEAVY=1)
+
+# the Worker, for real: boot `wrangler dev` in worker/ first
+npm run check:worker  --workspace e2e     # dropped sharer, quick rejoin, zombie, mute presence
 
 # load
 npm run load:signaling --workspace e2e                       # defaults: 50 rooms x 12 peers
@@ -78,7 +84,8 @@ healthy laptop run sits well under 10 ms). Budgets warn; only real errors
 Browser tests avoid text and layout assertions and lean on these hooks —
 if the restyle renames them, update `helpers/pages.ts` in one place:
 
-- `.seat-count` — the "3/12" counter (also the "we are in the room" signal)
+- `.seat-count` — the "3/20" counter (also the "we are in the room" signal);
+  specs read the cap from `ROOM_LIMITS` instead of spelling it
 - `.tile` — an OCCUPIED participant tile; `.tile video` — its live camera
 - `.tile-seat` — ghost/empty seats: not in the UI yet; the smoke test
   asserts them only if present
@@ -90,6 +97,9 @@ if the restyle renames them, update `helpers/pages.ts` in one place:
 - Dock buttons found by en-US aria-labels ("Turn camera on/off",
   "Camera seats are full…", "Share screen"/"Stop sharing") — locale is
   pinned via context `locale: 'en-US'` plus `localStorage['freecord:locale']`
+- A new textbox in the room (the chat composer, the room title on the
+  prejoin) steals a bare `role=textbox` selector — scope by placeholder or
+  label instead
 
 Screen-share capture headless relies on
 `--auto-select-desktop-capture-source` (+ the tab-capture spelling). If this
@@ -103,6 +113,7 @@ ulimit -n 4096
 npm install && npx playwright install chromium
 E2E_BUILD_SERVER=1 E2E_BUILD_WEB=1 npm run test --workspace e2e
 npm run test:heavy --workspace e2e
+(cd worker && npx wrangler dev) &  npm run check:worker --workspace e2e   # DO timing budgets
 npm run load:signaling --workspace e2e          # 50 rooms x 12, 60 s RTT soak
 npm run load:ramp --workspace e2e               # 2 min churn, RSS bounded
 ```

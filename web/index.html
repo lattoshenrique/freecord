@@ -90,18 +90,19 @@
             "operatingSystem": "Web browser, macOS, Windows, Linux",
             "url": "https://freecord.lattoshenrique.workers.dev/",
             "downloadUrl": "https://github.com/lattoshenrique/freecord/releases/latest",
-            "softwareVersion": "0.1.0",
+            "softwareVersion": "0.5.0",
             "license": "https://opensource.org/licenses/MIT",
             "isAccessibleForFree": true,
             "author": { "@id": "https://freecord.lattoshenrique.workers.dev/#person" },
-            "description": "Free and open source group voice, video, text chat and screen sharing in the browser. Anyone creates a room and shares the link; guests join with no account. Media travels peer-to-peer over WebRTC and is end-to-end encrypted; there is no media server, only signaling. Rooms hold up to 8 people, chat is sealed in the browser and ephemeral, and one person shares their screen at a time.",
+            "description": "Free and open source group voice, video, text chat and screen sharing in the browser. Anyone creates a room and shares the link; guests join with no account. Media travels peer-to-peer over WebRTC and is end-to-end encrypted; there is no media server, only signaling. Rooms hold up to 20 people, chat and files go peer to peer and are sealed in the browser, nothing is stored, and up to three people share their screens at once.",
             "featureList": [
               "Group voice calls with no signup",
-              "Group video calls in the browser",
-              "Screen sharing with selectable quality presets",
-              "Ephemeral text chat with Markdown, sealed in the browser",
+              "Group video calls in the browser, up to 20 people",
+              "Screen sharing, up to three screens at once, with selectable quality presets",
+              "Ephemeral text chat with Markdown and replies, sealed in the browser and sent peer to peer",
+              "Peer-to-peer file and image sharing, up to 1 GB, never through a server",
               "Peer-to-peer media, end-to-end encrypted",
-              "Desktop apps for macOS, Windows and Linux",
+              "Desktop apps for macOS, Windows and Linux that update themselves",
               "Interface in English, Portuguese, Spanish, Chinese and Japanese"
             ],
             "offers": {
@@ -144,7 +145,23 @@
                 "name": "How many people fit in a room?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Eight. That is a real limit of a peer-to-peer mesh rather than a preference: each participant uploads a copy of their stream to every other participant, so upload bandwidth becomes the bottleneck past roughly eight people with video."
+                  "text": "Twenty. That is a real limit of a peer-to-peer mesh rather than a preference: each participant uploads a copy of their voice to every other participant. Voice and shared screens keep full quality at any room size, because a shared screen is relayed between participants as a tree instead of uploaded to everyone. Cameras are what adapts: in a room of six or fewer everyone can turn theirs on, and as the room grows fewer camera slots are available and each one uses less bandwidth."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Can more than one person share their screen?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes, up to three at once. Each shared screen is relayed between participants as its own tree, and a dropped sharer's slot is released within seconds so the room is never stuck behind a frozen screen."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Can I send files?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes. Attach a file in the chat, or paste an image, and it streams directly to each person in the room over the same encrypted peer-to-peer connection as the call, never through a server. The receiver accepts first, both sides must be online, and files up to 1 GB are supported. Images preview inline."
                 }
               },
               {
@@ -152,7 +169,7 @@
                 "name": "Are chat messages stored?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "No, and the server cannot read them either. Messages are sealed in your browser with a key that travels only in the room link's fragment, the part after the # symbol, which browsers never send to a server. Our server relays text it cannot decrypt and writes none of it to storage, so the chat disappears with the room. The limit is the same as the room's: anyone holding the full link holds the key and can read along."
+                  "text": "No, and the server cannot read them either. Messages are sealed in your browser with a key that travels only in the room link's fragment, the part after the # symbol, which browsers never send to a server. Sealed text travels peer to peer between browsers; our server relays a message only for someone whose direct connection is not up yet, cannot decrypt it, and writes none of it to storage, so the chat disappears with the room. The limit is the same as the room's: anyone holding the full link holds the key and can read along."
                 }
               },
               {
@@ -168,7 +185,7 @@
                 "name": "Is there a desktop app?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Yes, for macOS (Intel and Apple Silicon), Windows and Linux. It wraps the same page and adds a native screen picker and system media permissions, which a browser cannot provide."
+                  "text": "Yes, for macOS (Intel and Apple Silicon), Windows and Linux. It wraps the same page and adds what a browser cannot provide: a native screen picker, system media permissions, computer audio in a shared screen on Windows, direct connections on a local network, and a higher bitrate ceiling for screen sharing. It checks for its own updates and never applies one without a click."
                 }
               }
             ]

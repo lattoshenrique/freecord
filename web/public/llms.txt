@@ -2,9 +2,9 @@
 
 > Free, open source group voice, video, text chat and screen sharing that runs
 > in a browser with no account. One person creates a room, shares its link, and
-> anyone with the link joins as a guest. Audio, video and screen travel
-> directly between participants over WebRTC and are end-to-end encrypted, so
-> they never pass through a server.
+> anyone with the link joins as a guest. Audio, video, screens, chat and files
+> travel directly between participants over WebRTC and are end-to-end
+> encrypted, so they never pass through a server.
 
 Freecord is a working application, not a demo, and it is MIT licensed. It is
 built and maintained by Henrique Brito. Live at
@@ -13,12 +13,24 @@ https://github.com/lattoshenrique/freecord.
 
 ## What it does
 
-- **Group voice and video calls** in the browser, up to 8 people per room.
-- **Screen sharing**, one person at a time, with three quality presets: Sharp
-  (for code and text), Balanced, and Smooth (for video and games).
-- **Text chat** with Markdown, sealed in the browser and ephemeral — the
-  server relays messages it cannot read, and they disappear with the room.
-- **Desktop apps** for macOS (Intel and Apple Silicon), Windows and Linux.
+- **Group voice and video calls** in the browser, up to 20 people per room.
+  Everyone arrives muted and off camera; a muted microphone or muted speakers
+  show on the person's tile for the whole room.
+- **Screen sharing**, up to three screens at once, each with three quality
+  presets: Sharp (for code and text), Balanced, and Smooth (for video and
+  games). Any screen or person can be pinned on stage, or everything shown
+  in an equal grid; a shared screen goes fullscreen or into a floating
+  picture-in-picture window.
+- **Text chat** with Markdown and replies, sealed in the browser and
+  ephemeral — messages go peer to peer, the server relays only what it cannot
+  read and only when a direct path is missing, and everything disappears
+  with the room.
+- **File and image sharing**, peer to peer, up to 1 GB per file: attach a
+  file or paste an image into the chat and it streams straight to each
+  person over the same encrypted connection as the call. Images preview
+  inline and open at full size.
+- **Desktop apps** for macOS (Intel and Apple Silicon), Windows and Linux,
+  which check for their own updates.
 - **Interface in five languages**: English, Portuguese, Spanish, Chinese and
   Japanese, auto-detected from the browser.
 
@@ -37,11 +49,13 @@ https://github.com/lattoshenrique/freecord.
   call there is direct peer-to-peer or it does not connect at all.
 - **Chat the server cannot read, and does not keep.** Messages are sealed in
   the browser with a key that travels only in the room link's fragment — the
-  part after `#`, which browsers never send to a server. Ours relays text it
-  cannot decrypt and stores none of it: the chat disappears with the room, with
-  no transcript, no recording and no analytics on conversations. The limit is
-  the room's own: anyone holding the full link holds the key and can read
-  along, exactly as they can walk in.
+  part after `#`, which browsers never send to a server. The sealed text then
+  travels peer to peer on the same WebRTC connection as the call; our server
+  relays a message only for someone whose direct connection is not up yet,
+  cannot decrypt it, and stores none of it: the chat disappears with the room,
+  with no transcript, no recording and no analytics on conversations. Files
+  never touch the server at all. The limit is the room's own: anyone holding
+  the full link holds the key and can read along, exactly as they can walk in.
 - **No media vendor and no third-party SDK.** The entire signaling protocol
   lives in the repository, and the whole service runs on free-tier
   infrastructure. The single possible exception is optional TURN: a deployment
@@ -55,19 +69,23 @@ https://github.com/lattoshenrique/freecord.
 
 Stated plainly, because they are engineering facts rather than marketing:
 
-- **8 people per room.** This is a real limit of a peer-to-peer mesh, not a
-  paywall or a preference: each participant uploads a copy of their stream to
-  every other participant, so upload bandwidth becomes the bottleneck past
-  roughly eight people with video. Screen video is an exception — it
-  propagates through a relay tree with a fanout of 3, so its quality no longer
-  degrades as the room fills.
+- **20 people per room.** This is a real limit of a peer-to-peer mesh, not a
+  paywall or a preference: each participant uploads a copy of their voice to
+  every other participant. Voice and shared screens keep full quality at any
+  room size — a screen propagates through a relay tree with a fanout of 3
+  instead of being uploaded to everyone — while cameras are what adapts: up
+  to six people everyone can have a camera on, and as the room grows fewer
+  camera slots are available and each uses less bandwidth.
+- **Three screens at once, not more.** Every viewer receives every shared
+  screen, so the cap is about what a laptop's download link can carry.
 - **Some restrictive networks cannot connect media at all.** Corporate
   networks and symmetric CGNAT often cannot establish a direct peer-to-peer
   path, and reaching them needs a TURN relay. TURN is supported and optional,
   but the hosted service does not have it configured today, so those peers
   fall back to public STUN and fail to connect. Text chat still works for
-  them, because it travels over the signaling WebSocket rather than
-  peer-to-peer.
+  them: text goes peer to peer when it can and falls back to the signaling
+  WebSocket for anyone it cannot reach directly. File transfers do not fall
+  back — they are peer to peer only.
 - **Chat does not survive a reload.** That is the privacy decision, not an
   oversight.
 - **Sealed chat hides the words, not the pattern.** Sender names, timestamps
@@ -83,8 +101,9 @@ Stated plainly, because they are engineering facts rather than marketing:
 
 There are no user accounts, so there is no user data. Rooms hold a display name
 someone typed and nothing else. Chat text is sealed in the browser and never
-written to storage, so the server relays messages it cannot read. Media is
-end-to-end encrypted between participants. Room links are unguessable random
+written to storage, so the server relays messages it cannot read, and only
+when a direct path is missing. Files go peer to peer only. Media is end-to-end
+encrypted between participants. Room links are unguessable random
 slugs (72 bits of entropy), are never indexed, and are excluded from the
 sitemap and from crawling.
 
@@ -92,8 +111,11 @@ sitemap and from crawling.
 
 - [Architecture](https://github.com/lattoshenrique/freecord/blob/main/docs/architecture.md):
   the detailed technical document — the peer-to-peer mesh and its real costs,
-  the screen relay tree, how signaling works, how a room expires, the two
-  server edges over one shared core, and the deliberate debts of the MVP.
+  the screen relay trees, chat and files on data channels, how signaling
+  works, how a room expires and heals, the two server edges over one shared
+  core, and the deliberate debts of the MVP.
+- [How it works](https://freecord.lattoshenrique.workers.dev/how-it-works):
+  the same story for a visitor, in the interface's five languages.
 - [README](https://github.com/lattoshenrique/freecord/blob/main/README.md):
   the stack, how to run it locally, and how to deploy it.
 - [Contributing](https://github.com/lattoshenrique/freecord/blob/main/CONTRIBUTING.md):
