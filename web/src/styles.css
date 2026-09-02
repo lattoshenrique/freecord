@@ -1167,7 +1167,9 @@ button {
   max-width: calc(100vw - 1rem);
   padding: 0.5rem 0.75rem;
   border: 1px solid var(--hud-border);
-  border-radius: 999px;
+  /* Concentric with the keys: their 10px corner plus the 8px of padding
+     around it. A pill here left the glass curving away from every key. */
+  border-radius: 18px;
   background: var(--hud-bg);
   backdrop-filter: blur(14px) saturate(140%);
   -webkit-backdrop-filter: blur(14px) saturate(140%);
@@ -1337,11 +1339,6 @@ button {
  * hairlines pull in, and the invite keeps its colour but drops its word.
  */
 @media (max-width: 480px) {
-  /* Wrapped, the dock is a panel rather than a pill. */
-  .dock-glass {
-    border-radius: 20px;
-  }
-
   .controls {
     gap: 0.4rem;
     row-gap: 0.45rem;
@@ -1857,6 +1854,11 @@ button {
 .screen-stage.stage-person {
   display: grid;
   place-items: center;
+  /* The tile brings its own frame, so the stage drops its: two borders a few
+     pixels apart read as a rendering fault, not as a frame. */
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
 }
 
 .screen-stage.stage-person .tile {
