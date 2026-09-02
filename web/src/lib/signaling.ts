@@ -11,13 +11,27 @@ function signalingBase(): string {
 }
 
 /**
- * Reconnection backoff: quick first retries for the blip case, capped so
- * the whole run stays inside the server's resume grace (the seat expires
- * on the 35 s zombie clock).
+ * Reconnection backoff: quick first retries for the blip case, then a
+ * ceiling. Each delay is drawn from the top half of its window because a
+ * server that comes back finds every browser of every room knocking on
+ * the same second — the jitter is what spreads that out.
  */
 const RECONNECT_BASE_MS = 500;
 const RECONNECT_MAX_MS = 5_000;
-const RECONNECT_MAX_ATTEMPTS = 6;
+
+/**
+ * How long a room keeps knocking. Generous on purpose: the media is P2P,
+ * so while the signaling is away the voices keep flowing, and a server
+ * being redeployed is no reason to end a call that is still happening.
+ * Past this, whatever we would come back to has expired anyway — an
+ * unattended room closes fifteen minutes after its last seat.
+ */
+const RECONNECT_BUDGET_MS = 5 * 60 * 1000;
+
+/** The delay to actually wait: somewhere in the top half of the window. */
+function withJitter(delay: number): number {
+  return delay * (0.5 + Math.random() * 0.5);
+}
 
 /**
  * Signals written while the transport is down are held for the resume
@@ -44,8 +58,13 @@ export interface SignalingHandlers {
  *
  * A dropped WebSocket is an accident, not a goodbye: with a resume token
  * (from `welcome`) the socket reconnects with backoff and reclaims the
- * same peerId — the P2P media mesh never notices. `onClose` only fires
- * when there is genuinely no way back.
+ * same peerId — the P2P media mesh never notices.
+ *
+ * And when the seat itself is gone — the server was away long enough for
+ * it to be swept — the room is still not over: the browsers already know
+ * each other, so this knocks again as a NEWCOMER rather than hanging up
+ * on a call that never stopped. Once the door has opened, the only ways
+ * out are the room refusing us, the budget running out, and `close`.
  */
 export class Signaling {
   private readonly slug: string;
@@ -55,7 +74,12 @@ export class Signaling {
   private resumeToken: string | null = null;
   private attempts = 0;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-  private closedByUs = false;
+  /** Nothing left to try: we said goodbye, or the room refused us. */
+  private finished = false;
+  /** The door opened at least once — from here on a drop is an outage. */
+  private welcomed = false;
+  /** When the current outage started; null while the transport is up. */
+  private outageAt: number | null = null;
   /** Our peerId from the last welcome — decides whether a resume kept the seat. */
   private selfId: string | null = null;
   /** Signals held while the transport was down; flushed on a same-seat welcome. */
@@ -78,7 +102,7 @@ export class Signaling {
    * resume path instead of waiting for a close frame that may never come.
    */
   reconnectNow(): void {
-    if (this.closedByUs || this.reconnectTimer !== null) {
+    if (this.finished || this.reconnectTimer !== null) {
       return;
     }
     const ws = this.ws;
@@ -106,12 +130,26 @@ export class Signaling {
         const message = JSON.parse(event.data as string) as ServerMessage;
         if (message.t === 'welcome') {
           this.attempts = 0;
+          this.outageAt = null;
+          this.welcomed = true;
         }
-        if (message.t === 'error' && message.code === 'resume_invalid') {
-          // The seat is gone: retrying with the dead token would only
-          // spray refused connections until the attempts ran out.
-          this.resumeToken = null;
-          this.outbox = [];
+        if (message.t === 'error') {
+          if (message.code === 'resume_invalid') {
+            // The seat was swept while we were away. The room was not:
+            // whoever we can still hear is proof of that, so we go back
+            // to the door and come in again, as somebody new. The app is
+            // told nothing — it hears a `welcome` with a fresh id, which
+            // is the one thing it needs to know.
+            this.resumeToken = null;
+            this.outbox = [];
+            // The server is plainly answering: the outage is over as far
+            // as knocking goes, so the fresh join leaves at once.
+            this.attempts = 0;
+            this.reconnectNow();
+            return;
+          }
+          // Gone, full, refused: asking again would only be told the same.
+          this.finished = true;
         }
         this.handlers.onMessage(message);
         if (message.t === 'welcome') {
@@ -142,22 +180,30 @@ export class Signaling {
   }
 
   private handleDrop(): void {
-    if (this.closedByUs) {
+    if (this.finished) {
       return;
     }
-    if (!this.resumeToken || this.attempts >= RECONNECT_MAX_ATTEMPTS) {
+    if (!this.welcomed) {
+      // The door never opened: this is a join that failed, and the way
+      // in has its own way of saying so. Nothing to hold on to yet.
+      this.handlers.onClose();
+      return;
+    }
+    const now = Date.now();
+    this.outageAt ??= now;
+    if (now - this.outageAt > RECONNECT_BUDGET_MS) {
       this.handlers.onClose();
       return;
     }
     this.handlers.onReconnecting?.();
-    const delay = Math.min(RECONNECT_BASE_MS * 2 ** this.attempts, RECONNECT_MAX_MS);
+    const ceiling = Math.min(RECONNECT_BASE_MS * 2 ** this.attempts, RECONNECT_MAX_MS);
     this.attempts += 1;
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
-      if (!this.closedByUs) {
+      if (!this.finished) {
         this.connect();
       }
-    }, delay);
+    }, withJitter(ceiling));
   }
 
   /**
@@ -176,7 +222,7 @@ export class Signaling {
     }
     if (
       message.t !== 'signal' ||
-      this.closedByUs ||
+      this.finished ||
       !this.resumeToken ||
       isOffer(message.data)
     ) {
@@ -189,7 +235,7 @@ export class Signaling {
   }
 
   close(): void {
-    this.closedByUs = true;
+    this.finished = true;
     this.outbox = [];
     if (this.reconnectTimer !== null) {
       clearTimeout(this.reconnectTimer);

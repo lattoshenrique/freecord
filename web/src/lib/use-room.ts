@@ -759,6 +759,22 @@ export function useRoomSession(options: JoinOptions) {
             for (const peer of message.peers) {
               mesh.ensurePeer(peer.id);
             }
+            const sharing = localScreenRef.current;
+            if (sharing) {
+              // A capture that outlived its seat: the lock belonged to
+              // the old one. Ask again, and let the grant put the tracks
+              // on the fresh mesh through the same door a first share
+              // uses — a denial (the slot went to someone else while we
+              // were away) drops the capture, as it always does.
+              localScreenRef.current = null;
+              setLocalScreen(null);
+              pendingScreenRef.current = sharing;
+              signalingRef.current?.send({
+                t: 'screen-request',
+                streamId: sharing.id,
+                quality: qualityRef.current,
+              });
+            }
           }
           // Fresh join, or a resume whose slot was released on disconnect
           // (the server gives cameras no grace): (re-)request. A fresh
@@ -1011,12 +1027,15 @@ export function useRoomSession(options: JoinOptions) {
           setSignalRttMs(Math.max(0, Math.round(Date.now() - message.ts)));
           return;
         case 'error':
-          // A refused resume means the seat was swept: to the user, the
-          // connection was simply lost.
-          setStatus({
-            kind: 'ended',
-            reason: message.code === 'resume_invalid' ? 'closed' : message.code,
-          });
+          if (message.code === 'resume_invalid') {
+            // Never the end: a swept seat is answered by the transport
+            // itself, which walks back through the door and comes in as
+            // a newcomer (lib/signaling.ts). The room stays on screen,
+            // and hears about it as the fresh welcome that follows.
+            return;
+          }
+          // Gone, full, refused by name: the room is not letting us in.
+          setStatus({ kind: 'ended', reason: message.code });
           return;
       }
     }
