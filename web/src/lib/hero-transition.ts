@@ -22,6 +22,19 @@ type ViewTransition = {
 type StartViewTransition = (callback: () => void) => ViewTransition;
 
 /**
+ * The flight currently in the air, and every one queued behind it.
+ *
+ * The legs of the way in can be a hundred milliseconds apart — the room
+ * answers while the doorstep is still on its way out — and a second
+ * transition started on top of a first does not blend with it: it cancels
+ * it, the pieces jump to where they were headed, and the screen blinks
+ * between the two captures. So each leg waits for the one before it to
+ * land. The wait is bounded by the transition itself, half a second, and
+ * the screen it is holding back is a screen that says it is still working.
+ */
+let landed: Promise<void> = Promise.resolve();
+
+/**
  * Where the browser has no view transitions (Firefox before 144, older
  * Safari) and where motion is unwelcome, the update simply happens. Nothing
  * downstream depends on the transition running: the screens are the same
@@ -35,6 +48,12 @@ export function heroTransition(update: () => void): void {
     return;
   }
 
+  // Nothing in the air: this resolves on the next microtask, so the first
+  // leg still leaves within the click that asked for it.
+  landed = landed.then(() => fly(start, update));
+}
+
+function fly(start: StartViewTransition, update: () => void): Promise<void> {
   const transition = start.call(document, () => {
     /*
      * Inside the callback the old screen has already been photographed, so
@@ -61,6 +80,8 @@ export function heroTransition(update: () => void): void {
    */
   const shrug = () => {};
   transition.ready.catch(shrug);
-  transition.finished.catch(shrug);
   transition.updateCallbackDone.catch(shrug);
+  // `finished` settles when the transition ends *or* is dropped, so the
+  // queue always moves on, even when nothing was ever drawn.
+  return transition.finished.catch(shrug);
 }

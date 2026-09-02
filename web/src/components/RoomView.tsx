@@ -994,6 +994,20 @@ export default function RoomView({
         <Logo size={44} className="room-waiting-mark" />
         <h1 className="room-waiting-name">{room.displayName || t('room.unnamed')}</h1>
         <Avatar name={options.name} className="room-waiting-avatar" />
+        {/* What is coming in with you, still saying what it said on the
+            doorstep and in the same two pills, so each one has its own key
+            in the dock to fly to. Decoration only: the choice was made on
+            the doorstep, and the real controls are a moment away. */}
+        <div className="room-waiting-devices" aria-hidden="true">
+          <span className={`room-waiting-device ${options.micEnabled ? 'on' : ''}`} data-device="mic">
+            {options.micEnabled ? <MicIcon /> : <MicOffIcon />}
+            <span>{t('prejoin.mic')}</span>
+          </span>
+          <span className={`room-waiting-device ${options.camEnabled ? 'on' : ''}`} data-device="cam">
+            {options.camEnabled ? <CamIcon /> : <CamOffIcon />}
+            <span>{t('prejoin.cam')}</span>
+          </span>
+        </div>
         <div className="spinner" aria-hidden />
         <p>{t('room.connecting')}</p>
       </main>
@@ -1414,6 +1428,8 @@ export default function RoomView({
             className={`control ${session.micOn ? '' : 'control-off'}`}
             aria-pressed={!session.micOn}
             data-key="M"
+            // Where the doorstep's mic pill lands (web/src/hero.css).
+            data-device="mic"
             title={session.micOn ? t('controls.muteMic') : t('controls.unmuteMic')}
             onClick={session.toggleMic}
           >
@@ -1437,6 +1453,7 @@ export default function RoomView({
             aria-pressed={!session.camOn}
             disabled={session.cameraSlotsFull}
             data-key="V"
+            data-device="cam"
             data-camera-slots={session.cameraSlotsFull ? 'full' : undefined}
             title={
               session.cameraSlotsFull

@@ -388,7 +388,11 @@ export default function RoomPage() {
           </div>
 
           <div className="join-devices">
-            <label className={`join-device ${micEnabled ? 'on' : ''}`}>
+            {/* `data-device` is the only thing the mic pill and the mic key
+                in the dock have in common, and it is what hero.css hangs
+                their shared flight on — a name would have been a locale
+                string, which is no name at all. */}
+            <label className={`join-device ${micEnabled ? 'on' : ''}`} data-device="mic">
               <input
                 type="checkbox"
                 checked={micEnabled}
@@ -397,7 +401,7 @@ export default function RoomPage() {
               {micEnabled ? <MicIcon /> : <MicOffIcon />}
               <span>{t('prejoin.mic')}</span>
             </label>
-            <label className={`join-device ${camEnabled ? 'on' : ''}`}>
+            <label className={`join-device ${camEnabled ? 'on' : ''}`} data-device="cam">
               <input
                 type="checkbox"
                 checked={camEnabled}

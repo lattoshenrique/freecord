@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import { createRoom } from '../api';
 import { APP_BUILD, APP_VERSION } from '../lib/build-info';
@@ -131,6 +132,15 @@ export default function HomePage() {
       // never sent to the server.
       const roomKey = generateRoomKey();
       await preloadRoomPage();
+      /*
+       * Out of the waiting state before the button is photographed. It is
+       * about to fly, and a button dressed as unavailable — dimmed, its
+       * shadow off, saying it is still working — is a poor thing to watch
+       * take off, when the work it was waiting on is done. Nothing of this
+       * reaches the screen: the transition captures on the same frame, so
+       * what is seen is the button that was pressed, going where it goes.
+       */
+      flushSync(() => setCreating(false));
       /*
        * The room rides along in the history entry: the doorstep opens on it
        * instead of asking the server for a room it has known for one

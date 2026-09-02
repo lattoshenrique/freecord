@@ -56,6 +56,21 @@
 }
 
 /*
+ * The two devices, from the pills that decide them to the keys that hold
+ * them for the rest of the call. `data-device` is the whole hook: the pill
+ * is a label, the key is a button, they share no class and their only words
+ * are locale strings, so the attribute is the one thing that can honestly
+ * say "these two are the same microphone".
+ */
+[data-device='mic'] {
+  view-transition-name: hero-mic;
+}
+
+[data-device='cam'] {
+  view-transition-name: hero-cam;
+}
+
+/*
  * You. The face drawn on the doorstep waits out the connection and then
  * takes its own seat in the room — the tile marked as yours, which is the
  * only one with a "· you" after the name. Nothing else on the way in is a
@@ -73,16 +88,36 @@
 /* ---- how they move ---- */
 
 /*
- * Half a second, on the ease the rest of the app moves on: long enough to
- * follow a mark across the screen, short enough that Enter still feels like
- * Enter. The pair inside each group cross-fades over the same window, so the
- * old and the new are never both half-there.
+ * The move: not quite half a second, on the ease the rest of the app moves
+ * on — long enough to follow a mark across the screen, short enough that
+ * Enter still feels like Enter.
  */
 ::view-transition-group(hero-mark),
 ::view-transition-group(hero-name),
 ::view-transition-group(hero-room),
 ::view-transition-group(hero-cta),
 ::view-transition-group(hero-avatar),
+::view-transition-group(hero-mic),
+::view-transition-group(hero-cam) {
+  animation-duration: 0.45s;
+  animation-timing-function: var(--ease);
+}
+
+/*
+ * The swap inside the move, and it is over in the first half of it.
+ *
+ * A group carries two pictures of the piece — the one it was, the one it
+ * becomes — and if they cross-fade over the whole flight then the whole
+ * flight is two labels ghosting through each other, clearing only on the
+ * last frame. That last frame is what reads as the animation giving up at
+ * the end: everything looked doubled and blurred, and then it snapped.
+ *
+ * So the swap is short and linear, and the ease is left to the movement.
+ * Linear and equal is also exactly complementary — the two are blended, not
+ * stacked, so as one leaves at the rate the other arrives the piece keeps
+ * its full weight the entire time. What is left after 0.2s is one settled
+ * thing, still moving.
+ */
 ::view-transition-old(hero-mark),
 ::view-transition-new(hero-mark),
 ::view-transition-old(hero-name),
@@ -92,9 +127,13 @@
 ::view-transition-old(hero-cta),
 ::view-transition-new(hero-cta),
 ::view-transition-old(hero-avatar),
-::view-transition-new(hero-avatar) {
-  animation-duration: 0.5s;
-  animation-timing-function: var(--ease);
+::view-transition-new(hero-avatar),
+::view-transition-old(hero-mic),
+::view-transition-new(hero-mic),
+::view-transition-old(hero-cam),
+::view-transition-new(hero-cam) {
+  animation-duration: 0.2s;
+  animation-timing-function: linear;
 }
 
 /*
@@ -191,4 +230,43 @@
   border-radius: 30%;
   border: 1px solid var(--glass-border);
   box-shadow: var(--shadow);
+}
+
+/*
+ * The same two pills as the doorstep's, at the same width and in the same
+ * red, because a hero that resizes and recolours on the way is not carrying
+ * anything — it is drawing something else. They are read-only here: what
+ * they say was decided one screen ago, and the keys that can change it are
+ * a moment away in the dock.
+ */
+.room-waiting-devices {
+  display: flex;
+  gap: 0.6rem;
+  width: min(30rem, 100%);
+}
+
+.room-waiting-device {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  padding: 0.85rem 0.75rem;
+  border: 1px solid rgba(229, 72, 77, 0.55);
+  border-radius: 14px;
+  background: rgba(229, 72, 77, 0.14);
+  color: #ff8589;
+  font-size: 0.98rem;
+}
+
+.room-waiting-device.on {
+  border-color: rgba(88, 101, 242, 0.75);
+  background: rgba(88, 101, 242, 0.16);
+  color: var(--text);
+}
+
+@media (max-width: 420px) {
+  .room-waiting-devices {
+    flex-direction: column;
+  }
 }

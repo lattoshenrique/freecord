@@ -354,6 +354,28 @@
   background: rgba(88, 101, 242, 0.16);
 }
 
+/*
+ * Off, which is how everyone arrives. It is said in the same red the dock
+ * says it in (styles.css, .control-off): a tint and a hairline, never a
+ * solid block — two solid red pills would have the doorstep shouting at
+ * someone who has not done anything yet. Saying it in the same red is also
+ * what lets the pill land on its own key in the dock without changing
+ * colour on the way (web/src/hero.css).
+ */
+.join-device:not(.on) {
+  background: rgba(229, 72, 77, 0.14);
+  border-color: rgba(229, 72, 77, 0.55);
+  color: #ff8589;
+}
+
+/* Brighter, still red: the hover above turns the pill's text white, and a
+   device that is off does not stop being off because a pointer went by. */
+.join-device:not(.on):hover {
+  background: rgba(229, 72, 77, 0.24);
+  border-color: var(--danger);
+  color: #ff8589;
+}
+
 .join-device:focus-within {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
