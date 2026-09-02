@@ -1,9 +1,18 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentType,
+  type RefObject,
+} from 'react';
 import { Link } from 'react-router-dom';
 import type { RoomSummary } from '../api';
 import { renderMarkdown } from '../lib/markdown';
 import { playMessageChime } from '../lib/notification-sound';
-import { useI18n } from '../i18n';
+import { useI18n, type MessageKey } from '../i18n';
 import { desktopSystemAudio, isDesktopApp } from '../lib/platform';
 import { MAX_PARTICIPANTS, MAX_SCREENS } from '../lib/protocol';
 import { SCREEN_QUALITY_PRESETS } from '../lib/screen-quality';
@@ -48,6 +57,12 @@ type Layout = 'spotlight' | 'grid';
 /** What the person pinned on stage: a screen (by sharer) or a person. */
 type Pinned = { kind: 'screen' | 'person'; id: string };
 const LAYOUT_STORAGE_KEY = 'freecord:layout';
+
+/** The selector's two halves, in the order they are drawn. */
+const LAYOUT_OPTIONS: Array<{ value: Layout; labelKey: MessageKey; Icon: ComponentType }> = [
+  { value: 'spotlight', labelKey: 'layout.spotlight', Icon: LayoutSpotlightIcon },
+  { value: 'grid', labelKey: 'layout.grid', Icon: LayoutGridIcon },
+];
 
 function loadLayout(): Layout {
   try {
@@ -572,6 +587,10 @@ export default function RoomView({
   // someone else's before our own. Grid gives everything equal area.
   const [layout, setLayout] = useState<Layout>(loadLayout);
   const [pinned, setPinned] = useState<Pinned | null>(null);
+  const pickLayout = useCallback((next: Layout) => {
+    saveLayout(next);
+    setLayout(next);
+  }, []);
   const switchLayout = useCallback(() => {
     setLayout((current) => {
       const next: Layout = current === 'grid' ? 'spotlight' : 'grid';
@@ -1426,20 +1445,34 @@ export default function RoomView({
           >
             <SlidersIcon />
           </button>
-          <button
-            type="button"
-            className="control"
+          {/*
+            Both layouts on show, the one in use lit. A single key had to
+            choose between drawing where you are and where you would go, and
+            whichever it drew, half the room read it the other way.
+          */}
+          <div
+            className="layout-select"
+            role="group"
             data-key="L"
-            title={t('controls.layout', {
-              name: t(layout === 'grid' ? 'layout.grid' : 'layout.spotlight'),
-            })}
             aria-label={t('controls.layout', {
               name: t(layout === 'grid' ? 'layout.grid' : 'layout.spotlight'),
             })}
-            onClick={switchLayout}
           >
-            {layout === 'grid' ? <LayoutSpotlightIcon /> : <LayoutGridIcon />}
-          </button>
+            {LAYOUT_OPTIONS.map(({ value, labelKey, Icon }) => (
+              <button
+                key={value}
+                type="button"
+                className="layout-option"
+                aria-pressed={layout === value}
+                data-layout={value}
+                title={t(labelKey)}
+                aria-label={t(labelKey)}
+                onClick={() => pickLayout(value)}
+              >
+                <Icon />
+              </button>
+            ))}
+          </div>
           <button
             ref={setChatButton}
             type="button"

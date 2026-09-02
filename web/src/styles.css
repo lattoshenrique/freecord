@@ -754,6 +754,8 @@ button {
   display: inline-flex;
   align-items: baseline;
   gap: 0.35rem;
+  /* A reading broken across two lines reads as two readings. */
+  white-space: nowrap;
 }
 
 .hud-metric b {
@@ -1160,6 +1162,9 @@ button {
 .dock-glass {
   display: inline-flex;
   align-items: center;
+  /* Ten keys on a phone are wider than the phone: the dock stays inside the
+     screen and lets the row wrap rather than running off both edges. */
+  max-width: calc(100vw - 1rem);
   padding: 0.5rem 0.75rem;
   border: 1px solid var(--hud-border);
   border-radius: 999px;
@@ -1175,6 +1180,8 @@ button {
 .controls {
   display: flex;
   align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
   gap: 0.5rem;
   font-size: 0.95rem;
 }
@@ -1330,8 +1337,14 @@ button {
  * hairlines pull in, and the invite keeps its colour but drops its word.
  */
 @media (max-width: 480px) {
+  /* Wrapped, the dock is a panel rather than a pill. */
+  .dock-glass {
+    border-radius: 20px;
+  }
+
   .controls {
     gap: 0.4rem;
+    row-gap: 0.45rem;
   }
 
   .control {
@@ -1343,6 +1356,14 @@ button {
     width: 2.5rem;
     padding: 0;
     margin-right: 0.6rem;
+  }
+
+  .layout-select {
+    height: 2.5rem;
+  }
+
+  .layout-option {
+    width: 2rem;
   }
 
   .control-invite::after {
@@ -1883,4 +1904,58 @@ button {
 .screen-stage .latency-chip {
   right: auto;
   left: 0.5rem;
+}
+
+/* ---- seletor de layout ---- */
+
+/*
+ * One keycap holding two halves: the same shell as a `.control`, so the row
+ * still reads as a panel of keys, with a hairline down the middle.
+ */
+.layout-select {
+  display: inline-flex;
+  align-items: stretch;
+  height: 2.8rem;
+  border: 1px solid var(--hud-border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.07);
+  box-shadow:
+    var(--glass-highlight),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+
+.layout-option {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2rem;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.layout-option + .layout-option {
+  border-left: 1px solid var(--hud-border);
+}
+
+.layout-option:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--text);
+}
+
+/* The layout in use: lit like any other feature that is on. */
+.layout-option[aria-pressed='true'] {
+  background: rgba(88, 101, 242, 0.2);
+  color: #b6bcff;
+}
+
+.layout-option:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
