@@ -11,6 +11,7 @@ import {
 import { Link } from 'react-router-dom';
 import type { RoomSummary } from '../api';
 import { renderMarkdown } from '../lib/markdown';
+import { MOTION, useDeparting, useFlip, usePresence } from '../lib/motion';
 import { playMessageChime } from '../lib/notification-sound';
 import { useI18n, type MessageKey } from '../i18n';
 import { desktopSystemAudio, isDesktopApp } from '../lib/platform';
@@ -187,10 +188,25 @@ function ScreenStatsBar({ stats }: { stats: ScreenStats }) {
  * The corner is measured from the button, which slides as the dock changes
  * width. Decoration only — the count is announced on the button itself.
  */
-function ChatUnreadBadge({ count, at }: { count: number; at: { left: number; top: number } }) {
+function ChatUnreadBadge({
+  count,
+  at,
+  leaving,
+}: {
+  count: number;
+  at: { left: number; top: number };
+  leaving?: boolean;
+}) {
   return (
-    <span className="chat-unread-badge" style={at} aria-hidden="true">
-      {count > 99 ? '99+' : count}
+    <span
+      className="chat-unread-badge"
+      style={at}
+      data-leaving={leaving ? 'true' : undefined}
+      aria-hidden="true"
+    >
+      {/* Keyed by what it says: a count that goes up is a new badge, so it
+          pops again instead of the digit changing under the eye. */}
+      <span key={count}>{count > 99 ? '99+' : count}</span>
     </span>
   );
 }
@@ -475,6 +491,7 @@ function Tile({
   sinkId,
   onSelect,
   pinned,
+  leaving,
 }: {
   name: string;
   isSelf: boolean;
@@ -508,6 +525,12 @@ function Tile({
   onSelect?: () => void;
   /** Kept on stage by the viewer's choice. */
   pinned?: boolean;
+  /**
+   * They have left the room and this is the last frame of them: the tile is
+   * drawn for as long as it takes to fade (lib/motion.ts, useDeparting), so
+   * a seat empties instead of blinking out from under the eye.
+   */
+  leaving?: boolean;
 }) {
   const { t } = useI18n();
   const showVideo = cameraOn && stream !== null && hasLiveVideo(stream);
@@ -543,6 +566,7 @@ function Tile({
       className="tile"
       data-speaking={speaking ? 'true' : undefined}
       data-pinned={pinned ? 'true' : undefined}
+      data-leaving={leaving ? 'true' : undefined}
       role={onSelect ? 'button' : undefined}
       tabIndex={onSelect ? 0 : undefined}
       title={onSelect ? (pinned ? t('room.pinned') : t('room.pinHint')) : undefined}
@@ -1079,6 +1103,18 @@ export default function RoomView({
 
   const pip = usePictureInPicture(screenVideoRef, stageStream);
 
+  // Tiles in the strip and the grid: screens first (rendered before this
+  // list), then faces with the camera on, then the rest; ourselves first
+  // within each group. Whoever has just left is still in the row, marked
+  // `leaving`, until their tile has finished fading — only the tiles are
+  // told; the seat counter and the mesh already know they are gone.
+  type Person = { id: string; name: string; self?: boolean; leaving?: boolean };
+  const peersOnScreen = useDeparting(session.peers, MOTION.pop);
+  const people: Person[] = [
+    { id: session.selfId ?? 'self', name: options.name, self: true },
+    ...peersOnScreen,
+  ].sort((a, b) => Number(cameraOn(b.id)) - Number(cameraOn(a.id)));
+
   const participantCount = session.peers.length + 1;
   // Only real faces get grid area. Ghost seat tiles were tried and retired:
   // sizing the grid by all 12 seats shrank one person to a twelfth of the
@@ -1086,7 +1122,32 @@ export default function RoomView({
   // With something on stage the tiles collapse to the strip; in the grid
   // layout the screens take tiles of their own.
   const grid = useTileGrid(
-    onStage ? 0 : participantCount + (layout === 'grid' ? screenItems.length : 0),
+    onStage ? 0 : people.length + (layout === 'grid' ? screenItems.length : 0),
+  );
+  // Every tile that moves because another one arrived or went is put back
+  // where it was and let go (lib/motion.ts): the row slides, it never cuts.
+  const flipTiles = useFlip<HTMLDivElement>();
+  // The chat, the shelf, the settings and the unread badge all close by
+  // being taken out of the page. Each is kept for the length of its own way
+  // out, marked `data-leaving`, which is what the stylesheet animates.
+  const chatPresence = usePresence(chatOpen, MOTION.panel);
+  const toolsPresence = usePresence(toolsOpen, MOTION.quick);
+  const settingsPresence = usePresence(settingsOpen, MOTION.panel);
+  const jumpPresence = usePresence(newBelow, MOTION.quick);
+  const badgeOn = !chatOpen && unread > 0 && badgeAt !== null;
+  const badgePresence = usePresence(badgeOn, MOTION.quick);
+  // What the badge says on its way out: `unread` is already zero by then,
+  // and a badge that shrinks away showing "0" is worse than none.
+  const badgeShown = useRef<{ count: number; at: { left: number; top: number } } | null>(null);
+  if (badgeOn && badgeAt) {
+    badgeShown.current = { count: unread, at: badgeAt };
+  }
+  const tilesRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      grid.ref(el);
+      flipTiles(el);
+    },
+    [grid.ref, flipTiles],
   );
 
   if (status.kind === 'ended' && status.reason !== 'left') {
@@ -1246,14 +1307,6 @@ export default function RoomView({
 
   const tileStyle = !onStage && grid.size ? { width: grid.size.width, height: grid.size.height } : undefined;
   const selfPinned = pinnedLive?.kind === 'person' && pinnedLive.id === session.selfId;
-  // Tiles in the strip and the grid: screens first (rendered before this
-  // list), then faces with the camera on, then the rest; ourselves first
-  // within each group.
-  type Person = { id: string; name: string; self?: boolean };
-  const people: Person[] = [
-    { id: session.selfId ?? 'self', name: options.name, self: true },
-    ...session.peers,
-  ].sort((a, b) => Number(cameraOn(b.id)) - Number(cameraOn(a.id)));
   const selfTile = (onSelect: (() => void) | undefined, pinnedTile: boolean) => (
     <Tile
       key="self"
@@ -1272,7 +1325,11 @@ export default function RoomView({
       pinned={pinnedTile}
     />
   );
-  const peerTile = (peer: { id: string; name: string }, onSelect: (() => void) | undefined, pinnedTile: boolean) => {
+  const peerTile = (
+    peer: { id: string; name: string; leaving?: boolean },
+    onSelect: (() => void) | undefined,
+    pinnedTile: boolean,
+  ) => {
     const streams = session.mesh?.getPeerStreams(peer.id) ?? [];
     const cameraStream = streams.find((stream) => !session.screenStreamIds.has(stream.id)) ?? null;
     return (
@@ -1293,6 +1350,7 @@ export default function RoomView({
         sinkId={session.audioDevices.speakerId}
         onSelect={onSelect}
         pinned={pinnedTile}
+        leaving={peer.leaving}
       />
     );
   };
@@ -1426,7 +1484,7 @@ export default function RoomView({
               </div>
             </div>
           )}
-          <div className={onStage ? 'tiles tiles-strip' : 'tiles tiles-grid'} ref={grid.ref}>
+          <div className={onStage ? 'tiles tiles-strip' : 'tiles tiles-grid'} ref={tilesRef}>
             {screenItems
               .filter((item) => item !== stageScreen)
               .map((item) => (
@@ -1456,9 +1514,10 @@ export default function RoomView({
           </div>
         </div>
 
-        {chatOpen && (
+        {chatPresence.mounted && (
           <aside
             className="chat-panel"
+            data-leaving={chatPresence.leaving ? 'true' : undefined}
             aria-label={t('chat.title')}
             onKeyDown={(event) => {
               // Escape shuts the panel; the composer swallows it first when a
@@ -1547,8 +1606,13 @@ export default function RoomView({
                 );
               })}
               <div ref={chatEndRef} />
-              {newBelow && (
-                <button type="button" className="chat-jump" onClick={jumpToLatest}>
+              {jumpPresence.mounted && (
+                <button
+                  type="button"
+                  className="chat-jump"
+                  data-leaving={jumpPresence.leaving ? 'true' : undefined}
+                  onClick={jumpToLatest}
+                >
                   {t('chat.jumpToLatest')}
                   <span aria-hidden="true">↓</span>
                 </button>
@@ -1598,14 +1662,21 @@ export default function RoomView({
             {t('room.camDenied')}
           </p>
         )}
-        {!chatOpen && unread > 0 && badgeAt && <ChatUnreadBadge count={unread} at={badgeAt} />}
+        {badgePresence.mounted && badgeShown.current && (
+          <ChatUnreadBadge
+            count={badgeShown.current.count}
+            at={badgeShown.current.at}
+            leaving={badgePresence.leaving}
+          />
+        )}
         {/* The badge is decoration; this is what a screen reader hears when
             a message lands while the panel is shut. */}
         <span className="visually-hidden" role="status">
           {!chatOpen && unread > 0 ? `${unread} ${t('chat.unread', { count: unread })}` : ''}
         </span>
-        {toolsOpen && (
+        {toolsPresence.mounted && (
           <ToolsMenu
+            leaving={toolsPresence.leaving}
             tools={session.tools}
             denied={session.toolDenied}
             self={selfPeer}
@@ -1615,8 +1686,9 @@ export default function RoomView({
             onDismiss={() => setToolsOpen(false)}
           />
         )}
-        {settingsOpen && (
+        {settingsPresence.mounted && (
           <SettingsMenu
+            leaving={settingsPresence.leaving}
             screenQuality={session.screenQuality}
             onScreenQuality={session.setScreenQuality}
             settings={session.mediaSettings}
