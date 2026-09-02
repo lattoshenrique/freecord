@@ -71,20 +71,13 @@
 }
 
 /*
- * The name, set like the mark: the same gradient, running the same way the
- * mesh's does, and lifted off the page by the same glow the mark and the
- * button wear. Tight tracking so the word reads as one shape at this size.
+ * The name in the prejoin's colour: the same grey the mark wears beside the
+ * room title on the way in, so the word reads the same on both screens. The
+ * mark is the lit thing here; the name stands next to it, not against it.
  */
 .start-wordmark {
-  background: linear-gradient(120deg, #c7ccff 0%, var(--accent) 45%, #a855f7 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  letter-spacing: -0.045em;
-  /* The gradient is painted into the glyphs, so the glow has to be a shadow
-     under them rather than a text-shadow the clip would eat. */
-  filter: drop-shadow(0 6px 22px rgba(120, 90, 240, 0.45));
-  padding-right: 0.06em;
+  color: var(--muted);
+  letter-spacing: -0.03em;
 }
 
 .start-brand .logo {
