@@ -380,7 +380,7 @@ export const esES: Catalog = {
   'community.promise.vendor.title':
     'Sin proveedor, sin SDK',
   'community.promise.vendor.body':
-    'Ningún proveedor de medios y ningún SDK de terceros. Todo el protocolo está en el repositorio y el conjunto funciona sobre infraestructura gratuita. La única excepción posible es TURN, opcional: un relé para redes que bloquean la conexión directa; reenvía tráfico cifrado que no puede leer, y alojarlo tú mismo es cambiar una línea. Este servicio no tiene ninguno configurado hoy.',
+    'Ningún proveedor de medios y ningún SDK de terceros. Todo el protocolo está en el repositorio y el conjunto funciona sobre infraestructura gratuita. La única excepción posible es TURN, opcional: un relé para redes que bloquean la conexión directa; reenvía tráfico cifrado que no puede leer, y alojarlo tú mismo es cambiar una línea. Este servicio no tiene ninguno configurado hoy. La otra cara, dicha sin rodeos: cuando la herramienta de vídeo no puede hacer más que poner en pantalla la página de otra persona, esa página se carga en el navegador de todos los presentes y ejecuta sus propios scripts, y el sitio del otro lado ve la conexión de cada uno como la vería cualquier sitio. Un interruptor en tus ajustes evita que todo eso se cargue en tu caso, y la sala sigue viendo sin ti.',
   'community.source.title':
     'Lee el código',
   'community.source.body':

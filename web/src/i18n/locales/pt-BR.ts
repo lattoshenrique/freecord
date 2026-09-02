@@ -380,7 +380,7 @@ export const ptBR: Catalog = {
   'community.promise.vendor.title':
     'Sem fornecedor, sem SDK',
   'community.promise.vendor.body':
-    'Nenhum fornecedor de mídia e nenhum SDK de terceiro. O protocolo inteiro está no repositório e tudo roda em infraestrutura gratuita. A única exceção possível é o TURN, opcional: um relay para redes que bloqueiam conexão direta — ele repassa tráfego cifrado que não consegue ler, e hospedar o seu é mudança de uma linha. Este serviço não tem nenhum configurado hoje.',
+    'Nenhum fornecedor de mídia e nenhum SDK de terceiro. O protocolo inteiro está no repositório e tudo roda em infraestrutura gratuita. A única exceção possível é o TURN, opcional: um relay para redes que bloqueiam conexão direta — ele repassa tráfego cifrado que não consegue ler, e hospedar o seu é mudança de uma linha. Este serviço não tem nenhum configurado hoje. O outro lado, dito na cara: quando a ferramenta de vídeo não consegue mais do que colocar a página de outra pessoa na tela, essa página carrega no navegador de todo mundo aqui e roda os scripts dela, e o site do outro lado enxerga a conexão de cada um como qualquer site enxergaria. Uma chave nas suas configurações e nada disso carrega para você — a sala continua assistindo sem você.',
   'community.source.title':
     'Leia o código',
   'community.source.body':
