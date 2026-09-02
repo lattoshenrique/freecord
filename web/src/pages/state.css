@@ -1,0 +1,148 @@
+/*
+ * The two dead ends of the way in: a link to a room that is gone, and a room
+ * the server could not be asked about at all.
+ *
+ * They used to be glass cards, which is what every screen in the app was
+ * before the home and the doorstep stopped being cards. A boxed message in
+ * the middle of a screen that no longer has boxes reads as a different app's
+ * error — so these are built like the home instead: nothing but the mark, a
+ * line, and one lit button, over the same mesh.
+ *
+ * That is also what makes the arrival continuous. The loading screen holds
+ * the mark in the middle; this screen holds it in the same place, and the
+ * button is the home's own button, so pressing it flies rather than cuts
+ * (hero.css names the pieces; lib/hero-transition.ts starts the move).
+ *
+ * Its own file by the same convention as home.css and prejoin.css: a
+ * self-contained block cannot be clobbered by another session editing the
+ * global sheet.
+ */
+
+.state {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.state-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  width: min(30rem, 100%);
+  text-align: center;
+  /* Optically centred: dead centre reads as slightly low. */
+  padding-bottom: 3rem;
+}
+
+/* Told in order: the mark is already there, the news arrives, then the way
+   out — the same staggered rise the doorstep uses. */
+.state-center > * {
+  margin: 0;
+  animation: rise-in 0.45s var(--ease) both;
+}
+
+.state-center > *:nth-child(2) {
+  animation-delay: 0.06s;
+}
+
+.state-center > *:nth-child(3) {
+  animation-delay: 0.12s;
+}
+
+.state-center > *:nth-child(4) {
+  animation-delay: 0.2s;
+}
+
+/* The mark keeps its glow and its hero name (styles.css draws it for the
+   loading screen too), but not the auto margins of a card. */
+.state-center .home-logo {
+  margin: 0;
+}
+
+.state-center h1 {
+  font-size: clamp(1.5rem, 4.4vw, 2.1rem);
+  line-height: 1.15;
+  letter-spacing: var(--track-display);
+  /* Mono is wide: the title stays one line where the screen allows one. */
+  text-wrap: balance;
+}
+
+.state-center p {
+  max-width: 26rem;
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  /* Two even lines rather than a long one and a stub. */
+  text-wrap: balance;
+}
+
+/*
+ * The way out is the home's button, twice over: the same gradient, radius
+ * and glow as `.start-form button`, and the same hero name — so it does not
+ * merely take you home, it *becomes* the button that opens the next room.
+ */
+.state-cta {
+  min-width: 15rem;
+  margin-top: 0.5rem;
+  background: linear-gradient(135deg, var(--accent), #a855f7);
+  border: none;
+  border-radius: 14px;
+  color: white;
+  padding: 1.05rem 2.3rem;
+  font-family: inherit;
+  font-size: 1.05rem;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 12px 34px -12px rgba(88, 101, 242, 0.85);
+  view-transition-name: hero-cta;
+  transition:
+    filter 0.15s ease,
+    transform 0.15s var(--ease),
+    box-shadow 0.15s ease;
+}
+
+.state-cta:hover {
+  filter: brightness(1.12);
+  box-shadow: 0 16px 40px -12px rgba(88, 101, 242, 1);
+}
+
+.state-cta:active {
+  transform: scale(0.98);
+}
+
+.state-cta:focus-visible {
+  outline: 2px solid white;
+  outline-offset: 3px;
+}
+
+/* A room that failed to load may well load on a retry, so its way out is a
+   line of text, not the lit button: the page is the thing to reload. */
+.state-back {
+  color: var(--muted);
+  font-size: 0.9rem;
+  text-decoration: underline;
+  text-underline-offset: 0.25em;
+  transition: color 0.15s ease;
+}
+
+.state-back:hover {
+  color: var(--text);
+}
+
+.state-back:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+@media (max-width: 640px) {
+  .state-cta {
+    width: 100%;
+    min-width: 0;
+  }
+}

@@ -7,10 +7,12 @@ import { randomNickname } from '../lib/identity';
 import { useI18n } from '../i18n';
 import Avatar from '../components/Avatar';
 import Brand from '../components/Brand';
+import MeshBackground from '../components/MeshBackground';
 import RoomView from '../components/RoomView';
 import { CamIcon, CamOffIcon, MicIcon, MicOffIcon, ShuffleIcon } from '../components/icons';
 import type { JoinOptions } from '../lib/use-room';
 import './prejoin.css';
+import './state.css';
 
 type Phase =
   | { kind: 'loading' }
@@ -107,27 +109,57 @@ export default function RoomPage() {
 
   if (phase.kind === 'not_found') {
     return (
-      <main className="centered">
-        <section className="home-card state-card">
+      <main className="state">
+        {/* The topology the home draws behind its own field: the way out of
+            a dead end is the way in, and it should already look like it. */}
+        <MeshBackground />
+        <div className="state-center">
+          {/* The mark the loading screen was holding, in the same place. */}
           <Brand className="home-logo" size={44} name={false} />
           <h1>{t('prejoin.notFoundTitle')}</h1>
-          <p className="tagline">{t('prejoin.notFoundBody')}</p>
-          <Link to="/" className="button-link">
+          <p>{t('prejoin.notFoundBody')}</p>
+          {/* A link, so it opens in a new tab like any other; a plain left
+              click takes the hero path instead, and the mark and the button
+              fly to the home rather than cutting to it. */}
+          <Link
+            to="/"
+            className="state-cta"
+            onClick={(event: React.MouseEvent<HTMLAnchorElement>) => {
+              if (
+                event.defaultPrevented ||
+                event.button !== 0 ||
+                event.metaKey ||
+                event.ctrlKey ||
+                event.shiftKey ||
+                event.altKey
+              ) {
+                return;
+              }
+              event.preventDefault();
+              heroTransition(() => navigate('/'));
+            }}
+          >
             {t('prejoin.createNew')}
           </Link>
-        </section>
+        </div>
       </main>
     );
   }
 
   if (phase.kind === 'error') {
     return (
-      <main className="centered">
-        <section className="home-card state-card">
+      <main className="state">
+        <MeshBackground />
+        <div className="state-center">
           <Brand className="home-logo" size={44} name={false} />
           <h1>{t('prejoin.errorTitle')}</h1>
-          <p className="tagline">{t('prejoin.errorBody')}</p>
-        </section>
+          <p>{t('prejoin.errorBody')}</p>
+          {/* Reloading may well work, so the loud button would be pointing
+              the wrong way: the way home is a line of text under it. */}
+          <Link to="/" className="state-back">
+            {t('prejoin.backHome')}
+          </Link>
+        </div>
       </main>
     );
   }
