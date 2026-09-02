@@ -6,14 +6,16 @@ dock has a shelf for them, and this document is how you put one there.
 
 The short version: a tool is a folder that exports one object. It gets one
 shared value it can read and write for the whole room, and everything else
-it needs arrives as props. **It needs no server code and no protocol
-change** — the edges already carry every tool that will ever exist.
+it needs arrives as props. **It needs no protocol change** — the edges
+already carry every tool that will ever exist — and most tools need no
+server code either (see "When a tool needs the app").
 
 ```
 web/src/tools/
   contract.ts        the types below, checked by the compiler
   registry.ts        the tools this build ships — one line each
   youtube/           the first tool, and the worked example
+  video/             the second, and the example of needing a route
 ```
 
 ## The contract
@@ -73,6 +75,16 @@ then treated as if the tool were off, which is always a safe place to land.
 `web/src/tools/youtube/state.ts` is 40 lines of exactly that, and its test
 file is the list of things a peer might try.
 
+Then go one step past the field, to what the field is FOR. The `video`
+tool's state carries a URL a stranger chose and hands it to a `<video>` or
+an `<iframe>` inside the page that holds this room's chat key, so checking
+that it parses as a URL is not enough: it is http(s) only, absolute,
+capped, and it REFUSES OUR OWN ORIGIN. The frame is sandboxed with
+`allow-scripts allow-same-origin`, which is only a sandbox while the
+document inside it is somebody else's — point it at us and the sandbox
+stops being one. No amount of field validation would have caught that;
+asking "what does this value become?" did.
+
 ## What the server enforces (and nothing else)
 
 `server/src/domain/tools.ts`:
@@ -126,7 +138,38 @@ fighting over one shared value.
 
 The stage holds one thing at a time: the tool whose state changed most
 recently wins it, and a viewer who pins a screen or a person takes it back
-for themselves.
+for themselves. Known rough edge, now that there are two tools with
+stages: turning one on displaces the other with nothing on screen saying
+so. The displaced tool keeps running and its row in the shelf still says
+it is on, but the room is not told which one it is looking at. If your
+tool has a stage, expect to share it.
+
+## When a tool needs the app
+
+One shared value and your own two components cover more than it sounds
+like, but not everything, and the ceiling is a real one rather than a
+formality. The `video` tool hit it first: finding the video inside a page
+means READING that page, and a browser may not read another origin —
+CORS forbids it. No amount of cleverness inside a tool gets around that,
+so the lookup is an app route (`/api/sources`, in both edges) and the tool
+imports its client from `../../api`, plus `../../lib/desktop` for the
+desktop shell's picker window.
+
+That is allowed, and it is the exception rather than the pattern. What it
+costs:
+
+- **Both edges, one tag.** A route is protocol: Node and Worker implement
+  it together or the tool works in dev and is missing in production.
+- **Guards, not assumptions.** The `video` tool works with no route and
+  with no desktop shell; each import is behind a check, so a build that
+  ships the tool without the route degrades instead of breaking.
+- **Somebody vouches.** A tool that reaches into the app is no longer
+  reviewable on its own folder. Whoever assembles the build answers for
+  that reach the same way they answer for the registry.
+
+If you are about to cross this line, check first that your need is really
+outside the browser's reach. Most are not — a queue, a scoreboard, a
+drawing, a timer all fit in the one value.
 
 ## Deliberate limits
 
@@ -138,11 +181,12 @@ fetched at runtime from another origin would be a stranger holding the keys
 to the room. Whoever assembles a build vouches for the list in
 `registry.ts`.
 
-**One shared value, and no server code.** A tool does not get the WebRTC
-mesh, the media tracks, the chat, or a route of its own. That ceiling is
+**One shared value.** A tool does not get the WebRTC mesh, the media
+tracks, the chat, or a room of its own in the protocol. That ceiling is
 what keeps a tool cheap to review and impossible to break the room with. A
-tool that genuinely needs more is a conversation to have in an issue, not a
-wider contract to assume.
+tool that genuinely needs more is a conversation to have first — the
+`video` tool's route was one, and the section above is what came out of
+it — never a wider contract to assume.
 
 **Everything a tool knows is public to the room.** There is no private
 per-person state. If your tool needs a secret, it does not belong here.
