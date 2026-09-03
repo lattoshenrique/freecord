@@ -13,10 +13,12 @@ import {
 import { useI18n, type MessageKey } from '../i18n';
 import type { ChatQuote } from '../lib/chat-body';
 import { commandMatches, type ChatCommand } from '../lib/chat-commands';
+import { applyMention, matchPeople, mentionQuery } from '../lib/mentions';
 import { MOTION, usePresence } from '../lib/motion';
 import { applyMarkdown, type MarkdownAction, type Placeholders } from '../lib/markdown-edit';
 import CommandMenu from './CommandMenu';
 import EmojiPicker from './EmojiPicker';
+import MentionMenu from './MentionMenu';
 import {
   AttachIcon,
   BoldIcon,
@@ -125,6 +127,7 @@ export default function ChatComposer({
   maxLength,
   locked = false,
   quote = null,
+  people = [],
   onChange,
   onSend,
   onAttach,
@@ -137,6 +140,11 @@ export default function ChatComposer({
   locked?: boolean;
   /** The message being replied to; shown above the field until sent or cancelled. */
   quote?: ChatQuote | null;
+  /**
+   * Who is in the room, self included: the names an `@` completes. Empty
+   * is a room of one, and then `@` is just a character.
+   */
+  people?: readonly string[];
   onChange: (text: string) => void;
   /**
    * Sends what is in the field — or, when a command was picked out of the
@@ -190,6 +198,55 @@ export default function ChatComposer({
   const activeIndex = Math.min(active, Math.max(shown.length - 1, 0));
   const optionId = (index: number): string => `${listId}-${index}`;
 
+  // The mention list: the same gesture as the slash list, on the other
+  // character. It needs the CARET, not just the text — an `@` typed at the
+  // end and an `@` gone back to mid-sentence are different lists — so the
+  // field reports where the caret is on every move.
+  const [caret, setCaret] = useState(0);
+  const [mentionOff, setMentionOff] = useState(false);
+  const mentionListId = useId();
+  const mentionOptionId = (index: number): string => `${mentionListId}-${index}`;
+  const draft = locked || mentionOff || people.length === 0 ? null : mentionQuery(value, caret);
+  const hits = draft ? matchPeople(draft.query, people) : [];
+  // The slash list wins a tie: a line can only start one of them, and a
+  // command's argument may perfectly well name a person.
+  const mentionOpen = !menuOpen && hits.length > 0;
+  const mentionPresence = usePresence(mentionOpen, MOTION.quick);
+  const lastPeople = useRef<readonly string[]>([]);
+  if (mentionOpen) {
+    lastPeople.current = hits;
+  }
+  const shownPeople = lastPeople.current;
+  const [mentionActive, setMentionActive] = useState(0);
+  const mentionIndex = Math.min(mentionActive, Math.max(shownPeople.length - 1, 0));
+
+  /**
+   * A name chosen from the list takes the place of the half-typed one, and
+   * the caret lands after it with a space already there (lib/mentions.ts).
+   * The list shuts until the next keystroke: what follows a finished
+   * mention is the sentence, not more names.
+   */
+  function pickMention(name: string): void {
+    if (!draft) {
+      return;
+    }
+    const next = applyMention(value, draft, caret, name);
+    if (next.text.length > maxLength) {
+      return;
+    }
+    setMentionOff(true);
+    pendingSelection.current = { start: next.caret, end: next.caret };
+    setCaret(next.caret);
+    onChange(next.text);
+  }
+
+  /** Where the caret is now, after anything that could have moved it. */
+  function syncCaret(area: HTMLTextAreaElement | null): void {
+    if (area) {
+      setCaret(area.selectionStart);
+    }
+  }
+
   /**
    * A command chosen from the list. One that takes nothing runs on the
    * spot — a person who typed `/mi` and pressed Enter meant to mute the
@@ -207,11 +264,14 @@ export default function ChatComposer({
     onChange(text);
   }
 
-  function edit(text: string): void {
-    // Any keystroke brings the list back: Escape shut it for that moment,
-    // not for the rest of the line.
+  function edit(text: string, at: number): void {
+    // Any keystroke brings the lists back: Escape shut them for that
+    // moment, not for the rest of the line.
     setMenuOff(false);
+    setMentionOff(false);
     setActive(0);
+    setMentionActive(0);
+    setCaret(at);
     onChange(text);
   }
 
@@ -385,6 +445,33 @@ export default function ChatComposer({
         return;
       }
     }
+    // The mention list takes the same keys, on the same terms: only the
+    // ones that move through it, and Escape gives the line back untouched.
+    if (mentionOpen) {
+      const chosen = shownPeople[mentionIndex];
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        const step = event.key === 'ArrowDown' ? 1 : -1;
+        setMentionActive((current) => {
+          const from = Math.min(current, shownPeople.length - 1);
+          return (from + step + shownPeople.length) % shownPeople.length;
+        });
+        return;
+      }
+      if ((event.key === 'Tab' && !event.shiftKey) || (event.key === 'Enter' && !event.shiftKey && !COARSE_POINTER)) {
+        if (chosen) {
+          event.preventDefault();
+          pickMention(chosen);
+          return;
+        }
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        setMentionOff(true);
+        return;
+      }
+    }
     // Enter sends; Shift+Enter breaks the line — every chat's convention.
     // On a touch keyboard Enter is a line break and the send key sends.
     if (event.key === 'Enter' && !event.shiftKey && !COARSE_POINTER) {
@@ -420,6 +507,17 @@ export default function ChatComposer({
 
   return (
     <div className="chat-composer">
+      {mentionPresence.mounted && shownPeople.length > 0 && (
+        <MentionMenu
+          people={shownPeople}
+          active={mentionIndex}
+          listId={mentionListId}
+          optionId={mentionOptionId}
+          onPick={pickMention}
+          onHover={setMentionActive}
+          leaving={mentionPresence.leaving}
+        />
+      )}
       {menuPresence.mounted && shown.length > 0 && (
         <CommandMenu
           matches={shown}
@@ -540,6 +638,11 @@ export default function ChatComposer({
             pick(chosen);
             return;
           }
+          const person = shownPeople[mentionIndex];
+          if (mentionOpen && person) {
+            pickMention(person);
+            return;
+          }
           onSend();
         }}
       >
@@ -554,12 +657,22 @@ export default function ChatComposer({
           // The field keeps its own role — this is a textbox with a list
           // hanging off it, and the list says which row the keys are on.
           aria-autocomplete="list"
-          aria-expanded={menuOpen}
-          aria-controls={menuOpen ? listId : undefined}
-          aria-activedescendant={menuOpen ? optionId(activeIndex) : undefined}
+          aria-expanded={menuOpen || mentionOpen}
+          aria-controls={menuOpen ? listId : mentionOpen ? mentionListId : undefined}
+          aria-activedescendant={
+            menuOpen
+              ? optionId(activeIndex)
+              : mentionOpen
+                ? mentionOptionId(mentionIndex)
+                : undefined
+          }
           // The return key on a phone's keyboard says what it will do.
           enterKeyHint={COARSE_POINTER ? 'enter' : 'send'}
-          onChange={(event) => edit(event.target.value)}
+          onChange={(event) => edit(event.target.value, event.target.selectionStart)}
+          // Arrow keys, a click into the middle of the line, a selection
+          // dragged: all of them move the caret without changing the text,
+          // and the mention list is a question about where the caret is.
+          onSelect={(event) => syncCaret(event.currentTarget)}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
         />

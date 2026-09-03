@@ -1,0 +1,97 @@
+/*
+ * Mentions: the chip inside a message, and the row that completes one.
+ *
+ * The chip has to survive being IN a sentence — wrapped, italicised,
+ * inside a quote, next to a comma — so it is inline, it takes the line
+ * height it is given, and its face is sized in `em`: a mention inside a
+ * blockquote shrinks with the type around it instead of standing off the
+ * line like a button.
+ */
+
+/*
+ * Inline, not inline-flex. A flex box takes its baseline from its FIRST
+ * item, which here is the avatar — and an image has no baseline, so the
+ * name inside the chip rode above the sentence it was written in. Plain
+ * inline text keeps the chip's own baseline the line's baseline, and the
+ * face is dropped onto it by hand below.
+ */
+.chat-mention {
+  padding: 0.05em 0.4em 0.05em 0.15em;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  color: var(--accent-text);
+  font-weight: 600;
+  /* The chip is one word: it breaks around, never through. */
+  white-space: nowrap;
+}
+
+/*
+ * Your own name, said by someone else. Louder than the others on purpose
+ * — being named is the one thing a person scrolls back to find.
+ */
+.chat-mention[data-self] {
+  background: color-mix(in srgb, var(--accent) 42%, transparent);
+  color: var(--text);
+}
+
+/* On the sent side the bubble is already the accent: the chip lifts off it. */
+.chat-bubble.mine .chat-mention {
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+
+/*
+ * The face sits ON the line of type: a shade below the baseline, the way
+ * an emoji in the same sentence does, so a mention reads as a word with a
+ * picture in it rather than as a badge dropped into the paragraph.
+ */
+.chat-mention-avatar {
+  display: inline-block;
+  width: 1.15em;
+  height: 1.15em;
+  margin-right: 0.22em;
+  vertical-align: -0.24em;
+  border-radius: 50%;
+}
+
+.chat-mention-name {
+  /* The name itself never wraps mid-word inside the chip. */
+  overflow-wrap: normal;
+}
+
+/*
+ * The bubble that names you keeps a rail down its edge, so a mention is
+ * findable while scrolling past without reading a single line.
+ */
+.chat-bubble.mentions-me {
+  border-left: 2px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, rgba(255, 255, 255, 0.07));
+}
+
+/*
+ * The completion list: a face and a name per row, not a word and a
+ * sentence. Written against both classes because it is overturning
+ * `cmd-option`'s column, and which of the two files the bundler puts
+ * first is not something a row should depend on.
+ */
+.cmd-option.mention-option {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.mention-option-avatar {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  flex: none;
+}
+
+.mention-option-name {
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

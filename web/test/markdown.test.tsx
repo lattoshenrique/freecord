@@ -4,6 +4,10 @@ import { renderMarkdown } from '../src/lib/markdown';
 
 const html = (source: string) => renderToStaticMarkup(<>{renderMarkdown(source)}</>);
 
+const room = ['Vega 42', 'Ana Lúcia'];
+const withPeople = (source: string, self?: string) =>
+  renderToStaticMarkup(<>{renderMarkdown(source, undefined, { names: room, self })}</>);
+
 describe('renderMarkdown', () => {
   it('formata ênfase, código e riscado', () => {
     expect(html('**forte** e *itálico*')).toBe('<p><strong>forte</strong> e <em>itálico</em></p>');
@@ -54,5 +58,32 @@ describe('renderMarkdown', () => {
 
   it('texto comum atravessa sem alteração', () => {
     expect(html('oi, tudo bem?')).toBe('<p>oi, tudo bem?</p>');
+  });
+
+  it('desenha uma menção com o rosto de quem foi chamado', () => {
+    const out = withPeople('bom dia @Vega 42');
+    expect(out).toContain('class="chat-mention"');
+    expect(out).toContain('@Vega 42');
+    // O rosto vem junto: o mesmo avatar que a sala desenha nos ladrilhos.
+    expect(out).toContain('data-avatar');
+  });
+
+  it('só é menção quem está na sala, e a grafia é a do dono do nome', () => {
+    expect(withPeople('oi @ninguem')).not.toContain('chat-mention');
+    expect(withPeople('oi @ana lucia')).toContain('@Ana Lúcia');
+  });
+
+  it('marca a menção ao próprio leitor', () => {
+    expect(withPeople('@Vega 42 vem cá', 'Vega 42')).toContain('data-self');
+    expect(withPeople('@Vega 42 vem cá', 'Ana Lúcia')).not.toContain('data-self');
+  });
+
+  it('uma menção continua sendo menção dentro de negrito e de citação', () => {
+    expect(withPeople('**@Vega 42**')).toContain('chat-mention');
+    expect(withPeople('> pergunta para @Vega 42')).toContain('chat-mention');
+  });
+
+  it('sem sala, arroba é texto', () => {
+    expect(html('oi @Vega 42')).toBe('<p>oi @Vega 42</p>');
   });
 });

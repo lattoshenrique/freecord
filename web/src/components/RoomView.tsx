@@ -29,6 +29,7 @@ import FileTransferBubble from './FileTransferBubble';
 import Highlight from './Highlight';
 import { MAX_FILE_BYTES, formatBytes } from '../lib/file-transfer';
 import { bodyBudget, excerptOf, type ChatQuote } from '../lib/chat-body';
+import { mentionsAnyOf } from '../lib/mentions';
 import { localeCodes, readLine, usageOf } from '../lib/chat-commands';
 import { compactInviteUrl } from '../lib/invite';
 import { matches, queryTerms } from '../lib/chat-search';
@@ -1390,6 +1391,14 @@ export default function RoomView({
   ].sort((a, b) => Number(cameraOn(b.id)) - Number(cameraOn(a.id)));
 
   const participantCount = session.peers.length + 1;
+  /**
+   * The names the chat knows: everyone seated, ourselves included. They
+   * are what an `@` completes in the composer and what turns into a face
+   * in a message (lib/mentions.ts) — a mention is only a mention when the
+   * room actually has somebody by that name.
+   */
+  const chatPeople = [options.name, ...session.peers.map((peer) => peer.name)];
+
   // Only real faces get grid area. Ghost seat tiles were tried and retired:
   // sizing the grid by all 12 seats shrank one person to a twelfth of the
   // screen in an empty room. Capacity lives in the header's seat counter.
@@ -2081,10 +2090,17 @@ export default function RoomView({
                 }
                 const { message } = entry;
                 const mine = message.from.id === session.selfId;
+                // Somebody said our name: the bubble keeps a rail so it is
+                // findable while scrolling past, and says so in a word for
+                // anyone who is listening rather than looking.
+                const namesMe = !mine && !message.unreadable && mentionsAnyOf(message.text, [options.name]);
                 return (
                   <Fragment key={entry.key}>
                     {separator}
-                    <div className={`chat-bubble ${mine ? 'mine' : ''}`}>
+                    <div
+                      className={`chat-bubble ${mine ? 'mine' : ''} ${namesMe ? 'mentions-me' : ''}`}
+                    >
+                      {namesMe && <span className="visually-hidden">{t('chat.mentionsYou')}</span>}
                       {mine ? (
                         // Said by the colour of the bubble to the eye; said in a word here.
                         <span className="visually-hidden">{t('room.you')}</span>
@@ -2105,10 +2121,11 @@ export default function RoomView({
                         </p>
                       ) : (
                         <div className="chat-md">
-                          {renderMarkdown(message.text, {
-                            copy: t('chat.copyCode'),
-                            copied: t('chat.copied'),
-                          })}
+                          {renderMarkdown(
+                            message.text,
+                            { copy: t('chat.copyCode'), copied: t('chat.copied') },
+                            { names: chatPeople, self: options.name },
+                          )}
                         </div>
                       )}
                       <time className="chat-time" dateTime={new Date(message.ts).toISOString()}>
@@ -2178,6 +2195,7 @@ export default function RoomView({
               maxLength={bodyBudget(replyTo)}
               locked={session.chatLocked}
               quote={replyTo}
+              people={chatPeople}
               onChange={(text) => {
                 setCommandNote(null);
                 setDraft(text);
