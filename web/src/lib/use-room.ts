@@ -58,6 +58,7 @@ import {
 import { guardCapture, type GuardedCapture } from './audio-bus';
 import type { EchoGuardStats } from './echo-guard';
 import {
+  applyBestMicProcessing,
   allowHiFiOpus,
   cameraConstraints,
   cameraEncoding as cameraUserCaps,
@@ -66,6 +67,7 @@ import {
   micConstraints,
   micContentHint,
   micEncoding,
+  nativeScreenAudioGuardActive,
   saveMediaSettings,
   screenAudioConstraints,
   screenAudioEncoding,
@@ -642,6 +644,17 @@ export function useRoomSession(options: JoinOptions) {
           media = null; // join as listener/viewer only
         }
       }
+      if (cancelled) {
+        media?.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      await Promise.all(
+        (media?.getAudioTracks() ?? []).map((track) =>
+          applyBestMicProcessing(track, settings.mic).catch(() => {
+            // The getUserMedia processing stays active as the safe fallback.
+          }),
+        ),
+      );
       if (cancelled) {
         media?.getTracks().forEach((track) => track.stop());
         return;
@@ -1501,7 +1514,7 @@ export function useRoomSession(options: JoinOptions) {
       const mic = localMediaRef.current?.getAudioTracks()[0];
       if (mic) {
         mic.contentHint = micContentHint(next.mic);
-        void mic.applyConstraints(micConstraints(next.mic)).catch(() => {
+        void applyBestMicProcessing(mic, next.mic).catch(() => {
           // a browser that cannot retoggle processing live: the cap still applies
         });
         meshRef.current?.setTrackEncoding(mic, micEncoding(next.mic));
@@ -1572,6 +1585,9 @@ export function useRoomSession(options: JoinOptions) {
         if (!newTrack) {
           return;
         }
+        await applyBestMicProcessing(newTrack, settings.mic).catch(() => {
+          // The constraints used to acquire it already enabled the portable chain.
+        });
         if (!meshRef.current) {
           // Left the room while the picker was answering.
           newTrack.stop();
@@ -1772,8 +1788,11 @@ export function useRoomSession(options: JoinOptions) {
         video: screenConstraints(preset),
         // Opt-in via settings, off by default. In Chromium browsers the
         // picker offers tab/system audio; Firefox/Safari return video-only,
-        // which is harmless. The capture rides raw (no processing chain).
-        audio: mediaSettingsRef.current.screenAudio ? screenAudioConstraints() : false,
+        // which is harmless. No microphone processing touches program
+        // audio; capable browsers only remove this document's own playback.
+        audio: mediaSettingsRef.current.screenAudio
+          ? screenAudioConstraints(mediaSettingsRef.current.screenAudioGuard)
+          : false,
       });
       pendingScreenRef.current = stream;
       // Take the room back out of the capture before anybody else hears
@@ -1781,8 +1800,19 @@ export function useRoomSession(options: JoinOptions) {
       // so the id already sent to the server still names what viewers
       // will receive, and everything downstream — the publish below, the
       // relay tree, the teardown — goes on seeing one display stream.
+      // The native guard and this one are layers, not alternatives: the
+      // constraint only excludes the capturing tab's own playback, so the
+      // case that hurts most — the Electron shell capturing the whole
+      // system with `audio: 'loopback'` — never reports it, and the
+      // worklet stays the only thing taking the room back out. We skip the
+      // worklet solely when the captured track confirms the platform
+      // already did the job.
       const captured = stream.getAudioTracks()[0];
-      if (captured && mediaSettingsRef.current.screenAudioGuard) {
+      if (
+        captured &&
+        mediaSettingsRef.current.screenAudioGuard &&
+        !nativeScreenAudioGuardActive(captured)
+      ) {
         const guard = await guardCapture(captured);
         if (pendingScreenRef.current !== stream) {
           // Given up on, refused or replaced while the worklet loaded.

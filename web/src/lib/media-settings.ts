@@ -62,14 +62,99 @@ export function micDefaults(profile: MicProfileId): MicSettings {
 export const OPUS_VOICE_MAX_BITRATE = 64_000;
 export const OPUS_HIFI_MAX_BITRATE = 192_000;
 
-export function micConstraints(mic: MicSettings): MediaTrackConstraints {
-  return {
+type EchoCancellationMode = boolean | 'all' | 'remote-only';
+
+interface ModernAudioConstraints {
+  echoCancellation: EchoCancellationMode | { exact: EchoCancellationMode };
+  noiseSuppression: boolean;
+  autoGainControl: boolean;
+  voiceIsolation?: boolean;
+  channelCount?: { ideal: number };
+  restrictOwnAudio?: boolean;
+}
+
+interface ModernAudioCapabilities {
+  echoCancellation?: readonly EchoCancellationMode[];
+  voiceIsolation?: readonly boolean[];
+}
+
+interface ModernAudioSettings {
+  restrictOwnAudio?: boolean;
+}
+
+interface ModernSupportedConstraints extends MediaTrackSupportedConstraints {
+  voiceIsolation?: boolean;
+  restrictOwnAudio?: boolean;
+}
+
+function supportedAudioConstraints(): ModernSupportedConstraints {
+  try {
+    return (navigator.mediaDevices?.getSupportedConstraints() ?? {}) as ModernSupportedConstraints;
+  } catch {
+    return {};
+  }
+}
+
+function preferredMicConstraints(mic: MicSettings): ModernAudioConstraints {
+  const constraints: ModernAudioConstraints = {
     echoCancellation: mic.echoCancellation,
     noiseSuppression: mic.noiseSuppression,
     autoGainControl: mic.autoGainControl,
     // Stereo only matters when the chain is off — the processors are mono.
     ...(mic.profile === 'music' ? { channelCount: { ideal: 2 } } : {}),
   };
+  // Voice isolation is the strongest platform noise filter. It is still
+  // emerging, so ask for it only when the browser advertises the member;
+  // the ordinary WebRTC noise suppressor remains the universal fallback.
+  if (supportedAudioConstraints().voiceIsolation) {
+    constraints.voiceIsolation = mic.profile === 'voice' && mic.noiseSuppression;
+  }
+  return constraints;
+}
+
+export function micConstraints(mic: MicSettings): MediaTrackConstraints {
+  return preferredMicConstraints(mic) as MediaTrackConstraints;
+}
+
+/**
+ * Upgrades a live microphone to the strongest processing mode its source
+ * actually declares. A boolean `echoCancellation: true` lets the browser
+ * choose what to remove; `all` requires it to remove every system-rendered
+ * source. Unsupported modes never reach applyConstraints, and a stale
+ * capability falls back to the portable boolean mode.
+ */
+export async function applyBestMicProcessing(
+  track: MediaStreamTrack,
+  mic: MicSettings,
+): Promise<void> {
+  const constraints = preferredMicConstraints(mic);
+  let capabilities: ModernAudioCapabilities = {};
+  try {
+    capabilities = track.getCapabilities() as ModernAudioCapabilities;
+  } catch {
+    // Some older implementations expose the method but throw for audio.
+  }
+  if (mic.echoCancellation) {
+    if (capabilities.echoCancellation?.includes('all')) {
+      constraints.echoCancellation = { exact: 'all' };
+    }
+  }
+  if (capabilities.voiceIsolation?.includes(true)) {
+    constraints.voiceIsolation = mic.profile === 'voice' && mic.noiseSuppression;
+  }
+  try {
+    await track.applyConstraints(constraints as MediaTrackConstraints);
+  } catch (error) {
+    // Capabilities and the source selected by the platform can race (USB
+    // devices are particularly good at disappearing). Retry without the
+    // mandatory modern mode so a live off -> on toggle still enables AEC.
+    if (typeof constraints.echoCancellation === 'object') {
+      constraints.echoCancellation = true;
+      await track.applyConstraints(constraints as MediaTrackConstraints);
+      return;
+    }
+    throw error;
+  }
 }
 
 /** Tells the encoder what it is carrying: speech survives compression, music does not. */
@@ -139,12 +224,28 @@ export function cameraEncoding(preset: CameraPreset): SenderCaps {
  * clean up a microphone in a room, and against program audio it only
  * removes what the viewer came to hear.
  */
-export function screenAudioConstraints(): MediaTrackConstraints {
-  return {
+export function screenAudioConstraints(removeOwnAudio = true): MediaTrackConstraints {
+  const constraints: ModernAudioConstraints = {
     echoCancellation: false,
     noiseSuppression: false,
     autoGainControl: false,
   };
+  // Chromium can remove the capturing tab's own playback before the
+  // system mix reaches us. This is both cleaner and vastly cheaper than a
+  // JavaScript adaptive filter; EchoGuard remains the fallback elsewhere.
+  if (supportedAudioConstraints().restrictOwnAudio) {
+    constraints.restrictOwnAudio = removeOwnAudio;
+  }
+  return constraints as MediaTrackConstraints;
+}
+
+/** True only when the captured track confirms that the native guard won. */
+export function nativeScreenAudioGuardActive(track: MediaStreamTrack): boolean {
+  try {
+    return (track.getSettings() as ModernAudioSettings).restrictOwnAudio === true;
+  } catch {
+    return false;
+  }
 }
 
 /**

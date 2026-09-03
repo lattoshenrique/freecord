@@ -2,11 +2,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   DEFAULT_MEDIA_SETTINGS,
   OPUS_HIFI_MAX_BITRATE,
+  applyBestMicProcessing,
   allowHiFiOpus,
   cameraPresetById,
   loadMediaSettings,
   micDefaults,
+  micConstraints,
   micEncoding,
+  nativeScreenAudioGuardActive,
   saveMediaSettings,
   screenAudioConstraints,
   screenAudioEncoding,
@@ -94,6 +97,61 @@ describe('mic profiles', () => {
     expect(micEncoding(micDefaults('music')).maxBitrate).toBe(OPUS_HIFI_MAX_BITRATE);
     expect(micEncoding(micDefaults('voice')).maxBitrate).toBeLessThan(OPUS_HIFI_MAX_BITRATE);
   });
+
+  it('uses platform voice isolation when the browser offers it', () => {
+    vi.stubGlobal('navigator', {
+      mediaDevices: { getSupportedConstraints: () => ({ voiceIsolation: true }) },
+    });
+    expect(micConstraints(micDefaults('voice'))).toMatchObject({ voiceIsolation: true });
+    expect(micConstraints(micDefaults('music'))).toMatchObject({ voiceIsolation: false });
+  });
+
+  it('selects the strongest advertised echo canceller on a live track', async () => {
+    const applyConstraints = vi.fn().mockResolvedValue(undefined);
+    const track = {
+      getCapabilities: () => ({
+        echoCancellation: [true, false, 'all'],
+        voiceIsolation: [true, false],
+      }),
+      applyConstraints,
+    } as unknown as MediaStreamTrack;
+
+    await applyBestMicProcessing(track, micDefaults('voice'));
+
+    expect(applyConstraints).toHaveBeenCalledWith(
+      expect.objectContaining({ echoCancellation: { exact: 'all' }, voiceIsolation: true }),
+    );
+  });
+
+  it('falls back to portable AEC if a declared modern mode races the device', async () => {
+    const applyConstraints = vi
+      .fn()
+      .mockRejectedValueOnce(new DOMException('device changed', 'OverconstrainedError'))
+      .mockResolvedValueOnce(undefined);
+    const track = {
+      getCapabilities: () => ({ echoCancellation: [true, false, 'all'] }),
+      applyConstraints,
+    } as unknown as MediaStreamTrack;
+
+    await applyBestMicProcessing(track, micDefaults('voice'));
+
+    expect(applyConstraints).toHaveBeenCalledTimes(2);
+    expect(applyConstraints.mock.calls[1]?.[0]).toMatchObject({ echoCancellation: true });
+  });
+
+  it('keeps the portable boolean echo mode on older browsers', async () => {
+    const applyConstraints = vi.fn().mockResolvedValue(undefined);
+    const track = {
+      getCapabilities: () => ({ echoCancellation: [true, false] }),
+      applyConstraints,
+    } as unknown as MediaStreamTrack;
+
+    await applyBestMicProcessing(track, micDefaults('voice'));
+
+    expect(applyConstraints).toHaveBeenCalledWith(
+      expect.objectContaining({ echoCancellation: true, noiseSuppression: true }),
+    );
+  });
 });
 
 describe('persistence', () => {
@@ -164,5 +222,20 @@ describe('a shared machine’s audio', () => {
       noiseSuppression: false,
       autoGainControl: false,
     });
+  });
+
+  it('asks a capable browser to remove this call from system capture', () => {
+    vi.stubGlobal('navigator', {
+      mediaDevices: { getSupportedConstraints: () => ({ restrictOwnAudio: true }) },
+    });
+    expect(screenAudioConstraints(true)).toMatchObject({ restrictOwnAudio: true });
+    expect(screenAudioConstraints(false)).toMatchObject({ restrictOwnAudio: false });
+  });
+
+  it('trusts the native guard only when the captured track confirms it', () => {
+    const native = { getSettings: () => ({ restrictOwnAudio: true }) } as MediaStreamTrack;
+    const fallback = { getSettings: () => ({}) } as MediaStreamTrack;
+    expect(nativeScreenAudioGuardActive(native)).toBe(true);
+    expect(nativeScreenAudioGuardActive(fallback)).toBe(false);
   });
 });
