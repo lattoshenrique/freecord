@@ -28,6 +28,7 @@ export interface ToolDefinition<S> {
   parseState: (raw: unknown) => S | null;      // your state, checked
   Shelf: ComponentType<ToolShelfProps<S>>;     // your panel in the shelf
   Stage?: ComponentType<ToolViewProps<S>>;     // what you put on stage
+  accept?: (ask, now) => ToolAnswer<S> | null; // what the chat may ask you
 }
 ```
 
@@ -43,6 +44,7 @@ Both views are handed the same props:
 | `speakerOn` | the room's speakers are on; if your tool makes sound, respect it |
 | `t(key, vars?)` | your own strings, in the viewer's language |
 | `dismiss()` | (shelf only) close the shelf |
+| `draft` | (shelf only) text the room's UI opened your panel with — a link typed after `/play`. Seed your field from it |
 
 ## The two rules that make it work
 
@@ -117,6 +119,39 @@ Write your moves as functions of the state you were handed, make them
 land in the same place when repeated, and refuse them when the state has
 moved past you. That, and not a lock, is what keeps twenty people from
 fighting over one shared value.
+
+## What the chat may ask you
+
+A room's chat has slash commands, and three of them are about what the
+room is watching rather than about the chat: `/play <link>`,
+`/queue <link>` and `/skip`. The app holds the text and has no idea whose
+link it is, so it **asks every tool in turn** and takes the first answer
+(`askTools` in `registry.ts`). Implement `accept` and those commands
+reach your tool; leave it out and your tool is simply never asked.
+
+```ts
+accept(ask: ToolAsk, now: ToolNow<S>): ToolAnswer<S> | null
+```
+
+- `ask` is `{ kind: 'play' | 'queue', input }` or `{ kind: 'skip' }`.
+- `now` is `{ state, at }` — the same two your views get, so a move that
+  does not touch a position still has the clock it needs to carry one.
+- Answer `{ next }` with the state the room should move to, `{ refused }`
+  with a key of **your own strings** — the chat says it in the reader's
+  language, out of your catalog, because "the queue is full" is a
+  sentence you own and the app has no business writing it — or `null`.
+
+`null` is the one to get right: it means **not mine**, and the next tool
+on the shelf is asked. It never means "no". A tool that answers
+everything swallows a link another tool could have played; one that
+answers a `skip` while it has nothing on does the same.
+
+The `watch` tool refuses one more thing, and the reason generalises: a
+link it recognises on sight goes on at once, but a PAGE returns `null`,
+because knowing what is inside a page costs a round trip and then
+somebody choosing between the three things it turned out to hold. That
+choice belongs to a person in front of your panel. The chat then opens
+the shelf with the link in `draft`, which is what that prop is for.
 
 ## Writing one
 

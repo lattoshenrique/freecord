@@ -47,6 +47,20 @@ describe('reading a line', () => {
     }
   });
 
+  it('plans what the room watches', () => {
+    expect(readLine('/play https://youtu.be/dQw4w9WgXcQ')).toMatchObject({
+      plan: { kind: 'play', link: 'https://youtu.be/dQw4w9WgXcQ' },
+    });
+    expect(readLine('/queue https://example.com/film.mp4')).toMatchObject({
+      plan: { kind: 'queue', link: 'https://example.com/film.mp4' },
+    });
+    expect(readLine('/skip')).toMatchObject({ plan: { kind: 'skip' } });
+    // A queue needs to know what to line up; /play on its own does not,
+    // and opens the shelf for somebody to choose from.
+    expect(readLine('/queue')).toMatchObject({ plan: { kind: 'refused', why: 'usage' } });
+    expect(readLine('/play')).toMatchObject({ plan: { kind: 'shelf', draft: '' } });
+  });
+
   it('plans the room and the chat keys', () => {
     expect(readLine('/stop')).toMatchObject({ plan: { kind: 'stop' } });
     expect(readLine('/invite')).toMatchObject({ plan: { kind: 'invite' } });
@@ -97,6 +111,7 @@ describe('offering commands while typing', () => {
     expect(commandMatches('/s')?.map((command) => command.name)).toEqual([
       'sound',
       'share',
+      'skip',
       'stop',
       'save',
       'search',

@@ -55,8 +55,18 @@ type Phase =
       message: 'invalidUrl' | 'unreachable' | 'refused' | 'nothingFound' | 'pickNothing';
     };
 
-export default function Shelf({ state, at, setState, dismiss, t }: ToolShelfProps<WatchState>) {
-  const [link, setLink] = useState('');
+export default function Shelf({
+  state,
+  at,
+  setState,
+  dismiss,
+  draft,
+  t,
+}: ToolShelfProps<WatchState>) {
+  // A link the chat could not place on its own arrives here already
+  // typed (`/play <a page>`): the field starts on it, and the person
+  // presses the key that reads the page.
+  const [link, setLink] = useState(draft ?? '');
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
   const [selected, setSelected] = useState(0);
   const fieldId = useId();

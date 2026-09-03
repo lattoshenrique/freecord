@@ -41,8 +41,8 @@ import MeshBackground from './MeshBackground';
 import SettingsMenu from './SettingsMenu';
 import ToolsMenu from './ToolsMenu';
 import ToolStage from './ToolStage';
-import { hasLiveTool, stagedToolOf } from '../tools/registry';
-import { useToolText, type RegisteredTool } from '../tools/contract';
+import { askTools, hasLiveTool, stagedToolOf } from '../tools/registry';
+import { toolText, useToolText, type RegisteredTool } from '../tools/contract';
 import { advanceStrain, initialStrainState } from '../lib/participation';
 import { applySinkId } from '../lib/audio-devices';
 import {
@@ -725,6 +725,12 @@ export default function RoomView({
   const [settingsOpen, setSettingsOpen] = useState(false);
   /** The tool shelf over the dock; what it opens is the room's, not ours. */
   const [toolsOpen, setToolsOpen] = useState(false);
+  /**
+   * A link the shelf was opened WITH: `/play` handed it something no tool
+   * could play on sight, and the panel starts on it instead of on an
+   * empty field. Cleared as the shelf closes, so pressing T is pressing T.
+   */
+  const [toolDraft, setToolDraft] = useState('');
   const [badgeAt, setBadgeAt] = useState<{ left: number; top: number } | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const messagesRef = useRef<HTMLDivElement>(null);
@@ -1469,6 +1475,46 @@ export default function RoomView({
           void session.startScreenShare();
         }
         break;
+      case 'play':
+      case 'queue': {
+        // The app holds the text and the tools hold the knowledge: the
+        // shelf is asked, in its own order, and the first tool that makes
+        // something of the link answers (tools/registry.ts).
+        const asked = askTools(session.tools, { kind: plan.kind, input: plan.link });
+        if (!asked) {
+          // Nobody could play it on sight, which for a PAGE is the honest
+          // answer rather than a failure: reading it is a round trip, and
+          // what comes back is a choice. The shelf opens holding the link.
+          setToolDraft(plan.link);
+          setToolsOpen(true);
+          setCommandNote(t('cmd.toShelf'));
+          break;
+        }
+        if ('refused' in asked.answer) {
+          // The tool's own words, out of the tool's own catalog.
+          setCommandNote(toolText(asked.tool, locale)(asked.answer.refused));
+          return;
+        }
+        session.setToolState(asked.tool.id, asked.answer.next);
+        break;
+      }
+      case 'skip': {
+        const asked = askTools(session.tools, { kind: 'skip' });
+        if (!asked) {
+          setCommandNote(t('cmd.nothingOn'));
+          return;
+        }
+        if ('refused' in asked.answer) {
+          setCommandNote(toolText(asked.tool, locale)(asked.answer.refused));
+          return;
+        }
+        session.setToolState(asked.tool.id, asked.answer.next);
+        break;
+      }
+      case 'shelf':
+        setToolDraft(plan.draft);
+        setToolsOpen(true);
+        break;
       case 'stop': {
         // Whatever the room has on the stage, off — the same thing the
         // tool's own panel does, from a keyboard that is already typing.
@@ -2070,8 +2116,12 @@ export default function RoomView({
             self={selfPeer}
             peers={session.peers}
             speakerOn={session.speakerOn}
+            draft={toolDraft}
             onSetState={session.setToolState}
-            onDismiss={() => setToolsOpen(false)}
+            onDismiss={() => {
+              setToolsOpen(false);
+              setToolDraft('');
+            }}
           />
         )}
         {settingsPresence.mounted && (
@@ -2175,7 +2225,10 @@ export default function RoomView({
             aria-keyshortcuts="t"
             data-key="T"
             title={`${t('controls.tools')} · T`}
-            onClick={() => setToolsOpen((open) => !open)}
+            onClick={() => {
+              setToolDraft('');
+              setToolsOpen((open) => !open);
+            }}
           >
             <ToolboxIcon />
           </button>

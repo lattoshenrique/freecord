@@ -15,10 +15,44 @@
  * room. Whoever assembles a build vouches for what is in this list.
  */
 import type { ToolRoomState } from '../lib/use-room';
-import type { RegisteredTool } from './contract';
+import type { RegisteredTool, ToolAnswer, ToolAsk } from './contract';
 import { watchTool } from './watch';
 
 export const TOOLS: readonly RegisteredTool[] = [watchTool];
+
+/**
+ * What the shelf makes of something typed in the chat.
+ *
+ * Every tool is asked in turn and the first that answers wins — the order
+ * of TOOLS, the same order that breaks a tie for the stage. The app never
+ * learns which tool plays a link: it holds the text, the tools hold the
+ * knowledge, and a tool that ships tomorrow is reachable from `/play`
+ * without a line of the chat changing.
+ *
+ * Null means nobody claimed it. The chat then falls back to the shelf,
+ * which is the honest answer for a page that has to be READ before
+ * anyone knows what is in it — a choice belonging to a person, not to a
+ * command (docs/tools.md).
+ */
+export function askTools(
+  tools: ReadonlyMap<string, ToolRoomState>,
+  ask: ToolAsk,
+): { tool: RegisteredTool; answer: ToolAnswer<unknown> } | null {
+  for (const tool of TOOLS) {
+    if (!tool.accept) {
+      continue;
+    }
+    const room = tools.get(tool.id);
+    // Never the raw wire value: a tool sees its own state only after its
+    // own check, here as everywhere else.
+    const state = room ? tool.parseState(room.state) : null;
+    const answer = tool.accept(ask, { state, at: room?.at ?? 0 });
+    if (answer) {
+      return { tool, answer };
+    }
+  }
+  return null;
+}
 
 /**
  * Whether the room has any of THIS build's tools going. A peer on a

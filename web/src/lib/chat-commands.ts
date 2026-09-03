@@ -50,8 +50,8 @@ export interface ChatCommand {
 /**
  * The commands this build has, in the order the menu lists them: what
  * your own devices do first — the four a person reaches for mid-sentence
- * — then what the room has on, then the chat's own business, and the bit
- * of theatre at the end.
+ * — then what the room is watching, then the chat's own business, and
+ * the bit of theatre at the end.
  *
  * The order is also the order they are offered while typing, so the ones
  * a room reaches for most sit at the top of a bare `/`.
@@ -61,6 +61,9 @@ export const COMMANDS: readonly ChatCommand[] = [
   { name: 'cam', describe: 'cmd.cam' },
   { name: 'sound', describe: 'cmd.sound' },
   { name: 'share', describe: 'cmd.share' },
+  { name: 'play', describe: 'cmd.play', arg: { key: 'cmd.arg.link', required: false } },
+  { name: 'queue', describe: 'cmd.queue', arg: { key: 'cmd.arg.link', required: true } },
+  { name: 'skip', describe: 'cmd.skip' },
   { name: 'stop', describe: 'cmd.stop' },
   { name: 'invite', describe: 'cmd.invite' },
   { name: 'file', describe: 'cmd.file' },
@@ -80,8 +83,18 @@ export const COMMANDS: readonly ChatCommand[] = [
 export type CommandPlan =
   /** Send this as an ordinary message (`/me`, `/shrug`). */
   | { kind: 'message'; text: string }
+  /** Put this on for the room now, or line it up behind what is on. */
+  | { kind: 'play'; link: string }
+  | { kind: 'queue'; link: string }
+  /** Move on to whatever is lined up next. */
+  | { kind: 'skip' }
   /** Take what the room has on off the stage, for everybody. */
   | { kind: 'stop' }
+  /**
+   * Open the shelf, with this text handed to the panel that opens —
+   * where a link nothing could play on sight goes to be looked at.
+   */
+  | { kind: 'shelf'; draft: string }
   | { kind: 'toggle'; what: 'mic' | 'cam' | 'sound' | 'share' }
   | { kind: 'invite' }
   | { kind: 'attach' }
@@ -185,6 +198,14 @@ function planFor(command: ChatCommand, rest: string): CommandPlan {
     return { kind: 'refused', why: 'usage' };
   }
   switch (command.name) {
+    case 'play':
+      // With nothing after it, the shelf: `/play` is then the long way
+      // round to pressing T, and the choosing happens there.
+      return rest ? { kind: 'play', link: rest } : { kind: 'shelf', draft: '' };
+    case 'queue':
+      return { kind: 'queue', link: rest };
+    case 'skip':
+      return { kind: 'skip' };
     case 'stop':
       return { kind: 'stop' };
     case 'mic':

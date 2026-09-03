@@ -66,10 +66,57 @@ export interface ToolViewProps<S> {
   t: ToolTranslate;
 }
 
-/** The shelf panel gets one thing more: the shelf can be closed. */
+/** The shelf panel gets two things more. */
 export interface ToolShelfProps<S> extends ToolViewProps<S> {
   dismiss: () => void;
+  /**
+   * Text the room's own UI opened this panel with — today a link typed
+   * after `/play` in the chat, when no tool could take it on its own.
+   * This client's own words, never anything off the wire; a panel with a
+   * field of its own is expected to start it from here.
+   */
+  draft?: string;
 }
+
+/**
+ * What the app asks a tool on behalf of somebody typing in the chat.
+ *
+ * The chat's slash commands are the only caller today (`/play <link>`,
+ * `/queue <link>`, `/skip`), and the shape is deliberately that of a
+ * QUESTION rather than a call: the app has a line of text and no idea
+ * which tool it belongs to, so it asks each of them in turn and takes the
+ * first answer (registry.ts). A tool that ships tomorrow answers the same
+ * three asks without a line of the app changing.
+ */
+export type ToolAsk =
+  /** Put this on now, whatever is on. */
+  | { kind: 'play'; input: string }
+  /** Line it up behind what is on. */
+  | { kind: 'queue'; input: string }
+  /** Move on to the next thing this tool has lined up. */
+  | { kind: 'skip' };
+
+/** What a tool answers an ask from: the same two its views are handed. */
+export interface ToolNow<S> {
+  state: S | null;
+  /** When that was set, on THIS machine's clock, in flight already paid. */
+  at: number;
+}
+
+/**
+ * A tool's answer to an ask. `null` — not this shape — is the third one,
+ * and means "not mine": the app asks the next tool on the shelf.
+ */
+export type ToolAnswer<S> =
+  /** Yes: this is what the room's state for this tool should become. */
+  | { next: S }
+  /**
+   * No, and here is why, as a key of THIS TOOL'S OWN strings — the chat
+   * says it in the reader's language, out of the same catalog the panel
+   * uses. "The queue is full" is a sentence the tool owns; the app has no
+   * business writing it.
+   */
+  | { refused: string };
 
 export interface ToolDefinition<S> {
   /**
@@ -96,6 +143,19 @@ export interface ToolDefinition<S> {
    * A tool without one lives entirely in the shelf.
    */
   Stage?: ComponentType<ToolViewProps<S>>;
+  /**
+   * What this tool makes of an ask from outside its own views — the
+   * chat's slash commands. Answer with the state the room should move to,
+   * refuse with one of your own string keys, or return `null` for "not
+   * mine" and the next tool on the shelf is asked instead.
+   *
+   * The input is this client's own words rather than a peer's message,
+   * but it is still text somebody pasted, and it becomes a URL in an
+   * element: read it with the suspicion `parseState` is written with.
+   *
+   * A tool without this is never asked, and the chat says so.
+   */
+  accept?: (ask: ToolAsk, now: ToolNow<S>) => ToolAnswer<S> | null;
 }
 
 /**
@@ -116,13 +176,23 @@ export type RegisteredTool = ToolDefinition<any>;
  * of the page, and two tools that both call a key `summary` would
  * otherwise take turns redrawing each other's line on every render.
  */
+export function toolText(tool: RegisteredTool, locale: string): ToolTranslate {
+  const namespaced = (messages: Record<string, Message>): Record<string, Message> =>
+    Object.fromEntries(Object.entries(messages).map(([key, value]) => [`${tool.id}.${key}`, value]));
+  const fallback = namespaced(tool.text['en-US']);
+  const catalog = tool.text[locale] ? namespaced(tool.text[locale]) : fallback;
+  return (key, vars) => resolve(catalog, fallback, locale, `${tool.id}.${key}`, vars);
+}
+
+/**
+ * The same, for a component. Held across renders so the variant a key
+ * drew is not redrawn under a reader mid-sentence.
+ *
+ * The plain function above it is for whoever needs a tool's words outside
+ * a render — the chat, saying in the reader's language why a tool refused
+ * a command.
+ */
 export function useToolText(tool: RegisteredTool): ToolTranslate {
   const { locale } = useI18n();
-  return useMemo(() => {
-    const namespaced = (messages: Record<string, Message>): Record<string, Message> =>
-      Object.fromEntries(Object.entries(messages).map(([key, value]) => [`${tool.id}.${key}`, value]));
-    const fallback = namespaced(tool.text['en-US']);
-    const catalog = tool.text[locale] ? namespaced(tool.text[locale]) : fallback;
-    return (key, vars) => resolve(catalog, fallback, locale, `${tool.id}.${key}`, vars);
-  }, [tool, locale]);
+  return useMemo(() => toolText(tool, locale), [tool, locale]);
 }

@@ -34,6 +34,7 @@ export default function ToolsMenu({
   self,
   peers,
   speakerOn,
+  draft,
   onSetState,
   onDismiss,
   leaving,
@@ -45,6 +46,12 @@ export default function ToolsMenu({
   self: PeerInfo | null;
   peers: readonly PeerInfo[];
   speakerOn: boolean;
+  /**
+   * What the shelf was opened WITH, when something else opened it: a link
+   * typed after `/play` that no tool could take on its own. Handed to
+   * every panel, so it is there whichever one is opened.
+   */
+  draft?: string;
   onSetState: (tool: string, state: unknown) => void;
   onDismiss: () => void;
   /** On its way out: drawn for the length of the animation, and inert. */
@@ -117,6 +124,7 @@ export default function ToolsMenu({
                 self={self}
                 peers={peers}
                 speakerOn={speakerOn}
+                draft={draft}
                 onSelect={() => setSelectedId(tool.id)}
                 onSetState={(state) => onSetState(tool.id, state)}
                 onDismiss={onDismiss}
@@ -139,6 +147,7 @@ function ToolCard({
   self,
   peers,
   speakerOn,
+  draft,
   onSelect,
   onSetState,
   onDismiss,
@@ -151,6 +160,7 @@ function ToolCard({
   self: PeerInfo | null;
   peers: readonly PeerInfo[];
   speakerOn: boolean;
+  draft?: string;
   onSelect: () => void;
   onSetState: (state: unknown) => void;
   onDismiss: () => void;
@@ -202,6 +212,7 @@ function ToolCard({
             speakerOn={speakerOn}
             t={toolText}
             dismiss={onDismiss}
+            draft={draft}
           />
           {denied && (
             <p className="tool-error" role="alert">

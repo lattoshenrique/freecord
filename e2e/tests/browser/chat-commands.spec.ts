@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { baseUrl } from '../../helpers/env';
 import { createRoom } from '../../helpers/http';
 import { closeAll, joinMany, type RoomPageHandle } from '../../helpers/pages';
 
@@ -107,5 +108,70 @@ test.describe('chat commands', () => {
     await expect(page.locator('.chat-bubble').nth(2)).toContainText('/sound is how you mute');
     // The speakers were never touched by a line that talks about them.
     await expect(speaker).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  /**
+   * The three that reach a tool. Nothing here leaves the machine: the two
+   * addresses are on this run's own server and the page URL is never
+   * fetched at all, which is the point of it.
+   *
+   * Both media addresses 404, so the tool swaps its player for its own
+   * "this did not play here" line — which is the right thing for it to do
+   * and none of this test's business. What is asserted is the state the
+   * ROOM agreed on: the stage is up, the queue has one, the queue is
+   * empty again, the stage is gone.
+   */
+  test('plays, queues and skips through the shelf, and hands a page back to it', async ({
+    browser,
+  }) => {
+    const { slug } = await createRoom('chat-commands-watch');
+    handles = await joinMany(browser, slug, 1);
+    const page = handles[0]!.page;
+
+    await page.locator('button[data-key="C"]').click();
+    const box = page.locator('.chat-panel textarea');
+    const tools = page.locator('button[data-key="T"]');
+
+    // Nothing is on, so there is nothing to skip or to take off.
+    await box.fill('/skip');
+    await box.press('Enter');
+    await expect(page.locator('.watch-frame')).toHaveCount(0);
+    await box.fill('/stop');
+    await box.press('Enter');
+    await expect(page.locator('.watch-frame')).toHaveCount(0);
+
+    // A media address is read here, in the browser, and goes on at once.
+    await box.fill(`/play ${baseUrl()}/one.mp4`);
+    await box.press('Enter');
+    await expect(page.locator('.watch-frame')).toHaveCount(1);
+    await expect(tools).toHaveClass(/control-active/);
+    await expect(box).toHaveValue('');
+
+    // The next one lines up behind it, and the strip says how many.
+    await box.fill(`/queue ${baseUrl()}/two.mp4`);
+    await box.press('Enter');
+    await expect(page.locator('.watch-queued')).toBeVisible();
+
+    // Skipping empties the queue and leaves the room watching.
+    await box.fill('/skip');
+    await box.press('Enter');
+    await expect(page.locator('.watch-queued')).toHaveCount(0);
+    await expect(page.locator('.watch-frame')).toHaveCount(1);
+
+    // And off, for everybody.
+    await box.fill('/stop');
+    await box.press('Enter');
+    await expect(page.locator('.watch-frame')).toHaveCount(0);
+    await expect(tools).not.toHaveClass(/control-active/);
+
+    // A PAGE is nobody's to play from a chat line: the shelf opens with
+    // the link already in its field, and the person reads it from there.
+    await box.fill('/play https://example.com/an/episode');
+    await box.press('Enter');
+    await expect(page.locator('.tools-menu')).toBeVisible();
+    await expect(page.locator('.tools-menu .tool-field')).toHaveValue(
+      'https://example.com/an/episode',
+    );
+    await expect(page.locator('.watch-frame')).toHaveCount(0);
   });
 });
