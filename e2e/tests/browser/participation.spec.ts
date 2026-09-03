@@ -51,6 +51,17 @@ test.describe('taking part, or not', () => {
     // And he is still in the room: the stage fell back to a face.
     await expect(bob.page.locator('.stage-person')).toHaveCount(1);
 
+    // The absent-screen watch must not quietly undo this. It hunts a
+    // branch that named a source and received nothing — which is
+    // exactly the shape of a refusal, on purpose — so it skips a tree
+    // we asked to stop sending. Past its first ask (~6 s) and past the
+    // ICE restart it would otherwise spend (~16 s), Bob still draws
+    // nothing and Carol is still watching.
+    await bob.page.waitForTimeout(18_000);
+    await expect(bob.page.locator('.screen-video')).toHaveCount(0);
+    await expect(bob.page.locator('.tile-screen')).toHaveCount(0);
+    await expect(carol.page.locator('.screen-video')).toBeVisible();
+
     // The choice outlives the page: it is a preference, not a session
     // flag. (A reload here would land on the join screen, not the room —
     // so the durable part is asserted where it actually lives.)
