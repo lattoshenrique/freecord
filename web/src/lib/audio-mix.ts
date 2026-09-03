@@ -79,6 +79,15 @@ export function effectiveLevel(mix: MixLevel | undefined): number {
  *
  * Non-finite reads as untouched rather than as silence: a corrupted
  * value should leave somebody audible, not quietly mute them.
+ *
+ * That answer is the same for all three kinds, but it is not the same
+ * bargain: on a person, the alternative is losing a voice with nothing
+ * on screen to explain it; on a tool, it is a video coming up at full
+ * blast. Loud and obvious beats silent and mysterious either way — the
+ * speaker key still gates both, and the slider is right there. Worth
+ * knowing before anybody makes this fallback per-kind, because the two
+ * failures cost different things and only one of them is recoverable by
+ * a listener who has not worked out what happened.
  */
 export function clampLevel(level: number): number {
   return Number.isFinite(level) ? Math.min(1, Math.max(0, level)) : 1;
