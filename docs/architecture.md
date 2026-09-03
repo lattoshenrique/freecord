@@ -435,12 +435,11 @@ would be two participants sharing one microphone.
 whether an app is installed — every honest way to find that out is a
 fingerprint. So the shell claims a scheme of its own, `freecord://r/<slug>`
 (`desktop/src/deep-link.ts`, declared to the installers as `build.protocols`),
-and the doorstep offers it: press it once, and the browser is told to open a
-`freecord://` link. The app comes forward, or nothing at all happens, and
-either way the tab stays where it was — which is why it is a button somebody
-presses and never a redirect that happens to them. The answer is remembered
-in this browser, so the *next* room link goes straight to the app, and the way
-back out is on screen the whole time (`web/src/components/OpenInApp.tsx`).
+and the doorstep offers it as a real link. Press it and the browser asks to
+open Freecord; confirm and the app comes forward, or decline and this tab stays
+where it was. The click is load-bearing: browsers block external protocols
+started later by an effect with no user activation, so the page never claims
+to remember a handoff it cannot repeat (`web/src/components/OpenInApp.tsx`).
 
 A link arrives from outside the app, which is what makes the shell's half
 careful. It never carries a URL, only a path: whatever arrives is reduced to a

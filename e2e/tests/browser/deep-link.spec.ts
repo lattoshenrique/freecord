@@ -6,16 +6,16 @@ import { createRoom } from '../../helpers/http';
  * The doorstep's offer to open this room in the desktop app.
  *
  * There is nothing to detect here — a browser cannot be asked whether an app
- * is installed — so what the product actually promises is a choice and a way
- * to take it back, and that is what this covers: the offer is on the
- * doorstep, pressing it is remembered, and the next visit says so and still
- * has a way out. The `freecord://` navigation itself goes nowhere in a test
- * browser, which is exactly what it does for anyone without the app
- * installed: the tab stays where it is.
+ * is installed — so what the product actually promises is a genuine protocol
+ * link activated by a click and a way to try it again. A script replayed on
+ * mount is deliberately not the contract: browsers block external protocols
+ * without user activation. The `freecord://` navigation itself goes nowhere
+ * in the headless test browser, which is exactly what it does for anyone
+ * without the app installed: the tab stays where it is.
  */
 
 test.describe('opening a room in the desktop app', () => {
-  test('offers the app on the doorstep, remembers the answer, and takes it back', async ({
+  test('offers a directly activated app link and lets the visitor try it again', async ({
     browser,
   }) => {
     const { slug } = await createRoom('deep link');
@@ -32,8 +32,9 @@ test.describe('opening a room in the desktop app', () => {
     try {
       await page.goto(`${baseUrl()}/r/${slug}`);
 
-      const offer = page.getByRole('button', { name: /open this room in the desktop app/i });
+      const offer = page.getByRole('link', { name: /open this room in the desktop app/i });
       await expect(offer).toBeVisible({ timeout: 15_000 });
+      await expect(offer).toHaveAttribute('href', `freecord://r/${slug}`);
 
       // Nothing on this page is allowed to navigate away: the app either
       // comes forward or it does not, and the tab is what stays behind.
@@ -41,14 +42,8 @@ test.describe('opening a room in the desktop app', () => {
       await expect(page.getByText(/opening in the desktop app/i)).toBeVisible();
       expect(new URL(page.url()).pathname).toBe(`/r/${slug}`);
 
-      // The choice outlives the visit — that is the whole point of it.
-      await page.reload();
-      const stay = page.getByRole('button', { name: /stay in the browser/i });
-      await expect(stay).toBeVisible({ timeout: 15_000 });
-
-      // ...and it is never a trap: the way out is on screen the whole time.
-      await stay.click();
-      await expect(offer).toBeVisible();
+      // A reload needs a new click. Replaying a custom protocol from an effect
+      // would be blocked by the browser while falsely claiming it was opening.
       await page.reload();
       await expect(offer).toBeVisible({ timeout: 15_000 });
     } finally {
@@ -71,7 +66,7 @@ test.describe('opening a room in the desktop app', () => {
       await nameInput.fill('Doorstep');
       // The offer sits inside the join form: a button in there that submitted
       // it would send someone into the room by accident.
-      await page.getByRole('button', { name: /open this room in the desktop app/i }).click();
+      await page.getByRole('link', { name: /open this room in the desktop app/i }).click();
       expect(new URL(page.url()).pathname).toBe(`/r/${slug}`);
       await expect(page.locator('.seat-count')).toHaveCount(0);
 

@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useI18n } from '../i18n';
-import { handOffToApp, prefersApp, rememberApp } from '../lib/deep-link';
+import { appLink } from '../lib/deep-link';
 import { isDesktopApp } from '../lib/platform';
 import { isStandalone } from '../lib/pwa';
 import { usePlatformGuess } from './DownloadCard';
@@ -13,35 +13,17 @@ import { usePlatformGuess } from './DownloadCard';
  * device is on, and the app can pick the link up from the beginning.
  *
  * The browser cannot be asked whether an app is installed — every honest way
- * to find out is a fingerprint — so this is a choice, not a detection. Press
- * it once and the browser is told to open a `freecord://` link: the app comes
- * forward, or nothing at all happens, and either way this tab stays where it
- * is. The choice is remembered, so the *next* room link goes straight to the
- * app, and the way back out is on screen the whole time.
+ * to find out is a fingerprint. The handoff is therefore a real
+ * `freecord://` anchor activated by this click: the app comes forward after
+ * the browser's confirmation, or nothing happens, and this tab stays where it
+ * is. It cannot be replayed from an effect on the next visit; browsers block
+ * external protocols without a fresh user activation.
  */
 export default function OpenInApp() {
   const { t } = useI18n();
   const guess = usePlatformGuess();
-  /*
-   * Remembered, and acted on once. Read at mount rather than watched: this
-   * decides whether the screen is offering a handoff or reporting one, and a
-   * value that changed underneath would swap the two while someone reads.
-   */
-  const [sent, setSent] = useState(() => prefersApp());
-
-  // Once, at mount, and never again: pressing the button below hands off on
-  // its own, and an effect that watched `sent` would do it a second time.
-  useEffect(() => {
-    if (!prefersApp()) {
-      return;
-    }
-    // Someone already chose the app for links like this one. Nothing is
-    // detected here and nothing is awaited: the tab carries on loading the
-    // room, so a person whose app is gone is already where they need to be.
-    if (!handOffToApp(window.location.pathname, window.location.hash)) {
-      setSent(false);
-    }
-  }, []);
+  const [sent, setSent] = useState(false);
+  const link = appLink(window.location.pathname, window.location.hash);
 
   /*
    * Three silences, and the same reason under all of them: there has to be
@@ -56,7 +38,7 @@ export default function OpenInApp() {
     guess.os !== 'unknown' &&
     !isDesktopApp() &&
     !isStandalone();
-  if (!elsewhere) {
+  if (!elsewhere || !link) {
     return null;
   }
 
@@ -67,10 +49,7 @@ export default function OpenInApp() {
         <button
           type="button"
           className="join-app-link"
-          onClick={() => {
-            rememberApp(false);
-            setSent(false);
-          }}
+          onClick={() => setSent(false)}
         >
           {t('deepLink.stay')}
         </button>
@@ -80,18 +59,13 @@ export default function OpenInApp() {
 
   return (
     <p className="join-app">
-      <button
-        type="button"
+      <a
         className="join-app-link"
-        onClick={() => {
-          if (handOffToApp(window.location.pathname, window.location.hash)) {
-            rememberApp(true);
-            setSent(true);
-          }
-        }}
+        href={link}
+        onClick={() => setSent(true)}
       >
         {t('deepLink.open')}
-      </button>
+      </a>
     </p>
   );
 }
