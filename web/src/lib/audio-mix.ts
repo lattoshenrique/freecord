@@ -65,6 +65,21 @@ export function effectiveLevel(mix: MixLevel | undefined): number {
   return clampLevel(mix.level);
 }
 
+/**
+ * Pins a level to what a media element will accept, and this is not
+ * cosmetic: `HTMLMediaElement.volume` THROWS an IndexSizeError outside
+ * 0 … 1, and the throw would land inside a render effect — so a level
+ * from anywhere (a slider, a restored value, a caller yet to be written)
+ * reaches an element through here or it does not reach one at all.
+ *
+ * Not everything downstream is this strict. The watch tool's own
+ * `<video>` is the same element and the same trap; YouTube's and
+ * Twitch's players clamp on their own side. The one that throws is the
+ * one we own, which is the wrong way round for luck to hold.
+ *
+ * Non-finite reads as untouched rather than as silence: a corrupted
+ * value should leave somebody audible, not quietly mute them.
+ */
 export function clampLevel(level: number): number {
   return Number.isFinite(level) ? Math.min(1, Math.max(0, level)) : 1;
 }
