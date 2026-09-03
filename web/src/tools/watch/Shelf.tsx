@@ -211,6 +211,12 @@ export default function Shelf({
       dismiss();
       return;
     }
+    // The button below is disabled when this is false, but Enter reaches
+    // this function from the field too. Keep the link and the visible
+    // refusal in place instead of clearing a queue entry that never fit.
+    if (!hasRoomFor(state, candidate.item)) {
+      return;
+    }
     setState(enqueue(carried(state, at), candidate.item));
     clear();
     // The shelf stays open: lining several things up is one visit.

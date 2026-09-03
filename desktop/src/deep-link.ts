@@ -175,12 +175,19 @@ export function installDeepLinks(options: DeepLinkOptions): (raw: string) => voi
 }
 
 /**
- * Forgets a window's promise to route as soon as it loads anything: the page
- * that made it is gone. A router navigation fires no load, so a page that
- * keeps running keeps its flag.
+ * Forgets a window's promise to route as soon as it starts replacing the main
+ * document: the page that made it is going away. This must happen at the
+ * beginning, not `did-finish-load` — a fast renderer can announce readiness
+ * before that event, and clearing it afterwards would discard the new page's
+ * promise. An in-page router navigation keeps the same document and its flag.
  */
 export function attachDeepLinks(win: BrowserWindow): void {
-  win.webContents.on('did-finish-load', () => {
-    routing.delete(win.webContents);
-  });
+  win.webContents.on(
+    'did-start-navigation',
+    (_event, _url, isInPlace, isMainFrame) => {
+      if (isMainFrame && !isInPlace) {
+        routing.delete(win.webContents);
+      }
+    },
+  );
 }
