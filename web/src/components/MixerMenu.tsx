@@ -23,7 +23,8 @@
  */
 import { useEffect } from 'react';
 import { useI18n } from '../i18n';
-import { MAX_MIX_LEVEL, mixKey, useAudioMix, type MixKey } from '../lib/audio-mix';
+import { maxMixLevelFor, mixKey, useAudioMix, type MixKey } from '../lib/audio-mix';
+import { unlockPlaybackAmplifier } from '../lib/playback-gain';
 import { toolText, type RegisteredTool } from '../tools/contract';
 import { CloseIcon, ScreenIcon, SpeakerIcon, SpeakerOffIcon } from './icons';
 import './mixer-menu.css';
@@ -40,6 +41,7 @@ function Row({ source, deafened }: { source: Source; deafened: boolean }) {
   const mix = useAudioMix();
   const level = mix.get(source.key);
   const percent = Math.round((level.muted ? 0 : level.level) * 100);
+  const maxLevel = maxMixLevelFor(source.key);
   return (
     <div className="mixer-row">
       <span className="mixer-icon" aria-hidden>
@@ -67,7 +69,7 @@ function Row({ source, deafened }: { source: Source; deafened: boolean }) {
         className="mixer-slider"
         type="range"
         min={0}
-        max={MAX_MIX_LEVEL * 100}
+        max={maxLevel * 100}
         step={1}
         value={percent}
         aria-label={t('mixer.levelOf', { name: source.name })}
@@ -75,7 +77,13 @@ function Row({ source, deafened }: { source: Source; deafened: boolean }) {
         // level; it just means nothing is coming out right now, and the
         // control says so rather than pretending it was never set.
         disabled={deafened}
-        onChange={(event) => mix.setLevel(source.key, Number(event.target.value) / 100)}
+        onChange={(event) => {
+          const next = Number(event.target.value) / 100;
+          if (next > 1) {
+            unlockPlaybackAmplifier();
+          }
+          mix.setLevel(source.key, next);
+        }}
       />
       <span className="mixer-value">{percent}%</span>
     </div>

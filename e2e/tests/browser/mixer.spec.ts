@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { createRoom } from '../../helpers/http';
 import {
   closeAll,
@@ -33,8 +33,12 @@ async function installAudibleScreenCapture(page: Page): Promise<void> {
       const videoStream = canvas.captureStream(5);
       const audio = new AudioContext();
       const tone = audio.createOscillator();
+      const inputGain = audio.createGain();
       const destination = audio.createMediaStreamDestination();
-      tone.connect(destination);
+      // Keep enough headroom that a 2× boost cannot clip. That lets the
+      // regression measure the gain instead of merely observing a new track.
+      inputGain.gain.value = 0.05;
+      tone.connect(inputGain).connect(destination);
       tone.start();
 
       const stream = new MediaStream([
@@ -46,10 +50,34 @@ async function installAudibleScreenCapture(page: Page): Promise<void> {
       (window as unknown as { __screenCapture?: unknown }).__screenCapture = {
         audio,
         canvas,
+        inputGain,
         tone,
       };
       return stream;
     };
+  });
+}
+
+/** RMS amplitude of what a media sink is actually receiving right now. */
+async function rmsOf(sink: Locator): Promise<number> {
+  return sink.evaluate(async (element: HTMLMediaElement) => {
+    const stream = element.srcObject as MediaStream | null;
+    if (!stream?.getAudioTracks().length) {
+      return 0;
+    }
+    const context = new AudioContext();
+    const source = context.createMediaStreamSource(stream);
+    const analyser = context.createAnalyser();
+    analyser.fftSize = 2048;
+    source.connect(analyser);
+    await context.resume();
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    const samples = new Float32Array(analyser.fftSize);
+    analyser.getFloatTimeDomainData(samples);
+    source.disconnect();
+    await context.close();
+    const power = samples.reduce((sum, sample) => sum + sample * sample, 0) / samples.length;
+    return Math.sqrt(power);
   });
 }
 
@@ -209,6 +237,7 @@ test.describe('per-source volume', () => {
     await viewer.page.getByRole('button', { name: /volume per source/i }).click();
     const mixer = viewer.page.getByRole('dialog', { name: /^volume$/i });
     const slider = mixer.getByRole('slider', { name: /volume for watch together/i });
+    await expect(slider).toHaveAttribute('max', '100');
     await slider.fill('25');
 
     const youtubeVolume = (page: Page) =>
@@ -232,7 +261,9 @@ test.describe('per-source volume', () => {
     await expect.poll(() => youtubeVolume(owner.page)).toBe(100);
   });
 
-  test('changes a transmission only for this viewer', async ({ browser }) => {
+  test('amplifies a transmission for this viewer without changing anyone else', async ({
+    browser,
+  }) => {
     const { slug } = await createRoom('mixer-screen-private');
     handles = [
       await joinRoomPage(browser, slug, 'screen-owner', { prepare: installAudibleScreenCapture }),
@@ -246,6 +277,8 @@ test.describe('per-source volume', () => {
     const otherSink = other.page.locator('.room-layout > audio');
     await expect(viewerSink).toHaveCount(1, { timeout: 30_000 });
     await expect(otherSink).toHaveCount(1, { timeout: 30_000 });
+    await expect.poll(() => rmsOf(viewerSink)).toBeGreaterThan(0.005);
+    const baseline = await rmsOf(viewerSink);
 
     await viewer.page.getByRole('button', { name: /volume per source/i }).click();
     const mixer = viewer.page.getByRole('dialog', { name: /^volume$/i });
@@ -253,6 +286,16 @@ test.describe('per-source volume', () => {
 
     await expect.poll(() => viewerSink.evaluate((audio: HTMLAudioElement) => audio.volume)).toBe(0.35);
     await expect.poll(() => otherSink.evaluate((audio: HTMLAudioElement) => audio.volume)).toBe(1);
+
+    const screenSlider = mixer.getByRole('slider', {
+      name: /volume for screen-owner.s screen$/i,
+    });
+    await screenSlider.focus();
+    await screenSlider.press('End');
+    await expect(screenSlider).toHaveValue('200');
+    await expect
+      .poll(async () => (await rmsOf(viewerSink)) / baseline, { timeout: 10_000 })
+      .toBeGreaterThan(1.8);
   });
 
   test('amplifies one person up to 200% through a valid media stream', async ({ browser }) => {

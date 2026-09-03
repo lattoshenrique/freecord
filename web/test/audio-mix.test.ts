@@ -2,11 +2,13 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   AudioMix,
   MAX_MIX_LEVEL,
+  MAX_TOOL_MIX_LEVEL,
   clampLevel,
   effectiveLevel,
   isDefaultLevel,
   mixKey,
   mixKindOf,
+  maxMixLevelFor,
   type MixKey,
 } from '../src/lib/audio-mix';
 
@@ -37,6 +39,12 @@ describe('keys', () => {
   it('refuses a kind it does not know', () => {
     expect(mixKindOf('bogus:1' as MixKey)).toBeNull();
     expect(mixKindOf('person' as MixKey)).toBeNull();
+  });
+
+  it('only offers real amplification where the playback path supports it', () => {
+    expect(maxMixLevelFor(alice)).toBe(MAX_MIX_LEVEL);
+    expect(maxMixLevelFor(shared)).toBe(MAX_MIX_LEVEL);
+    expect(maxMixLevelFor(watch)).toBe(MAX_TOOL_MIX_LEVEL);
   });
 });
 
@@ -79,6 +87,13 @@ describe('the mixer', () => {
     mix.setLevel(alice, 2);
     expect(mix.volumeOf(alice)).toBe(2);
     expect(mix.volumeOf(shared)).toBe(1);
+  });
+
+  it('does not store a fake boost for an embedded tool', () => {
+    const mix = new AudioMix(null);
+    mix.setLevel(watch, 2);
+    expect(mix.volumeOf(watch)).toBe(1);
+    expect(mix.entries()).toEqual([]);
   });
 
   it('drops a source back out of the list when it returns to full', () => {
@@ -145,6 +160,13 @@ describe('what survives a reload', () => {
       'freecord:audio-mix': JSON.stringify({ 'tool:watch': { level: 0.4, muted: false } }),
     });
     expect(new AudioMix(storage).volumeOf(watch)).toBe(0.4);
+  });
+
+  it('normalizes an old tool boost that its player could never apply', () => {
+    const storage = memoryStorage({
+      'freecord:audio-mix': JSON.stringify({ 'tool:watch': { level: 2, muted: false } }),
+    });
+    expect(new AudioMix(storage).volumeOf(watch)).toBe(1);
   });
 
   it('ignores a peer level somebody put in storage by hand', () => {

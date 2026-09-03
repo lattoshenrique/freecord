@@ -18,11 +18,11 @@
  *   screen:<peerId>   the system audio riding that person's screen share
  *   tool:<toolId>     whatever the shelf has playing for everybody
  *
- * Levels through 100% are applied as `HTMLMediaElement.volume`. Above
- * that, the sink receives a Web Audio-amplified stream while remaining
- * the element that `setSinkId` points at. That keeps the chosen speaker
- * in charge and gives a quiet source up to 200% without asking the media
- * element to accept an out-of-range volume.
+ * Levels through 100% are applied as `HTMLMediaElement.volume`. A voice
+ * or screen above that receives a Web Audio-amplified stream while the
+ * sink remains the element that `setSinkId` points at. Embedded tools
+ * stop at 100%: their vendor player owns the audio and exposes no output
+ * track that our gain node can process.
  *
  * Only the tool level is persisted. Peer ids are per-session (the room
  * link is the only credential — there is no account to hang a saved
@@ -38,7 +38,7 @@ export type MixKind = 'person' | 'screen' | 'tool';
 export type MixKey = string & { readonly __mix?: unique symbol };
 
 export interface MixLevel {
-  /** 0 … 2, where 1 is the source untouched. */
+  /** 0 … the source's supported maximum, where 1 is untouched. */
   level: number;
   /** Silenced without forgetting where the slider was. */
   muted: boolean;
@@ -46,6 +46,7 @@ export interface MixLevel {
 
 export const FULL_LEVEL: MixLevel = { level: 1, muted: false };
 export const MAX_MIX_LEVEL = 2;
+export const MAX_TOOL_MIX_LEVEL = 1;
 
 export function mixKey(kind: MixKind, id: string): MixKey {
   return `${kind}:${id}` as MixKey;
@@ -54,6 +55,11 @@ export function mixKey(kind: MixKind, id: string): MixKey {
 export function mixKindOf(key: MixKey): MixKind | null {
   const kind = key.slice(0, key.indexOf(':'));
   return kind === 'person' || kind === 'screen' || kind === 'tool' ? kind : null;
+}
+
+/** Embedded tool players expose attenuation, but not amplification. */
+export function maxMixLevelFor(key: MixKey): number {
+  return mixKindOf(key) === 'tool' ? MAX_TOOL_MIX_LEVEL : MAX_MIX_LEVEL;
 }
 
 /** What the element should actually play at. */
@@ -77,14 +83,9 @@ export function effectiveLevel(mix: MixLevel | undefined): number {
  * Non-finite reads as untouched rather than as silence: a corrupted
  * value should leave somebody audible, not quietly mute them.
  *
- * That answer is the same for all three kinds, but it is not the same
- * bargain: on a person, the alternative is losing a voice with nothing
- * on screen to explain it; on a tool, it is a video coming up at full
- * blast. Loud and obvious beats silent and mysterious either way — the
- * speaker key still gates both, and the slider is right there. Worth
- * knowing before anybody makes this fallback per-kind, because the two
- * failures cost different things and only one of them is recoverable by
- * a listener who has not worked out what happened.
+ * This generic clamp describes the media-stream path. AudioMix applies
+ * the narrower per-source cap afterwards, so a vendor iframe never
+ * stores a boost its API will silently discard.
  */
 export function clampLevel(level: number): number {
   return Number.isFinite(level) ? Math.min(MAX_MIX_LEVEL, Math.max(0, level)) : 1;
@@ -101,7 +102,7 @@ function isPersisted(key: MixKey): boolean {
   return mixKindOf(key) === 'tool';
 }
 
-function sanitize(value: unknown): MixLevel | null {
+function sanitize(key: MixKey, value: unknown): MixLevel | null {
   if (typeof value !== 'object' || value === null) {
     return null;
   }
@@ -109,7 +110,10 @@ function sanitize(value: unknown): MixLevel | null {
   if (typeof raw.level !== 'number' || !Number.isFinite(raw.level)) {
     return null;
   }
-  return { level: clampLevel(raw.level), muted: raw.muted === true };
+  return {
+    level: Math.min(maxMixLevelFor(key), clampLevel(raw.level)),
+    muted: raw.muted === true,
+  };
 }
 
 /**
@@ -135,7 +139,7 @@ export class AudioMix {
     return this.levels.get(key) ?? FULL_LEVEL;
   }
 
-  /** The requested playback level, 0 … 2. */
+  /** The requested playback level, up to this source's supported maximum. */
   volumeOf(key: MixKey): number {
     return effectiveLevel(this.levels.get(key));
   }
@@ -143,7 +147,10 @@ export class AudioMix {
   set(key: MixKey, next: Partial<MixLevel>): void {
     const current = this.get(key);
     const merged: MixLevel = {
-      level: next.level === undefined ? current.level : clampLevel(next.level),
+      level:
+        next.level === undefined
+          ? current.level
+          : Math.min(maxMixLevelFor(key), clampLevel(next.level)),
       muted: next.muted === undefined ? current.muted : next.muted,
     };
     if (merged.level === current.level && merged.muted === current.muted) {
@@ -212,9 +219,10 @@ export class AudioMix {
       }
       const parsed = JSON.parse(raw) as Record<string, unknown>;
       for (const [key, value] of Object.entries(parsed)) {
-        const level = sanitize(value);
-        if (level && isPersisted(key as MixKey) && !isDefaultLevel(level)) {
-          this.levels.set(key as MixKey, level);
+        const mixKey = key as MixKey;
+        const level = sanitize(mixKey, value);
+        if (level && isPersisted(mixKey) && !isDefaultLevel(level)) {
+          this.levels.set(mixKey, level);
         }
       }
     } catch {

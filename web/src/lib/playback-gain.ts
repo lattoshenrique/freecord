@@ -50,6 +50,25 @@ function audioContext(): AudioContext | null {
   return sharedContext;
 }
 
+/**
+ * Starts the amplifier while a trusted slider gesture is still active.
+ *
+ * Building the graph later in a React effect is too late for browsers that
+ * gate Web Audio behind user activation: the route exists, but its context
+ * stays suspended and 200% sounds exactly like 100% (or like silence). This
+ * is intentionally cheap until somebody actually asks for more than 100%.
+ */
+export function unlockPlaybackAmplifier(): void {
+  try {
+    const context = audioContext();
+    if (context?.state === 'suspended') {
+      void context.resume().catch(() => {});
+    }
+  } catch {
+    // The route keeps its existing 100% fallback on unsupported browsers.
+  }
+}
+
 function openRoute(input: MediaStream, level: number): AmplifiedRoute | null {
   if (input.getAudioTracks().length === 0) {
     return null;
