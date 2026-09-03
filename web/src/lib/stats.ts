@@ -4,6 +4,12 @@
  */
 import type { Mesh } from './mesh';
 
+/**
+ * How the two ends of a link found each other: the same network, out through
+ * a NAT, or relayed by a TURN server.
+ */
+export type ConnectionPath = 'host' | 'stun' | 'turn';
+
 export interface PeerLatency {
   /** Round trip over the P2P path, in ms. Null until ICE settles. */
   rttMs: number | null;
@@ -20,6 +26,14 @@ export interface PeerLatency {
    * whenever the interval carried nothing to judge.
    */
   lossRate: number | null;
+  /** Wobble in the arrival of this peer's voice, in ms. Null with no inbound audio. */
+  jitterMs: number | null;
+  /** Delay the jitter buffer is adding to this peer's voice, in ms. */
+  jitterBufferMs: number | null;
+  /** Which way this link goes: straight across, through a NAT, or relayed. */
+  path: ConnectionPath | null;
+  /** Voice codec on this link, short name ('opus'). */
+  codec: string | null;
 }
 
 /** Cumulative inbound packet counters, as one report leaves them. */
@@ -64,9 +78,9 @@ function defined(values: (number | null)[]): number[] {
   return values.filter((value): value is number => value !== null);
 }
 
-/** RTT of the candidate pair in use — the network latency between the people. */
-function candidatePairRtt(report: RTCStatsReport): number | null {
-  let rtt: number | null = null;
+/** The candidate pair actually carrying the call, as the report describes it. */
+function selectedPair(report: RTCStatsReport): Record<string, unknown> | null {
+  let pair: Record<string, unknown> | null = null;
   let bestBytes = -1;
   for (const stat of report.values() as Iterable<Record<string, unknown>>) {
     if (stat.type !== 'candidate-pair' || stat.state !== 'succeeded') {
@@ -76,10 +90,97 @@ function candidatePairRtt(report: RTCStatsReport): number | null {
     const weight = stat.nominated === true ? Number.MAX_SAFE_INTEGER : (num(stat.bytesReceived) ?? 0);
     if (weight > bestBytes) {
       bestBytes = weight;
-      rtt = toMs(stat.currentRoundTripTime);
+      pair = stat;
     }
   }
-  return rtt;
+  return pair;
+}
+
+/** RTT of the candidate pair in use — the network latency between the people. */
+function candidatePairRtt(report: RTCStatsReport): number | null {
+  const pair = selectedPair(report);
+  return pair ? toMs(pair.currentRoundTripTime) : null;
+}
+
+/**
+ * How the two ends found each other on the pair in use: straight across the
+ * same network, out through a NAT, or the long way round somebody else's
+ * TURN server. The rung that costs the most decides — one relayed end makes
+ * the whole path relayed, and that is the one worth knowing about, because
+ * it is the one paying for bandwidth and adding a hop of latency.
+ */
+export function candidatePairPath(report: RTCStatsReport): ConnectionPath | null {
+  const pair = selectedPair(report);
+  if (!pair) {
+    return null;
+  }
+  const types = [pair.localCandidateId, pair.remoteCandidateId].map((id) => {
+    const candidate = typeof id === 'string' ? (report.get(id) as Record<string, unknown> | undefined) : undefined;
+    return typeof candidate?.candidateType === 'string' ? candidate.candidateType : null;
+  });
+  if (types.every((type) => type === null)) {
+    return null;
+  }
+  if (types.includes('relay')) {
+    return 'turn';
+  }
+  return types.some((type) => type === 'srflx' || type === 'prflx') ? 'stun' : 'host';
+}
+
+/**
+ * Jitter on the voice coming in: how unevenly the packets are landing,
+ * before the buffer smooths it over. Worst inbound audio stream, in ms —
+ * a link can hold a fine RTT and still sound chopped up.
+ */
+export function inboundAudioJitterMs(report: RTCStatsReport): number | null {
+  let worst: number | null = null;
+  for (const stat of report.values() as Iterable<Record<string, unknown>>) {
+    if (stat.type !== 'inbound-rtp' || stat.kind !== 'audio') {
+      continue;
+    }
+    const jitter = toMs(stat.jitter);
+    if (jitter !== null && (worst === null || jitter > worst)) {
+      worst = jitter;
+    }
+  }
+  return worst;
+}
+
+/**
+ * What the jitter buffer is holding back, in ms per packet: the delay this
+ * peer's voice is carrying on top of the network's own, bought to cover the
+ * jitter above. Cumulative counters, so it reads as the call's average.
+ */
+export function jitterBufferMs(report: RTCStatsReport): number | null {
+  let delay = 0;
+  let emitted = 0;
+  for (const stat of report.values() as Iterable<Record<string, unknown>>) {
+    if (stat.type !== 'inbound-rtp' || stat.kind !== 'audio') {
+      continue;
+    }
+    delay += num(stat.jitterBufferDelay) ?? 0;
+    emitted += num(stat.jitterBufferEmittedCount) ?? 0;
+  }
+  return emitted > 0 ? Math.round((delay / emitted) * 1000) : null;
+}
+
+/**
+ * The voice codec in use on this link, as a short name — 'opus', not
+ * 'audio/opus'. Two people on different builds can end up on different
+ * codecs, and that is exactly the kind of thing you go looking for.
+ */
+export function inboundAudioCodec(report: RTCStatsReport): string | null {
+  for (const stat of report.values() as Iterable<Record<string, unknown>>) {
+    if (stat.type !== 'inbound-rtp' || stat.kind !== 'audio') {
+      continue;
+    }
+    const codec = typeof stat.codecId === 'string' ? (report.get(stat.codecId) as Record<string, unknown> | undefined) : undefined;
+    const mime = typeof codec?.mimeType === 'string' ? codec.mimeType : null;
+    if (mime) {
+      return mime.split('/').pop()!.toLowerCase();
+    }
+  }
+  return null;
 }
 
 /**
@@ -218,12 +319,25 @@ export class StatsSampler {
               state: pc.connectionState,
               audioPackets: inboundAudioPackets(report),
               lossRate: this.lossRate(`loss:${peerId}`, inboundPackets(report)),
+              jitterMs: inboundAudioJitterMs(report),
+              jitterBufferMs: jitterBufferMs(report),
+              path: candidatePairPath(report),
+              codec: inboundAudioCodec(report),
             },
           ];
         } catch {
           return [
             peerId,
-            { rttMs: null, state: pc.connectionState, audioPackets: null, lossRate: null },
+            {
+              rttMs: null,
+              state: pc.connectionState,
+              audioPackets: null,
+              lossRate: null,
+              jitterMs: null,
+              jitterBufferMs: null,
+              path: null,
+              codec: null,
+            },
           ];
         }
       }),

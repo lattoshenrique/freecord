@@ -18,7 +18,7 @@ import { useI18n, type MessageKey } from '../i18n';
 import { desktopSystemAudio, isDesktopApp } from '../lib/platform';
 import { MAX_PARTICIPANTS, MAX_SCREENS } from '../lib/protocol';
 import { SCREEN_QUALITY_PRESETS } from '../lib/screen-quality';
-import type { ScreenStats } from '../lib/stats';
+import type { PeerLatency, ScreenStats } from '../lib/stats';
 import { useRoomSession, type JoinOptions, type ScreenShare } from '../lib/use-room';
 import { useSpeaking } from '../lib/use-speaking';
 import Avatar from './Avatar';
@@ -182,6 +182,25 @@ function LatencyChip({ ms, title }: { ms: number | null; title: string }) {
   );
 }
 
+/**
+ * The chip over a face says the one number everybody understands; hovering it
+ * says the rest of that person's link. Technical tokens, like the HUD's, and
+ * only the readings that exist — a link the report is quiet about adds nothing.
+ */
+function linkDetail(title: string, link: PeerLatency | null): string {
+  if (!link) {
+    return title;
+  }
+  const parts = [
+    link.lossRate !== null ? `loss ${formatLoss(link.lossRate)}` : null,
+    link.jitterMs !== null ? `jitter ${link.jitterMs} ms` : null,
+    link.jitterBufferMs !== null ? `jbuf ${link.jitterBufferMs} ms` : null,
+    link.path,
+    link.codec,
+  ].filter((part): part is string => Boolean(part));
+  return parts.length > 0 ? `${title} · ${parts.join(' · ')}` : title;
+}
+
 function formatBitrate(kbps: number): string {
   return kbps >= 1000 ? `${(kbps / 1000).toFixed(1)} Mb/s` : `${kbps} kb/s`;
 }
@@ -205,6 +224,11 @@ function formatLoss(rate: number): string {
  * drags all of them and moves it. The lower middle on an even count: with
  * two links the kinder one is the one we cannot blame on the other side.
  */
+/** The readings that exist, out of one per link — a link with none is not a zero. */
+function present<T>(values: readonly (T | null)[]): T[] {
+  return values.filter((value): value is T => value !== null);
+}
+
 function middleOf(values: readonly number[]): number | null {
   if (values.length === 0) {
     return null;
@@ -1757,6 +1781,37 @@ export default function RoomView({
   if (selfLoss !== null) {
     hudMetrics.push({ label: 'loss', value: formatLoss(selfLoss) });
   }
+  const links = [...session.peerLatency.values()];
+  if (links.length > 0) {
+    // How many of the links we hold are actually up: a mesh is one connection
+    // per person, and a peer stuck connecting is the room's real problem long
+    // before any of the numbers below start looking wrong.
+    const up = links.filter((latency) => latency.state === 'connected').length;
+    hudMetrics.push({ label: 'links', value: `${up}/${links.length}` });
+  }
+  // The wobble in the voice arriving, and what the buffer is holding back to
+  // hide it. RTT can sit still while these two go up, and that is the pair
+  // that explains a call that sounds late without ever sounding slow.
+  const selfJitter = middleOf(present(links.map((latency) => latency.jitterMs)));
+  if (selfJitter !== null) {
+    hudMetrics.push({ label: 'jitter', value: `${selfJitter} ms` });
+  }
+  const selfBuffer = middleOf(present(links.map((latency) => latency.jitterBufferMs)));
+  if (selfBuffer !== null) {
+    hudMetrics.push({ label: 'jbuf', value: `${selfBuffer} ms` });
+  }
+  // The dearest path any link is on: one relayed peer is the thing worth
+  // knowing, so the worst rung wins rather than the commonest.
+  const worstPath = (['turn', 'stun', 'host'] as const).find((path) =>
+    links.some((latency) => latency.path === path),
+  );
+  if (worstPath) {
+    hudMetrics.push({ label: 'path', value: worstPath });
+  }
+  const codecs = [...new Set(present(links.map((latency) => latency.codec)))];
+  if (codecs.length > 0) {
+    hudMetrics.push({ label: 'codec', value: codecs.join('/') });
+  }
   const hudStats = session.screenStats;
   if (hudStats?.kbps != null) {
     hudMetrics.push({
@@ -1835,6 +1890,7 @@ export default function RoomView({
     onSelect: (() => void) | undefined,
     pinnedTile: boolean,
   ) => {
+    const link = session.peerLatency.get(peer.id) ?? null;
     const streams = session.mesh?.getPeerStreams(peer.id) ?? [];
     const cameraStream = streams.find((stream) => !session.screenStreamIds.has(stream.id)) ?? null;
     return (
@@ -1849,8 +1905,8 @@ export default function RoomView({
         level={() => levelOf(peer.id)}
         cameraOn={session.cameras.has(peer.id)}
         stream={cameraStream}
-        latencyMs={session.peerLatency.get(peer.id)?.rttMs ?? null}
-        latencyTitle={t('latency.peer', { name: peer.name })}
+        latencyMs={link?.rttMs ?? null}
+        latencyTitle={linkDetail(t('latency.peer', { name: peer.name }), link)}
         style={onSelect ? tileStyle : undefined}
         sinkId={session.audioDevices.speakerId}
         volume={mix.volumeOf(mixKey('person', peer.id))}

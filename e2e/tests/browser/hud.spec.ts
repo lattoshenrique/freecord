@@ -27,4 +27,27 @@ test.describe('room HUD', () => {
     // hiding: a number you can go and check is the whole point.
     await expect(loss).toContainText(/%$/);
   });
+
+  test('says how the links are doing, not just how fast they are', async ({ browser }) => {
+    const { slug } = await createRoom('hud-peers');
+    handles = await joinMany(browser, slug, 2);
+    const [alice] = handles;
+
+    // One link, up: the count is the first thing that goes wrong in a mesh.
+    const links = alice.page.locator('.hud-metric', { hasText: 'links' });
+    await expect(links).toHaveCount(1, { timeout: 20_000 });
+    await expect(links).toContainText('1/1');
+
+    // Two browsers on one machine find each other on the same network.
+    const path = alice.page.locator('.hud-metric', { hasText: 'path' });
+    await expect(path).toContainText('host', { timeout: 20_000 });
+
+    // The voice numbers behind an RTT that looks fine.
+    await expect(alice.page.locator('.hud-metric', { hasText: 'jitter' })).toContainText(/ms$/, {
+      timeout: 20_000,
+    });
+    await expect(alice.page.locator('.hud-metric', { hasText: 'codec' })).toContainText('opus', {
+      timeout: 20_000,
+    });
+  });
 });
