@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { AVATAR_SIZE, avatarFrom, type AvatarSeed } from '../lib/identity';
 import './mesh-background.css';
 
 /**
@@ -38,6 +39,10 @@ const PACKET_SPEED = 190; // px/s, so a long hop honestly takes longer
 const PACKET_RATE = 5; // packets born per second, room-wide
 const MAX_PACKETS = 48;
 const HANDSHAKE_STEP = 0.75; // seconds per handshake line
+/** Side of a peer's free-standing avatar on the topology, in CSS pixels. */
+const PEER_SIZE = 48;
+/** Render above display size once, then let the canvas scale the cached face. */
+const AVATAR_SCALE = 2;
 
 type Rgb = [number, number, number];
 
@@ -53,6 +58,13 @@ const MONO = "10px ui-monospace, 'SF Mono', Menlo, Consolas, monospace";
 
 interface Peer {
   id: string;
+  avatar: HTMLCanvasElement;
+  motion: {
+    kind: 'float' | 'tilt' | 'bounce';
+    phase: number;
+    speed: number;
+    amount: number;
+  };
   x: number;
   y: number;
   vx: number;
@@ -78,6 +90,47 @@ interface Packet {
 const rgba = (c: Rgb, a: number) => `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${a})`;
 const rand = (min: number, max: number) => min + Math.random() * (max - min);
 const pick = <T,>(items: T[]) => items[Math.floor(Math.random() * items.length)]!;
+
+/**
+ * The room's Avatar component is SVG, while this animation deliberately stays
+ * on one canvas. Paint the same identity seed once per peer and cache it: the
+ * mesh can move the face every frame without rebuilding SVG or React nodes.
+ */
+function renderAvatar(seed: AvatarSeed): HTMLCanvasElement {
+  const canvas = document.createElement('canvas');
+  canvas.width = AVATAR_SIZE * AVATAR_SCALE;
+  canvas.height = AVATAR_SIZE * AVATAR_SCALE;
+  const context = canvas.getContext('2d');
+  if (!context) return canvas;
+
+  context.scale(AVATAR_SCALE, AVATAR_SCALE);
+  for (const shape of seed.shapes) {
+    context.beginPath();
+    if (shape.kind === 'rect') {
+      context.roundRect(shape.x, shape.y, shape.w, shape.h, shape.rx);
+      context.fillStyle = seed.palette[shape.fill];
+      context.fill();
+    } else if (shape.kind === 'ellipse') {
+      context.ellipse(shape.cx, shape.cy, shape.rx, shape.ry, 0, 0, Math.PI * 2);
+      context.fillStyle = seed.palette[shape.fill];
+      context.fill();
+    } else {
+      const path = new Path2D(shape.d);
+      if (shape.fill) {
+        context.fillStyle = seed.palette[shape.fill];
+        context.fill(path);
+      }
+      if (shape.stroke) {
+        context.strokeStyle = seed.palette[shape.stroke];
+        context.lineWidth = shape.width ?? 1;
+        context.lineCap = 'round';
+        context.stroke(path);
+      }
+    }
+  }
+
+  return canvas;
+}
 
 export default function MeshBackground() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -105,6 +158,7 @@ export default function MeshBackground() {
      */
     function newPeer(slot?: { index: number; of: number }): Peer {
       const pad = inset();
+      const id = Math.random().toString(16).slice(2, 6);
       const around =
         slot === undefined
           ? rand(0, Math.PI * 2)
@@ -112,7 +166,14 @@ export default function MeshBackground() {
       const reach = rand(0.55, 1);
       const heading = rand(0, Math.PI * 2);
       return {
-        id: Math.random().toString(16).slice(2, 6),
+        id,
+        avatar: renderAvatar(avatarFrom(id)),
+        motion: {
+          kind: pick(['float', 'tilt', 'bounce']),
+          phase: rand(0, Math.PI * 2),
+          speed: rand(0.65, 1.25),
+          amount: rand(0.75, 1.25),
+        },
         x: width / 2 + Math.cos(around) * (width / 2 - pad) * reach,
         y: height / 2 + Math.sin(around) * (height / 2 - pad) * reach,
         vx: Math.cos(heading) * DRIFT,
@@ -276,40 +337,62 @@ export default function MeshBackground() {
 
       for (const peer of peers) {
         if (peer.alpha <= 0.01) continue;
-        const radius = 3.2;
+        const radius = PEER_SIZE * 0.38;
 
         // Heartbeat: the ping that keeps the seat. Silence for 35 s and the peer is dropped.
         if (peer.beat < 0) {
           const ring = 1 + peer.beat; // 1 → 0 over the second after it fires
           ctx!.strokeStyle = rgba(peer.color, 0.32 * ring * peer.alpha);
+          ctx!.lineWidth = 1.5;
           ctx!.beginPath();
-          ctx!.arc(peer.x, peer.y, radius + (1 - ring) * 16, 0, Math.PI * 2);
+          ctx!.arc(peer.x, peer.y, radius + 4 + (1 - ring) * 16, 0, Math.PI * 2);
           ctx!.stroke();
         }
 
-        const glow = ctx!.createRadialGradient(peer.x, peer.y, 0, peer.x, peer.y, 26);
+        const glowRadius = radius + 14;
+        const glow = ctx!.createRadialGradient(peer.x, peer.y, radius * 0.4, peer.x, peer.y, glowRadius);
         glow.addColorStop(0, rgba(peer.color, 0.42 * peer.alpha));
         glow.addColorStop(1, rgba(peer.color, 0));
         ctx!.fillStyle = glow;
         ctx!.beginPath();
-        ctx!.arc(peer.x, peer.y, 26, 0, Math.PI * 2);
+        ctx!.arc(peer.x, peer.y, glowRadius, 0, Math.PI * 2);
         ctx!.fill();
 
-        ctx!.fillStyle = rgba(peer.color, 0.95 * peer.alpha);
-        ctx!.beginPath();
-        ctx!.arc(peer.x, peer.y, radius, 0, Math.PI * 2);
-        ctx!.fill();
+        // The same deterministic mascot used inside a room, without a tile or
+        // frame. Each peer idles in its own rhythm, like a room full of people
+        // rather than identical markers moving in lockstep.
+        const pulse = Math.sin(time * peer.motion.speed * 2 + peer.motion.phase);
+        const lift =
+          peer.motion.kind === 'bounce'
+            ? -Math.abs(pulse) * 3.2 * peer.motion.amount
+            : pulse * 1.6 * peer.motion.amount;
+        const tilt =
+          peer.motion.kind === 'tilt'
+            ? pulse * 0.075 * peer.motion.amount
+            : Math.sin(time * peer.motion.speed + peer.motion.phase) * 0.025;
+        const squash =
+          peer.motion.kind === 'bounce' ? 1 - Math.max(0, pulse) * 0.045 : 1;
+        ctx!.save();
+        ctx!.globalAlpha = peer.alpha;
+        ctx!.translate(peer.x, peer.y + lift);
+        ctx!.rotate(tilt);
+        ctx!.scale(1 / squash, squash);
+        ctx!.drawImage(peer.avatar, -PEER_SIZE / 2, -PEER_SIZE / 2, PEER_SIZE, PEER_SIZE);
+        ctx!.restore();
 
         ctx!.font = MONO;
         ctx!.textBaseline = 'middle';
         ctx!.fillStyle = `rgba(154, 160, 173, ${0.62 * peer.alpha})`;
-        ctx!.fillText(peer.id, peer.x + 10, peer.y + 1);
+        const labelOnLeft = peer.x > width - PEER_SIZE * 2;
+        ctx!.textAlign = labelOnLeft ? 'right' : 'left';
+        const labelX = peer.x + (labelOnLeft ? -PEER_SIZE / 2 - 8 : PEER_SIZE / 2 + 8);
+        ctx!.fillText(peer.id, labelX, peer.y + 1);
 
         const stage = Math.floor(peer.age / HANDSHAKE_STEP);
         if (stage < HANDSHAKE.length) {
           const fade = 1 - (peer.age / HANDSHAKE_STEP - stage);
           ctx!.fillStyle = rgba(peer.color, 0.55 * fade * peer.alpha);
-          ctx!.fillText(HANDSHAKE[stage]!, peer.x + 10, peer.y + 14);
+          ctx!.fillText(HANDSHAKE[stage]!, labelX, peer.y + 14);
         }
       }
     }
