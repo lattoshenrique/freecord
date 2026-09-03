@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   advanceAudioStall,
+  advanceMissing,
   advanceStall,
   initialStallState,
   type StallAction,
@@ -131,5 +132,79 @@ describe('advanceAudioStall', () => {
     expect(state.strikes).toBe(1);
     expect(advanceAudioStall(state, null)).toBe('none');
     expect(state.strikes).toBe(0);
+  });
+});
+
+describe('advanceMissing', () => {
+  it('stays quiet while the track is there', () => {
+    const state = initialStallState();
+    for (let i = 0; i < 10; i += 1) {
+      expect(advanceMissing(state, true)).toBe('none');
+    }
+    expect(state.strikes).toBe(0);
+  });
+
+  it('gives a settling tree a few seconds before asking anyone', () => {
+    const state = initialStallState();
+    expect(advanceMissing(state, false)).toBe('none');
+    expect(advanceMissing(state, false)).toBe('none');
+  });
+
+  it('asks the source first, then restarts ICE if the ask changed nothing', () => {
+    const state = initialStallState();
+    const actions: StallAction[] = [];
+    for (let i = 0; i < 8; i += 1) {
+      actions.push(advanceMissing(state, false));
+    }
+    expect(actions).toEqual([
+      'none',
+      'none',
+      'ask-source',
+      'none',
+      'none',
+      'ask-source',
+      'none',
+      'restart-ice',
+    ]);
+  });
+
+  it('spends the restart once per episode and keeps asking after it', () => {
+    const state = initialStallState();
+    for (let i = 0; i < 8; i += 1) {
+      advanceMissing(state, false);
+    }
+    const actions: StallAction[] = [];
+    for (let i = 0; i < 8; i += 1) {
+      actions.push(advanceMissing(state, false));
+    }
+    expect(actions).not.toContain('restart-ice');
+    expect(actions.filter((a) => a === 'ask-source').length).toBeGreaterThan(0);
+  });
+
+  it('the track arriving ends the episode and re-arms the restart', () => {
+    const state = initialStallState();
+    for (let i = 0; i < 8; i += 1) {
+      advanceMissing(state, false);
+    }
+    expect(state.restarted).toBe(true);
+    expect(advanceMissing(state, true)).toBe('none');
+    expect(state.restarted).toBe(false);
+    expect(state.strikes).toBe(0);
+    const actions: StallAction[] = [];
+    for (let i = 0; i < 8; i += 1) {
+      actions.push(advanceMissing(state, false));
+    }
+    expect(actions).toContain('restart-ice');
+  });
+
+  it('waits past the mesh own 12 s rollback before blaming the transport', () => {
+    // The sampler ticks every 2 s; the restart must land after the mesh
+    // watchdog has had its go at a lost offer, not on top of it.
+    const state = initialStallState();
+    const actions: StallAction[] = [];
+    for (let i = 0; i < 8; i += 1) {
+      actions.push(advanceMissing(state, false));
+    }
+    expect(actions.indexOf('restart-ice') * 2).toBeGreaterThan(12);
   });
 });

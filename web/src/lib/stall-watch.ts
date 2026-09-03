@@ -1,5 +1,6 @@
 /**
- * Viewer-side watch over the screen's decode progress.
+ * Viewer-side watch over the screen's decode progress — and over its
+ * absence.
  *
  * The mesh has no referee: when the path that carries the screen dies
  * quietly — a NAT rebinding after hours of watching, a parent forwarding
@@ -29,7 +30,7 @@ export interface StallState {
   restarted: boolean;
 }
 
-export type StallAction = 'none' | 'notify-parent' | 'restart-ice';
+export type StallAction = 'none' | 'notify-parent' | 'restart-ice' | 'ask-source';
 
 /** Samples until the first relay note (~4 s at the 2 s cadence). */
 const NOTIFY_STRIKES = 2;
@@ -69,6 +70,56 @@ export function advanceStall(
   // The note keeps its historical cadence: every other sample while the
   // stall lasts, so a parent that becomes demotable eventually hears it.
   return 'notify-parent';
+}
+
+/** Samples before the first nudge to the source (~6 s at the 2 s cadence). */
+const ASK_STRIKES = 3;
+/**
+ * Samples before the transport itself is blamed (~16 s) — deliberately
+ * behind the mesh's own NEGOTIATION_STALL_MS rollback (12 s), so a lost
+ * offer gets healed by the watchdog that knows about it before this one
+ * starts restarting ICE over the top of it.
+ */
+const MISSING_RESTART_STRIKES = 8;
+
+/**
+ * The watch for a branch that never delivered anything at all.
+ *
+ * Everything above measures a track: flat frames, silent bytes. But the
+ * commonest black screen has no track to measure — the tree named a
+ * source, and nothing ever arrived from it. Nobody notices: the sampler
+ * has no receiver to read, the relay note has no pipe to demote, and the
+ * source is happily sending to everyone else. One person sits on a black
+ * tile until they reload.
+ *
+ * So the absence gets its own ladder, and it is deliberately slower than
+ * the frozen one — a tree that is still settling (a relay that has not
+ * reported its forwarding stream, an offer in flight) looks exactly like
+ * a dead branch for the first few seconds, and healing it would mean
+ * fighting a negotiation that was about to succeed:
+ *
+ *   1. `ask-source` — tell the source we are still expecting this screen.
+ *      It reconciles its senders for that tree, which re-adds one that
+ *      was dropped; and if IT has no upstream either, its own watch is
+ *      one rung behind ours, so the repair walks up the branch.
+ *   2. `restart-ice` — the ask changed nothing, so the path to the source
+ *      is suspect. Once per episode, like the frozen watch.
+ *
+ * The asks keep their cadence after the restart is spent: a source that
+ * becomes able to send eventually hears one.
+ */
+export function advanceMissing(state: StallState, present: boolean): StallAction {
+  if (present) {
+    state.strikes = 0;
+    state.restarted = false;
+    return 'none';
+  }
+  state.strikes += 1;
+  if (state.strikes >= MISSING_RESTART_STRIKES && !state.restarted) {
+    state.restarted = true;
+    return 'restart-ice';
+  }
+  return state.strikes % ASK_STRIKES === 0 ? 'ask-source' : 'none';
 }
 
 /**

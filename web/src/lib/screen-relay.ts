@@ -25,18 +25,28 @@ import type { Mesh, TrackEncoding } from './mesh';
 export type ScreenRelayMode = 'passthrough' | 'reencode' | 'mixed';
 
 /**
- * Relay-health note, piggybacked on the opaque `signal` envelope the server
- * forwards without inspection (`data.relay`). Versioned and
- * ignored-if-unknown: an old client's mesh sees a payload with neither
- * description nor candidate and no-ops.
+ * Notes a viewer sends back UP its branch, piggybacked on the opaque
+ * `signal` envelope the server forwards without inspection (`data.relay`).
+ * Versioned and ignored-if-unknown: an old client's mesh sees a payload
+ * with neither description nor candidate and no-ops, which for both kinds
+ * is exactly today's behaviour.
+ *
+ *   `stall`   — frames stopped arriving: demote this child off encoded
+ *               passthrough, because the parent may be forwarding bytes it
+ *               cannot see are dead.
+ *   `missing` — nothing has EVER arrived for that tree: the parent
+ *               reconciles its senders, which re-adds one that was
+ *               dropped. It names the tree, because a peer may be a leaf
+ *               in one and a relay in another and the answer differs.
  */
-export interface RelayNote {
-  v: 1;
-  kind: 'stall';
-}
+export type RelayNote = { v: 1; kind: 'stall' } | { v: 1; kind: 'missing'; of: string };
 
 export function makeRelayNote(): { relay: RelayNote } {
   return { relay: { v: 1, kind: 'stall' } };
+}
+
+export function makeMissingNote(of: string): { relay: RelayNote } {
+  return { relay: { v: 1, kind: 'missing', of } };
 }
 
 export function extractRelayNote(data: unknown): RelayNote | null {
@@ -47,8 +57,14 @@ export function extractRelayNote(data: unknown): RelayNote | null {
   if (typeof note !== 'object' || note === null) {
     return null;
   }
-  const { v, kind } = note as { v?: unknown; kind?: unknown };
-  return v === 1 && kind === 'stall' ? { v: 1, kind: 'stall' } : null;
+  const { v, kind, of } = note as { v?: unknown; kind?: unknown; of?: unknown };
+  if (v !== 1) {
+    return null;
+  }
+  if (kind === 'stall') {
+    return { v: 1, kind: 'stall' };
+  }
+  return kind === 'missing' && typeof of === 'string' ? { v: 1, kind: 'missing', of } : null;
 }
 
 /**
