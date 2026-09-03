@@ -163,6 +163,21 @@ A passing suite is a claim about a build. Verify which one.
   most expensive kind of green.
 - Numbers, not adjectives: counts passed/failed/skipped, and what stayed
   unproved. "Tests pass" is not a review artifact.
+- **Arithmetic about cost is a hypothesis, not evidence.** A calculation of
+  memory or bandwidth picks a term and multiplies it, and the term is chosen
+  by whoever is worried — which is how three reviewers can agree on a number
+  and all be measuring the part that does not matter. Reviewing v0.11.0 we
+  estimated chat memory from message size three times, refining each other's
+  figures; the measurement showed retained text costs 0.7 MiB while the
+  highlight parser costs 3.6 MiB the first time a block renders, and per
+  block the cost does not vary with the block's size at all. Ask for a
+  measured number before accepting a size argument in either direction, and
+  put a control in it — two runs that differ only in the quantity you claim
+  is responsible.
+- Beware a metric that looks quantised: `performance.memory` returned an
+  identical figure for three different scenarios in that session, which reads
+  as precision and is the opposite. Cross-check with a second instrument
+  before it reaches a report.
 
 ### Mechanical sweep
 
