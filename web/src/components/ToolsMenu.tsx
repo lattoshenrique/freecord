@@ -14,6 +14,13 @@
  * goes inside the frame, never how its row looks, so a shelf with six
  * tools reads as one list instead of six designs.
  *
+ * One key in a row is not the tool's at all: whether this viewer takes
+ * part in what the room turned on. It closes a live for the person who
+ * presses it and for nobody else, and it is where they come back in
+ * (lib/participation.ts) — which is why it lives here, in the shelf the
+ * room's tool key already lights, rather than over a player whose four
+ * corners belong to whoever wrote it.
+ *
  * It hangs off the footer instead of the glass dock (which clips its own
  * children) and closes on Escape, on the backdrop, and when a tool says
  * it is done.
@@ -34,6 +41,8 @@ export default function ToolsMenu({
   peers,
   speakerOn,
   speakerLevel,
+  part,
+  onPart,
   draft,
   onSetState,
   onDismiss,
@@ -48,6 +57,18 @@ export default function ToolsMenu({
   speakerOn: boolean;
   /** This viewer's level for the open tool, 0 … 1 (lib/audio-mix.ts). */
   speakerLevel: (toolId: string) => number;
+  /**
+   * The tool this viewer may step out of — the one the room has on,
+   * started by somebody else — and whether they are in it right now.
+   * Null when there is nothing of the sort to decide about.
+   */
+  part: { tool: string; joined: boolean } | null;
+  /**
+   * Says whether this viewer takes part in that tool. Local and this
+   * viewer's alone (lib/participation.ts): it changes nothing about the
+   * tool, which stays on for the room either way.
+   */
+  onPart: (joined: boolean) => void;
   /**
    * What the shelf was opened WITH, when something else opened it: a link
    * typed after `/play` that no tool could take on its own. Handed to
@@ -127,6 +148,8 @@ export default function ToolsMenu({
                 peers={peers}
                 speakerOn={speakerOn}
                 speakerLevel={speakerLevel(tool.id)}
+                part={part?.tool === tool.id ? part.joined : null}
+                onPart={onPart}
                 draft={draft}
                 onSelect={() => setSelectedId(tool.id)}
                 onSetState={(state) => onSetState(tool.id, state)}
@@ -151,6 +174,8 @@ function ToolCard({
   peers,
   speakerOn,
   speakerLevel,
+  part,
+  onPart,
   draft,
   onSelect,
   onSetState,
@@ -165,6 +190,9 @@ function ToolCard({
   peers: readonly PeerInfo[];
   speakerOn: boolean;
   speakerLevel: number;
+  /** In this tool, out of it, or null when it is not this viewer's to decide. */
+  part: boolean | null;
+  onPart: (joined: boolean) => void;
   draft?: string;
   onSelect: () => void;
   onSetState: (state: unknown) => void;
@@ -199,6 +227,33 @@ function ToolCard({
         <button type="button" className="tool-head" aria-expanded={open} onClick={onSelect}>
           {head}
         </button>
+      )}
+      {/*
+        Whether this viewer takes part in what the room put on — a key of
+        the app's, not of the tool's, and the reason it sits under the row
+        instead of inside the panel below. It moves nothing for anybody
+        else: the tool is on either way, and this only says whether it is
+        drawn here (lib/participation.ts). It stays where it is once
+        pressed, so the way back in is the key that let you out.
+      */}
+      {part !== null && (
+        <div className="tool-part">
+          <button
+            type="button"
+            className="tool-part-key"
+            /* The name says what pressing it does, so it is not also a
+               pressed/unpressed toggle: "Join Watch together, pressed"
+               is a sentence nobody can act on. The state is drawn from
+               the same fact instead. */
+            data-out={part ? undefined : 'true'}
+            onClick={() => onPart(!part)}
+          >
+            {part
+              ? t('participation.sitOut')
+              : t('participation.comeBack', { tool: toolText('name') })}
+          </button>
+          <span className="tool-part-note">{t('participation.sitOutHint')}</span>
+        </div>
       )}
       {open && (
         /* The frame every tool's controls sit in. A tool fills it with

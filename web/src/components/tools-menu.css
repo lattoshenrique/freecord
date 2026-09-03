@@ -12,6 +12,10 @@
  *                kit below and nothing else, which is why six tools by
  *                six authors still read as one list.
  *
+ * And, between them and belonging to neither, .tool-part: whether this
+ * viewer takes part in the live the room has on. The app's key, not the
+ * tool's — it changes nothing for anybody else.
+ *
  * The kit a tool's panel is written from:
  *
  *   .tool-label    a label over a control
@@ -287,6 +291,62 @@ button.tool-head:focus-visible .tool-name {
   height: 0.32rem;
   border-radius: 50%;
   background: currentColor;
+}
+
+/* ---- taking part in it, or not ---- */
+
+/*
+ * One person's answer to what the room turned on, in the row that tool
+ * already has. It sits between the head and the panel because it belongs
+ * to neither: a tool's own controls move the room, and this key moves
+ * nothing at all — the tool stays on, and this only says whether it is
+ * drawn here (lib/participation.ts).
+ */
+.tool-part {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  padding: 0 0.9rem 0.7rem;
+}
+
+.tool-part-key {
+  flex: none;
+  padding: 0.3rem 0.6rem;
+  background: transparent;
+  border: 1px solid var(--hud-border, rgba(255, 255, 255, 0.1));
+  border-radius: var(--hud-radius, 8px);
+  color: var(--text, #e6e8ee);
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.tool-part-key:hover,
+.tool-part-key:focus-visible {
+  outline: none;
+  background: rgba(255, 255, 255, 0.045);
+  border-color: var(--accent, #5b8cff);
+  color: var(--accent, #5b8cff);
+}
+
+/* Standing outside it: the way back in is the lit key, in the same place
+   the one that let you out was. */
+.tool-part-key[data-out='true'] {
+  border-color: var(--accent, #5b8cff);
+  color: var(--accent, #5b8cff);
+}
+
+.tool-part-note {
+  min-width: 0;
+  font-size: 0.7rem;
+  line-height: 1.4;
+  color: var(--muted, #9aa3b2);
 }
 
 /* ---- the frame a tool's controls sit in ---- */

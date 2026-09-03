@@ -49,6 +49,7 @@ import { toolText, useToolText, type RegisteredTool } from '../tools/contract';
 import { applySinkId } from '../lib/audio-devices';
 import { setPlayback, type PlayingSource } from '../lib/audio-bus';
 import { mixKey, useAudioMix } from '../lib/audio-mix';
+import { takesPartInTool, toolDecision, type ToolChoice } from '../lib/participation';
 import { useAmplifiedPlayback } from '../lib/playback-gain';
 import {
   CamIcon,
@@ -1173,23 +1174,46 @@ export default function RoomView({
   const selfPeer = session.selfId ? { id: session.selfId, name: options.name } : null;
   const liveTool = stagedToolOf(session.tools);
   /**
-   * Somebody who refused tools is let in again for one tool, until that
-   * tool goes off — the button that does it names what is playing now,
-   * because the room can change the source under a standing refusal.
+   * What this viewer said about the tool that is on, if they said
+   * anything: closed it here without touching it for the room, or came
+   * in past a standing refusal. It names the tool because the room can
+   * change what is playing underneath it — nobody should have to accept
+   * blind what they said no to yesterday, and nobody should be dropped
+   * out of something they had joined (participation.ts).
    */
-  const [toolPass, setToolPass] = useState<string | null>(null);
+  const [toolChoice, setToolChoice] = useState<ToolChoice | null>(null);
+  const liveToolId = liveTool?.tool.id ?? null;
+  const toolChosen = toolDecision(toolChoice, liveToolId);
   const toolRefused =
-    liveTool !== null && !session.participation.tools && toolPass !== liveTool.tool.id;
+    liveTool !== null && !takesPartInTool(session.participation, toolChoice, liveToolId);
   // The refusal is this viewer's: the tool stays on for the room, and the
   // shelf key keeps its light (hasLiveTool, below, sees the whole room) so
   // the way back in is where it always is.
   const stagedTool = toolRefused ? null : liveTool;
   const stagedToolId = stagedTool?.tool.id ?? null;
+  /**
+   * Somebody else's live, and whether this viewer is in it — what the
+   * shelf turns into a key that steps out of it and back in.
+   *
+   * The way OUT is not offered for the one this client is driving.
+   * Whoever holds the room's remote has "close it for everyone" instead,
+   * and a Watch Together whose controller walked off the stage would
+   * leave the room with a queue nobody advances — a refusal that costs
+   * the room something is not the refusal this is (participation.ts).
+   *
+   * The way BACK is offered to anybody standing outside, whoever last
+   * touched the state: a door that locks from the far side is the one
+   * thing this must never become.
+   */
+  const toolPart =
+    liveTool && (toolRefused || !liveTool.room.mine)
+      ? { tool: liveTool.tool.id, joined: !toolRefused }
+      : null;
   useEffect(() => {
-    if (toolPass !== null && !session.tools.has(toolPass)) {
-      setToolPass(null);
+    if (toolChoice !== null && !session.tools.has(toolChoice.tool)) {
+      setToolChoice(null);
     }
-  }, [session.tools, toolPass]);
+  }, [session.tools, toolChoice]);
   useEffect(() => {
     if (stagedToolId) {
       setPinned(null);
@@ -1365,8 +1389,15 @@ export default function RoomView({
    * appears when nothing else wants the stage: a screen or a pin is real
    * content this person did not refuse, and covering it would be worse
    * than the silence it explains.
+   *
+   * And only for a refusal nobody made just now. A standing switch needs
+   * explaining — it was set some other day, about some other thing —
+   * while somebody who closed this live a moment ago knows exactly where
+   * it went, and asked for the room back rather than for a notice in its
+   * place. The way in for them is the key in the shelf that closed it.
    */
-  const toolDeclined = toolRefused && layout !== 'grid' && stageScreen === null && !pinnedLive;
+  const toolDeclined =
+    toolRefused && toolChosen === null && layout !== 'grid' && stageScreen === null && !pinnedLive;
   const onStage = watchOnStage || stageScreen !== null || stagePersonId !== null;
 
   // The hook's stats and stall watch follow whatever screen is on stage.
@@ -1940,7 +1971,10 @@ export default function RoomView({
             </div>
           )}
           {toolDeclined && liveTool && (
-            <DeclinedPlace tool={liveTool.tool} onJoin={() => setToolPass(liveTool.tool.id)} />
+            <DeclinedPlace
+              tool={liveTool.tool}
+              onJoin={() => setToolChoice({ tool: liveTool.tool.id, join: true })}
+            />
           )}
           {stagePersonId !== null && !toolDeclined && (
             <div className="screen-stage stage-person fade-in">
@@ -2246,6 +2280,12 @@ export default function RoomView({
             peers={session.peers}
             speakerOn={session.speakerOn}
             speakerLevel={(toolId) => mix.volumeOf(mixKey('tool', toolId))}
+            part={toolPart}
+            onPart={(joined) => {
+              if (toolPart) {
+                setToolChoice({ tool: toolPart.tool, join: joined });
+              }
+            }}
             draft={toolDraft}
             onSetState={session.setToolState}
             onDismiss={() => {

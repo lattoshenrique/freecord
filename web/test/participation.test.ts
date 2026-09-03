@@ -7,6 +7,8 @@ import {
   mayRefuse,
   saveParticipation,
   sendingTargets,
+  takesPartInTool,
+  toolDecision,
 } from '../src/lib/participation';
 
 /** The same shape media-settings.test.ts uses: storage without a browser. */
@@ -106,5 +108,40 @@ describe('mayRefuse', () => {
 
   it('has nothing to say while the person takes part', () => {
     expect(mayRefuse({ screens: true, tools: true }, [])).toBe(false);
+  });
+});
+
+describe('a decision about the tool that is on', () => {
+  const IN = { screens: true, tools: true };
+  const OUT = { screens: true, tools: false };
+
+  it('answers about the tool it was made about, and no other', () => {
+    const choice = { tool: 'watch', join: false };
+    expect(toolDecision(choice, 'watch')).toBe(choice);
+    expect(toolDecision(choice, 'acme-board')).toBeNull();
+    expect(toolDecision(choice, null)).toBeNull();
+    expect(toolDecision(null, 'watch')).toBeNull();
+  });
+
+  it('follows the standing switch while nobody has said anything', () => {
+    expect(takesPartInTool(IN, null, 'watch')).toBe(true);
+    expect(takesPartInTool(OUT, null, 'watch')).toBe(false);
+  });
+
+  it('lets somebody close this one without moving the switch', () => {
+    expect(takesPartInTool(IN, { tool: 'watch', join: false }, 'watch')).toBe(false);
+  });
+
+  it('lets somebody join past a standing refusal', () => {
+    expect(takesPartInTool(OUT, { tool: 'watch', join: true }, 'watch')).toBe(true);
+  });
+
+  it('does not carry an answer over to the next thing the room puts on', () => {
+    expect(takesPartInTool(IN, { tool: 'watch', join: false }, 'acme-board')).toBe(true);
+    expect(takesPartInTool(OUT, { tool: 'watch', join: true }, 'acme-board')).toBe(false);
+  });
+
+  it('has nothing to refuse while nothing is on', () => {
+    expect(takesPartInTool(OUT, null, null)).toBe(true);
   });
 });

@@ -12,7 +12,9 @@
  *
  * Refusing a TOOL is settled here in the page: the stage is simply not
  * built for this viewer, so the tool's video, its third-party frame and
- * its scripts never load. Nothing has to be told to anyone.
+ * its scripts never load. Nothing has to be told to anyone. It comes in
+ * two sizes — the standing switch below, and a `ToolChoice` about the
+ * one thing the room has on at this moment (further down).
  *
  * Refusing a SCREEN has to reach the peer that would send it, or the
  * bytes arrive whether or not anything draws them. That note rides the
@@ -124,4 +126,51 @@ export function sendingTargets(
  */
 export function mayRefuse(participation: Participation, children: readonly string[]): boolean {
   return !participation.screens && children.length === 0;
+}
+
+/**
+ * What this person decided about the tool the room has on RIGHT NOW.
+ *
+ * The switch above is a standing answer — "whatever the room puts on,
+ * not for me" — given once and kept. This is the answer to one thing:
+ * the live somebody else started, closed here and nowhere else, or
+ * joined after the standing answer had already said no. It names the
+ * tool, because the room can put something else on underneath it and a
+ * decision about a film is not a decision about the whiteboard that
+ * replaced it.
+ *
+ * Local like the switch, and shorter-lived: it is dropped when that tool
+ * goes off, so the standing answer is the one that meets whatever the
+ * room turns on next.
+ */
+export interface ToolChoice {
+  /** The tool this is about. */
+  tool: string;
+  /** `true`: I am in, whatever the switch says. `false`: not this one. */
+  join: boolean;
+}
+
+/**
+ * This person's decision about `tool`, or null when the decision they
+ * made was about something else — the room moved on, and a stale answer
+ * must not settle a question nobody asked it.
+ */
+export function toolDecision(choice: ToolChoice | null, tool: string | null): ToolChoice | null {
+  return choice && tool !== null && choice.tool === tool ? choice : null;
+}
+
+/**
+ * Whether this viewer takes part in the tool that is on: their own
+ * decision about THIS tool when they made one, and the standing switch
+ * when they did not. Nothing on is nothing to refuse.
+ */
+export function takesPartInTool(
+  participation: Participation,
+  choice: ToolChoice | null,
+  tool: string | null,
+): boolean {
+  if (tool === null) {
+    return true;
+  }
+  return toolDecision(choice, tool)?.join ?? participation.tools;
 }

@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { baseUrl } from '../../helpers/env';
 import { createRoom } from '../../helpers/http';
 import { closeAll, joinMany, screenShareButton, type RoomPageHandle } from '../../helpers/pages';
 
@@ -67,5 +68,53 @@ test.describe('taking part, or not', () => {
     // so the durable part is asserted where it actually lives.)
     const stored = await bob.page.evaluate(() => localStorage.getItem('freecord:participation'));
     expect(stored && JSON.parse(stored)).toMatchObject({ screens: false });
+  });
+
+  test('one viewer closes the room live for himself; the room keeps watching', async ({
+    browser,
+  }) => {
+    const { slug } = await createRoom('participation-tool');
+    handles = await joinMany(browser, slug, 2, 'watcher');
+    const owner = handles[0]!.page;
+    const viewer = handles[1]!.page;
+
+    // The address is a video by its name alone, so nothing has to load for
+    // the room to agree that this is what is on.
+    await owner.locator('button[data-key="C"]').click();
+    const box = owner.locator('.chat-panel textarea');
+    await box.fill(`/play ${baseUrl()}/together.mp4`);
+    await box.press('Enter');
+    await expect(owner.locator('.watch-frame')).toHaveCount(1);
+    await expect(viewer.locator('.watch-frame')).toHaveCount(1);
+
+    // It is somebody else's live, so the shelf offers the way out of it.
+    await viewer.locator('button[data-key="T"]').click();
+    const key = viewer.locator('.tool-part-key');
+    await expect(key).toHaveText('Sit this one out');
+    await key.click();
+
+    // Gone from this page — not a hidden player, no player at all — and
+    // still on for the room, which nobody was dropped out of: the stage
+    // went back to a face rather than to a notice, and the seat holds.
+    await expect(viewer.locator('.watch-frame')).toHaveCount(0);
+    await expect(viewer.locator('.watch-media')).toHaveCount(0);
+    await expect(viewer.locator('.stage-declined')).toHaveCount(0);
+    await expect(owner.locator('.watch-frame')).toHaveCount(1);
+    await expect(owner.locator('.seat-count')).toContainText('2/20');
+    await expect(viewer.locator('.seat-count')).toContainText('2/20');
+
+    // The shelf key stays lit for the person who stepped out, and the way
+    // back in is the key that let them out.
+    await expect(viewer.locator('.tool-live')).toHaveCount(1);
+    await expect(key).toHaveText(/^Join /);
+    await key.click();
+    await expect(viewer.locator('.watch-frame')).toHaveCount(1);
+
+    // Whoever is driving it has no such key: theirs ends it for everybody.
+    await owner.locator('button[data-key="T"]').click();
+    await expect(owner.locator('.tool-part-key')).toHaveCount(0);
+    await expect(
+      owner.locator('.tools-menu').getByRole('button', { name: 'Close it for everyone' }),
+    ).toBeVisible();
   });
 });
