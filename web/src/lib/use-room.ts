@@ -42,9 +42,15 @@ import {
   sendingTargets,
   type Participation,
 } from './participation';
-import { ScreenRelayController, extractRelayNote, makeRelayNote } from './screen-relay';
+import {
+  ScreenRelayController,
+  extractRelayNote,
+  makeMissingNote,
+  makeRelayNote,
+} from './screen-relay';
 import {
   advanceAudioStall,
+  advanceMissing,
   advanceStall,
   initialStallState,
   type StallState,
@@ -302,6 +308,14 @@ export function useRoomSession(options: JoinOptions) {
   const screenStallRef = useRef<StallState>(initialStallState());
   /** Per-peer voice watch: a flat inbound packet counter restarts that leg's ICE. */
   const audioStallRef = useRef(new Map<string, StallState>());
+  /**
+   * Per-tree watch over a screen that never arrived at all, by sharer id.
+   * Not scoped to the stage: the other two shares, and every share while
+   * a tool owns the stage, are received all the same — and a relay whose
+   * upstream died takes its children down with it whether or not it is
+   * looking at that screen itself.
+   */
+  const missingStallRef = useRef(new Map<string, StallState>());
   /** AV1-first when hardware-encodable at the current preset; null = browser default. */
   const screenCodecsRef = useRef<RTCRtpCodec[] | null>(null);
   /** Imported once per session from options.roomKey; survives resumes. */
@@ -894,10 +908,21 @@ export function useRoomSession(options: JoinOptions) {
           // Relay-health notes ride the same opaque envelope as SDP/ICE
           // (the server never inspects `data`): peel ours off, let the
           // mesh no-op anything a newer client may add.
-          if (extractRelayNote(message.data)) {
+          const note = extractRelayNote(message.data);
+          if (note?.kind === 'stall') {
             for (const leg of relaysRef.current.values()) {
               leg.controller?.handleStallNote(message.from);
             }
+            return;
+          }
+          if (note?.kind === 'missing') {
+            // Somebody downstream has nothing at all from us for that
+            // tree. Whatever they refused earlier is over — they are
+            // asking — and reconciling the tree re-adds a sender that
+            // went missing. If we have no upstream either, our own
+            // watch is already asking the same of our source.
+            refusedRef.current.get(note.of)?.delete(message.from);
+            syncScreenTree();
             return;
           }
           const refusal = extractScreenRefusal(message.data);
@@ -1263,6 +1288,55 @@ export function useRoomSession(options: JoinOptions) {
       } else {
         screenStallRef.current = initialStallState();
       }
+
+      // The freeze above needs a track to measure. The other black
+      // screen has none: the tree named a source and nothing ever came
+      // from it — a sender the source dropped, an offer that died in a
+      // hold queue, or, most often, a relay whose own upstream never
+      // arrived. Nobody notices, because there is no receiver to read
+      // and the source is happily sending to everybody else. So every
+      // tree we are downstream in is watched, not just the one on
+      // stage, and the ask walks up the branch on its own: it makes the
+      // source reconcile its senders, and a source that is itself empty
+      // is one rung behind us asking ITS source the same thing.
+      const missing = missingStallRef.current;
+      const expected = new Set<string>();
+      for (const [of, route] of routesRef.current) {
+        const source = route.source;
+        if (!source || of === selfIdRef.current) {
+          continue;
+        }
+        // We asked this source to stop (participation.ts): an empty
+        // branch is what we wanted, not a fault to heal.
+        const told = toldSourceRef.current.get(of);
+        if (told?.to === source.id && told.on) {
+          continue;
+        }
+        expected.add(of);
+        // Audio-only is still missing: the sharer's display stream
+        // carries system audio to everyone directly, so its id can be
+        // here with no video on it at all.
+        const present = mesh
+          .getPeerStreams(source.id)
+          .some((stream) => stream.id === source.streamId && stream.getVideoTracks().length > 0);
+        let state = missing.get(of);
+        if (!state) {
+          state = initialStallState();
+          missing.set(of, state);
+        }
+        const action = advanceMissing(state, present);
+        if (action === 'ask-source') {
+          signalingRef.current?.send({ t: 'signal', to: source.id, data: makeMissingNote(of) });
+        } else if (action === 'restart-ice') {
+          mesh.restartIce(source.id);
+        }
+      }
+      for (const of of [...missing.keys()]) {
+        if (!expected.has(of)) {
+          missing.delete(of);
+        }
+      }
+
       setScreenStats(stats);
 
       // The adaptive tick: what the network said this sample — the
