@@ -8,12 +8,11 @@
  * everybody, who is here, and whether the speakers are on. Adding a tool
  * never touches this file.
  *
- * Every tool is shown the same way, and that is the point: one row of a
- * fixed shape — icon, name, whether the room has it going, two lines of
- * what it is for — and, under the open one, a panel in a frame the shelf
- * owns. A tool decides what goes inside the frame, never how its row
- * looks, so a shelf with six tools reads as one list instead of six
- * designs.
+ * Every tool is shown the same way, and that is the point: one compact
+ * row of a fixed shape — icon, name, whether the room has it going, and
+ * a short hint while collapsed — plus the open panel. A tool decides what
+ * goes inside the frame, never how its row looks, so a shelf with six
+ * tools reads as one list instead of six designs.
  *
  * It hangs off the footer instead of the glass dock (which clips its own
  * children) and closes on Escape, on the backdrop, and when a tool says
@@ -250,9 +249,8 @@ function ToolHead({
       </span>
       <span className="tool-text">
         <span className="tool-name">{text('name')}</span>
-        {/* Two lines at most, whatever the tool wrote and whatever the
-            language does to it: the row's height is the shelf's to keep,
-            not the copywriter's. */}
+        {/* The open panel already explains itself. Its summary is useful
+            only while choosing between collapsed tools. */}
         <span className="tool-hint">{text('summary')}</span>
       </span>
       {/* Always the same corner, so the eye finds what the room has going

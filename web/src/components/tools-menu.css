@@ -7,8 +7,7 @@
  * Two halves, and every tool gets both in the same shape:
  *
  *   .tool-head   the row. Icon tile, name, the "on" chip in its fixed
- *                corner, and two lines of summary — clamped, so no tool's
- *                copy decides how tall the shelf is.
+ *                corner, and one line of summary while the row is closed.
  *   .tool-panel  the frame under the open row. A tool fills it with the
  *                kit below and nothing else, which is why six tools by
  *                six authors still read as one list.
@@ -173,6 +172,17 @@
   transition: background 0.15s ease;
 }
 
+/* Once a tool is open its controls provide the context. Repeating the
+   promotional summary above them only delays the first action. */
+.tool-card.is-open .tool-head {
+  align-items: center;
+  padding-bottom: 0.55rem;
+}
+
+.tool-card.is-open .tool-hint {
+  display: none;
+}
+
 button.tool-head {
   cursor: pointer;
 }
@@ -205,8 +215,8 @@ button.tool-head:focus-visible .tool-name {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.25rem;
-  height: 2.25rem;
+  width: 2rem;
+  height: 2rem;
   flex: none;
   border: 1px solid var(--hud-border, rgba(255, 255, 255, 0.1));
   border-radius: var(--hud-radius, 8px);
@@ -238,16 +248,13 @@ button.tool-head:focus-visible .tool-name {
 }
 
 /*
- * Two lines, then an ellipsis. A tool's summary is a sales line, and one
- * written long — or translated long — must not push the controls under
- * the fold.
+ * One line, then an ellipsis. A tool's summary helps choose a closed row;
+ * it must not become a paragraph before the tool is even opened.
  */
 .tool-hint {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
   overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 0.74rem;
   line-height: 1.4;
   color: var(--muted, #9aa3b2);
@@ -288,7 +295,7 @@ button.tool-head:focus-visible .tool-name {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  padding: 0.15rem 0.9rem 0.9rem;
+  padding: 0.1rem 0.9rem 0.85rem;
   /* Picking a row opens its frame under it: the controls unfold out of the
      row instead of the shelf suddenly being taller. */
   animation: tool-panel-in var(--dur-pop, 0.22s) var(--ease, ease) both;
@@ -325,6 +332,20 @@ button.tool-head:focus-visible .tool-name {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
+}
+
+/* The common first move is a value plus its action. Tools may opt into
+   this compact row without giving up the stacked actions used later. */
+.tool-input-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.45rem;
+}
+
+.tool-input-row .tool-open {
+  width: auto;
+  min-width: 5.5rem;
+  flex: none;
 }
 
 .tool-field {
@@ -431,6 +452,14 @@ button.tool-head:focus-visible .tool-name {
   .tools-menu {
     width: calc(100vw - 2 * var(--room-pad, 0.75rem));
     max-height: min(24rem, calc(100vh - 7rem));
+  }
+
+  .tool-input-row {
+    flex-direction: column;
+  }
+
+  .tool-input-row .tool-open {
+    width: 100%;
   }
 }
 

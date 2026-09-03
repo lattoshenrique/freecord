@@ -247,32 +247,42 @@ export default function Shelf({
       <label className="tool-label" htmlFor={fieldId}>
         {state ? t('addLabel') : t('linkLabel')}
       </label>
-      {/* A line of its own: a link is long, and sharing the row with a
-          button left it a keyhole to read one through. */}
-      <input
-        id={fieldId}
-        ref={fieldRef}
-        type="url"
-        inputMode="url"
-        className="tool-field"
-        placeholder={t('linkPlaceholder')}
-        value={link}
-        aria-invalid={phase.kind === 'failed' || undefined}
-        aria-describedby={phase.kind === 'failed' ? errorId : undefined}
-        onChange={(event) => onLink(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key !== 'Enter') {
-            return;
-          }
-          event.preventDefault();
-          if (chosen) {
-            // Nothing on: it goes on. Something on: it waits its turn.
-            play(chosen, !state);
-          } else {
-            void look();
-          }
-        }}
-      />
+      <div className="tool-input-row">
+        <input
+          id={fieldId}
+          ref={fieldRef}
+          type="url"
+          inputMode="url"
+          className="tool-field"
+          placeholder={t('linkPlaceholder')}
+          value={link}
+          aria-invalid={phase.kind === 'failed' || undefined}
+          aria-describedby={phase.kind === 'failed' ? errorId : undefined}
+          onChange={(event) => onLink(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key !== 'Enter') {
+              return;
+            }
+            event.preventDefault();
+            if (chosen) {
+              // Nothing on: it goes on. Something on: it waits its turn.
+              play(chosen, !state);
+            } else {
+              void look();
+            }
+          }}
+        />
+        {!chosen && (
+          <button
+            type="button"
+            className="tool-open"
+            disabled={!link.trim() || busy}
+            onClick={() => void look()}
+          >
+            {t('find')}
+          </button>
+        )}
+      </div>
 
       {phase.kind === 'idle' && !link.trim() && <p className="tool-note">{t('lookupNote')}</p>}
 
@@ -317,46 +327,43 @@ export default function Shelf({
         </p>
       )}
 
-      <div className="tool-actions">
-        {chosen ? (
-          <>
-            <button type="button" className="tool-open" onClick={() => play(chosen, true)}>
-              {t(state ? 'playNow' : 'open')}
-            </button>
-            {state && (
+      {(chosen || (picker && link.trim() && phase.kind !== 'chose')) && (
+        <div className="tool-actions">
+          {chosen && (
+            <>
               <button
                 type="button"
-                className="tool-stop"
-                disabled={noRoom}
-                onClick={() => play(chosen, false)}
+                className="tool-open"
+                onClick={() => play(chosen, true)}
               >
-                {t('addToQueue')}
+                {t(state ? 'playNow' : 'open')}
               </button>
-            )}
-          </>
-        ) : (
-          <button
-            type="button"
-            className="tool-open"
-            disabled={!link.trim() || busy}
-            onClick={() => void look()}
-          >
-            {t('find')}
-          </button>
-        )}
-        {/* Only where there is a shell to open a window: in a browser
-            this button would be a promise nobody can keep. */}
-        {picker && link.trim() && phase.kind !== 'chose' && (
-          <button
-            type="button"
-            className="tool-stop"
-            disabled={busy}
-            onClick={() => void pickOnPage()}
-          >
-            {t('pickOnPage')}
-          </button>
-        )}
-      </div>
+              {state && (
+                <button
+                  type="button"
+                  className="tool-stop"
+                  disabled={noRoom}
+                  onClick={() => play(chosen, false)}
+                >
+                  {t('addToQueue')}
+                </button>
+              )}
+            </>
+          )}
+          {/* Only where there is a shell to open a window: in a browser
+              this button would be a promise nobody can keep. */}
+          {picker && link.trim() && phase.kind !== 'chose' && (
+            <button
+              type="button"
+              className="tool-stop"
+              disabled={busy}
+              onClick={() => void pickOnPage()}
+            >
+              {t('pickOnPage')}
+            </button>
+          )}
+        </div>
+      )}
       {picker && phase.kind !== 'chose' && <p className="tool-note">{t('pickHint')}</p>}
 
       {state && (
