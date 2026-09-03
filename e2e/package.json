@@ -1,7 +1,7 @@
 {
   "name": "@freecord/e2e",
   "private": true,
-  "version": "0.9.0",
+  "version": "0.10.0",
   "type": "module",
   "description": "End-to-end and load tests for the Freecord signaling edge and web app",
   "scripts": {
