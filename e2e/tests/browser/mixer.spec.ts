@@ -1,15 +1,128 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { createRoom } from '../../helpers/http';
-import { closeAll, joinMany, type RoomPageHandle } from '../../helpers/pages';
+import {
+  closeAll,
+  joinMany,
+  joinRoomPage,
+  screenShareButton,
+  type RoomPageHandle,
+} from '../../helpers/pages';
+
+/**
+ * A display stream with program audio, without depending on Chromium's
+ * headless capture picker. The real screen path still carries it over the
+ * room's WebRTC mesh; only the device at the entrance is deterministic.
+ */
+async function installAudibleScreenCapture(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      'freecord:media-settings',
+      JSON.stringify({ screenAudio: true, screenAudioGuard: false }),
+    );
+
+    const mediaDevices = navigator.mediaDevices as MediaDevices & {
+      getDisplayMedia: () => Promise<MediaStream>;
+    };
+    mediaDevices.getDisplayMedia = async () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 320;
+      canvas.height = 180;
+      const context = canvas.getContext('2d');
+      context?.fillRect(0, 0, canvas.width, canvas.height);
+
+      const videoStream = canvas.captureStream(5);
+      const audio = new AudioContext();
+      const tone = audio.createOscillator();
+      const destination = audio.createMediaStreamDestination();
+      tone.connect(destination);
+      tone.start();
+
+      const stream = new MediaStream([
+        ...videoStream.getVideoTracks(),
+        ...destination.stream.getAudioTracks(),
+      ]);
+      // The stream owns neither Web Audio node. Keep both alive for as long
+      // as the page exists, just as a real capture device would be.
+      (window as unknown as { __screenCapture?: unknown }).__screenCapture = {
+        audio,
+        canvas,
+        tone,
+      };
+      return stream;
+    };
+  });
+}
+
+/** A deterministic YouTube player that records the local volume calls. */
+async function installVolumeYouTube(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    interface Config {
+      events: { onReady(): void; onStateChange(event: { data: number }): void };
+    }
+
+    class FakeYouTubePlayer {
+      volume = 100;
+      private time = 0;
+
+      constructor(_element: HTMLElement, raw: unknown) {
+        harness.instances.push(this);
+        queueMicrotask(() => (raw as Config).events.onReady());
+      }
+
+      playVideo(): void {}
+      pauseVideo(): void {}
+      seekTo(seconds: number): void {
+        this.time = seconds;
+      }
+      getCurrentTime(): number {
+        return this.time;
+      }
+      getDuration(): number {
+        return 120;
+      }
+      getVideoData(): { isLive: false } {
+        return { isLive: false };
+      }
+      getPlayerState(): number {
+        return 1;
+      }
+      loadVideoById(): void {}
+      cueVideoById(): void {}
+      loadPlaylist(): void {}
+      cuePlaylist(): void {}
+      getPlaylistIndex(): number {
+        return -1;
+      }
+      getPlaylist(): null {
+        return null;
+      }
+      playVideoAt(): void {}
+      mute(): void {}
+      unMute(): void {}
+      setVolume(volume: number): void {
+        this.volume = volume;
+      }
+      destroy(): void {}
+    }
+
+    const harness = { instances: [] as FakeYouTubePlayer[] };
+    const target = window as unknown as {
+      YT: { Player: typeof FakeYouTubePlayer };
+      __youtubeVolume: typeof harness;
+    };
+    target.__youtubeVolume = harness;
+    target.YT = { Player: FakeYouTubePlayer };
+  });
+}
 
 /**
  * Per-source volume, checked where it actually has to land: on the media
- * element that plays that person.
+ * element or player that renders that source.
  *
  * A slider that moves and a number that changes prove nothing — the level
  * lives in a store, and the whole feature is whether it reaches the
- * `<audio>` element for the right peer and leaves everyone else alone. So
- * every assertion here reads the element's own `volume`.
+ * right source and leaves everyone else alone. So every assertion here
+ * reads the media element's volume or the embedded player's volume call.
  */
 test.describe('per-source volume', () => {
   let handles: RoomPageHandle[] = [];
@@ -73,6 +186,73 @@ test.describe('per-source volume', () => {
         them.page.locator('.tile audio').first().evaluate((a: HTMLAudioElement) => a.volume),
       )
       .toBe(1);
+  });
+
+  test('changes Watch Together only for this viewer and remembers it after reload', async ({
+    browser,
+  }) => {
+    const { slug } = await createRoom('mixer-watch-private');
+    handles = [
+      await joinRoomPage(browser, slug, 'watch-owner', { prepare: installVolumeYouTube }),
+      await joinRoomPage(browser, slug, 'watch-viewer', { prepare: installVolumeYouTube }),
+    ];
+    const [owner, viewer] = handles;
+
+    await owner.page.locator('button[data-key="C"]').click();
+    const box = owner.page.locator('.chat-panel textarea');
+    await box.fill('/play https://www.youtube.com/watch?v=dQw4w9WgXcQ');
+    await box.press('Enter');
+
+    await expect(owner.page.locator('.watch-youtube')).toHaveCount(1);
+    await expect(viewer.page.locator('.watch-youtube')).toHaveCount(1);
+
+    await viewer.page.getByRole('button', { name: /volume per source/i }).click();
+    const mixer = viewer.page.getByRole('dialog', { name: /^volume$/i });
+    const slider = mixer.getByRole('slider', { name: /volume for watch together/i });
+    await slider.fill('25');
+
+    const youtubeVolume = (page: Page) =>
+      page.evaluate(
+        () =>
+          (window as unknown as { __youtubeVolume: { instances: Array<{ volume: number }> } })
+            .__youtubeVolume.instances[0]?.volume,
+      );
+    await expect.poll(() => youtubeVolume(viewer.page)).toBe(25);
+    await expect.poll(() => youtubeVolume(owner.page)).toBe(100);
+
+    // A tool id is stable across sessions, so this private preference is
+    // restored without putting a volume field in the room's shared state.
+    await viewer.page.reload();
+    const name = viewer.page.getByRole('textbox', { name: /your name/i });
+    await expect(name).toBeVisible();
+    await name.fill('watch-viewer');
+    await viewer.page.getByRole('button', { name: /join the room/i }).click();
+    await expect(viewer.page.locator('.watch-youtube')).toHaveCount(1, { timeout: 20_000 });
+    await expect.poll(() => youtubeVolume(viewer.page)).toBe(25);
+    await expect.poll(() => youtubeVolume(owner.page)).toBe(100);
+  });
+
+  test('changes a transmission only for this viewer', async ({ browser }) => {
+    const { slug } = await createRoom('mixer-screen-private');
+    handles = [
+      await joinRoomPage(browser, slug, 'screen-owner', { prepare: installAudibleScreenCapture }),
+      await joinRoomPage(browser, slug, 'screen-viewer'),
+      await joinRoomPage(browser, slug, 'screen-other'),
+    ];
+    const [owner, viewer, other] = handles;
+
+    await screenShareButton(owner.page).click();
+    const viewerSink = viewer.page.locator('.room-layout > audio');
+    const otherSink = other.page.locator('.room-layout > audio');
+    await expect(viewerSink).toHaveCount(1, { timeout: 30_000 });
+    await expect(otherSink).toHaveCount(1, { timeout: 30_000 });
+
+    await viewer.page.getByRole('button', { name: /volume per source/i }).click();
+    const mixer = viewer.page.getByRole('dialog', { name: /^volume$/i });
+    await mixer.getByRole('slider', { name: /volume for screen-owner.s screen$/i }).fill('35');
+
+    await expect.poll(() => viewerSink.evaluate((audio: HTMLAudioElement) => audio.volume)).toBe(0.35);
+    await expect.poll(() => otherSink.evaluate((audio: HTMLAudioElement) => audio.volume)).toBe(1);
   });
 
   test('amplifies one person up to 200% through a valid media stream', async ({ browser }) => {
