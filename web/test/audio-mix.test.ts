@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   AudioMix,
+  MAX_MIX_LEVEL,
   clampLevel,
   effectiveLevel,
   isDefaultLevel,
@@ -40,11 +41,11 @@ describe('keys', () => {
 });
 
 describe('levels', () => {
-  it('clamps into the range an element accepts', () => {
+  it('clamps into the mix range', () => {
     expect(clampLevel(-2)).toBe(0);
     expect(clampLevel(0.35)).toBe(0.35);
-    // The element cannot amplify: everything above full IS full.
-    expect(clampLevel(4)).toBe(1);
+    expect(clampLevel(1.75)).toBe(1.75);
+    expect(clampLevel(4)).toBe(MAX_MIX_LEVEL);
     expect(clampLevel(Number.NaN)).toBe(1);
   });
 
@@ -70,6 +71,13 @@ describe('the mixer', () => {
     const mix = new AudioMix(null);
     mix.setLevel(alice, 0.25);
     expect(mix.volumeOf(alice)).toBe(0.25);
+    expect(mix.volumeOf(shared)).toBe(1);
+  });
+
+  it('lets one source be amplified to 200%', () => {
+    const mix = new AudioMix(null);
+    mix.setLevel(alice, 2);
+    expect(mix.volumeOf(alice)).toBe(2);
     expect(mix.volumeOf(shared)).toBe(1);
   });
 

@@ -560,7 +560,7 @@ function YouTubeStage({
           return;
         }
         playerRef.current = player;
-        player.setVolume(Math.round(levelRef.current * 100));
+        player.setVolume(Math.round(Math.min(1, levelRef.current) * 100));
         if (!speakerRef.current) {
           player.mute();
         }
@@ -600,7 +600,7 @@ function YouTubeStage({
     if (!player) {
       return;
     }
-    player.setVolume(Math.round(speakerLevel * 100));
+    player.setVolume(Math.round(Math.min(1, speakerLevel) * 100));
     if (speakerOn) {
       player.unMute();
     } else {
@@ -714,7 +714,7 @@ function MediaSource({
     attachedRef.current = room.state.now;
     quiet();
     video.muted = !speakerOn;
-    video.volume = speakerLevel;
+    video.volume = Math.min(1, speakerLevel);
     void attachSource(video, item, (failure) => troubleRef.current(failure)).then((source) => {
       if (cancelled) {
         source.destroy();
@@ -807,13 +807,13 @@ function MediaSource({
   }, []);
 
   // Speakers off silences this too — a room you cannot hear is a room you
-  // cannot hear. The one player here that is ours takes the level exactly
-  // as it is given; the vendor embeds round it to what their API allows.
+  // cannot hear. Every player stays inside the range its API accepts;
+  // WebRTC voices and shared audio are what the room can amplify beyond it.
   useEffect(() => {
     const video = videoRef.current;
     if (video) {
       video.muted = !speakerOn;
-      video.volume = speakerLevel;
+      video.volume = Math.min(1, speakerLevel);
     }
   }, [speakerOn, speakerLevel]);
 
@@ -887,7 +887,7 @@ function TwitchSource({
         }
         playerRef.current = player;
         player.setMuted(!speakerRef.current);
-        player.setVolume(levelRef.current);
+        player.setVolume(Math.min(1, levelRef.current));
       },
       onPlayPause: () => {
         const player = playerRef.current;
@@ -932,7 +932,7 @@ function TwitchSource({
 
   useEffect(() => {
     playerRef.current?.setMuted(!speakerOn);
-    playerRef.current?.setVolume(speakerLevel);
+    playerRef.current?.setVolume(Math.min(1, speakerLevel));
   }, [speakerOn, speakerLevel]);
 
   return <div className="watch-twitch" ref={hostRef} inert={!canControl || undefined} />;

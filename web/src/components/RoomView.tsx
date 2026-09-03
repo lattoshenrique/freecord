@@ -47,6 +47,7 @@ import { toolText, useToolText, type RegisteredTool } from '../tools/contract';
 import { applySinkId } from '../lib/audio-devices';
 import { setPlayback, type PlayingSource } from '../lib/audio-bus';
 import { mixKey, useAudioMix } from '../lib/audio-mix';
+import { useAmplifiedPlayback } from '../lib/playback-gain';
 import {
   CamIcon,
   CamOffIcon,
@@ -310,27 +311,28 @@ function MediaView({
   videoRef?: RefObject<HTMLVideoElement | null>;
   /** Playback device; remote cameras sound through the <video> itself. */
   sinkId?: string | null;
-  /** This source's own level, 0 … 1 (audio-mix.ts). */
+  /** This source's own level, 0 … 2 (audio-mix.ts). */
   volume?: number;
 }) {
   const ownRef = useRef<HTMLVideoElement>(null);
   const ref = videoRef ?? ownRef;
+  const playback = useAmplifiedPlayback(stream, volume);
   useEffect(() => {
-    if (ref.current && ref.current.srcObject !== stream) {
-      ref.current.srcObject = stream;
+    if (ref.current && ref.current.srcObject !== playback.stream) {
+      ref.current.srcObject = playback.stream;
     }
-  }, [stream]);
+  }, [playback.stream]);
   useEffect(() => {
     if (ref.current && sinkId !== undefined) {
       void applySinkId(ref.current, sinkId);
     }
-  }, [sinkId, stream]);
+  }, [sinkId, playback.stream]);
   useEffect(() => {
-    if (ref.current && volume !== undefined) {
-      ref.current.volume = volume;
+    if (ref.current) {
+      ref.current.volume = playback.elementVolume;
     }
-  }, [volume, stream]);
-  useResumePlayback(ref, stream);
+  }, [playback.elementVolume, playback.stream]);
+  useResumePlayback(ref, playback.stream);
   return <video ref={ref} autoPlay playsInline muted={muted} className={className} />;
 }
 
@@ -344,26 +346,27 @@ function AudioSink({
   sinkId?: string | null;
   /** Speakers off: the element stays wired so unmuting is instant. */
   muted?: boolean;
-  /** This source's own level, 0 … 1 (audio-mix.ts). */
+  /** This source's own level, 0 … 2 (audio-mix.ts). */
   volume?: number;
 }) {
   const ref = useRef<HTMLAudioElement>(null);
+  const playback = useAmplifiedPlayback(stream, volume);
   useEffect(() => {
-    if (ref.current && ref.current.srcObject !== stream) {
-      ref.current.srcObject = stream;
+    if (ref.current && ref.current.srcObject !== playback.stream) {
+      ref.current.srcObject = playback.stream;
     }
-  }, [stream]);
+  }, [playback.stream]);
   useEffect(() => {
     if (ref.current && sinkId !== undefined) {
       void applySinkId(ref.current, sinkId);
     }
-  }, [sinkId, stream]);
+  }, [sinkId, playback.stream]);
   useEffect(() => {
-    if (ref.current && volume !== undefined) {
-      ref.current.volume = volume;
+    if (ref.current) {
+      ref.current.volume = playback.elementVolume;
     }
-  }, [volume, stream]);
-  useResumePlayback(ref, stream);
+  }, [playback.elementVolume, playback.stream]);
+  useResumePlayback(ref, playback.stream);
   return <audio ref={ref} autoPlay muted={muted} />;
 }
 

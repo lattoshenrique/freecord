@@ -28,7 +28,7 @@ export interface PlayingSource {
   /** Stable while this source is playing; the peer or screen it belongs to. */
   key: string;
   stream: MediaStream;
-  /** What the element is playing it at, 0 … 1, speaker key included. */
+  /** What the sink is playing it at, 0 … 2, speaker key included. */
   volume: number;
 }
 

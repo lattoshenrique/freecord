@@ -18,13 +18,11 @@
  *   screen:<peerId>   the system audio riding that person's screen share
  *   tool:<toolId>     whatever the shelf has playing for everybody
  *
- * Levels are applied as `HTMLMediaElement.volume`, deliberately: it is
- * the one lever that does not disturb the playback path. Routing a peer
- * through a Web Audio gain stage would mean rebuilding the stream that
- * `setSinkId` points at a device, on the one path in this app where a
- * regression is a call nobody can hear. The price is a ceiling of 100%:
- * the element cannot amplify, only attenuate. A quiet peer is a quiet
- * peer.
+ * Levels through 100% are applied as `HTMLMediaElement.volume`. Above
+ * that, the sink receives a Web Audio-amplified stream while remaining
+ * the element that `setSinkId` points at. That keeps the chosen speaker
+ * in charge and gives a quiet source up to 200% without asking the media
+ * element to accept an out-of-range volume.
  *
  * Only the tool level is persisted. Peer ids are per-session (the room
  * link is the only credential — there is no account to hang a saved
@@ -40,13 +38,14 @@ export type MixKind = 'person' | 'screen' | 'tool';
 export type MixKey = string & { readonly __mix?: unique symbol };
 
 export interface MixLevel {
-  /** 0 … 1, where 1 is the source untouched. */
+  /** 0 … 2, where 1 is the source untouched. */
   level: number;
   /** Silenced without forgetting where the slider was. */
   muted: boolean;
 }
 
 export const FULL_LEVEL: MixLevel = { level: 1, muted: false };
+export const MAX_MIX_LEVEL = 2;
 
 export function mixKey(kind: MixKind, id: string): MixKey {
   return `${kind}:${id}` as MixKey;
@@ -66,11 +65,9 @@ export function effectiveLevel(mix: MixLevel | undefined): number {
 }
 
 /**
- * Pins a level to what a media element will accept, and this is not
- * cosmetic: `HTMLMediaElement.volume` THROWS an IndexSizeError outside
- * 0 … 1, and the throw would land inside a render effect — so a level
- * from anywhere (a slider, a restored value, a caller yet to be written)
- * reaches an element through here or it does not reach one at all.
+ * Pins a level to what the mixer accepts. Media elements still only
+ * receive 0 … 1; playback-gain.ts splits this value between their own
+ * volume and an amplified stream before it reaches one.
  *
  * Not everything downstream is this strict. The watch tool's own
  * `<video>` is the same element and the same trap; YouTube's and
@@ -90,7 +87,7 @@ export function effectiveLevel(mix: MixLevel | undefined): number {
  * a listener who has not worked out what happened.
  */
 export function clampLevel(level: number): number {
-  return Number.isFinite(level) ? Math.min(1, Math.max(0, level)) : 1;
+  return Number.isFinite(level) ? Math.min(MAX_MIX_LEVEL, Math.max(0, level)) : 1;
 }
 
 /** Nothing to show a slider for: this source is untouched. */
@@ -138,7 +135,7 @@ export class AudioMix {
     return this.levels.get(key) ?? FULL_LEVEL;
   }
 
-  /** The level to hand a media element, 0 … 1. */
+  /** The requested playback level, 0 … 2. */
   volumeOf(key: MixKey): number {
     return effectiveLevel(this.levels.get(key));
   }

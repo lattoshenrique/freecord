@@ -23,7 +23,7 @@
  */
 import { useEffect } from 'react';
 import { useI18n } from '../i18n';
-import { mixKey, useAudioMix, type MixKey } from '../lib/audio-mix';
+import { MAX_MIX_LEVEL, mixKey, useAudioMix, type MixKey } from '../lib/audio-mix';
 import { toolText, type RegisteredTool } from '../tools/contract';
 import { CloseIcon, ScreenIcon, SpeakerIcon, SpeakerOffIcon } from './icons';
 import './mixer-menu.css';
@@ -67,7 +67,7 @@ function Row({ source, deafened }: { source: Source; deafened: boolean }) {
         className="mixer-slider"
         type="range"
         min={0}
-        max={100}
+        max={MAX_MIX_LEVEL * 100}
         step={1}
         value={percent}
         aria-label={t('mixer.levelOf', { name: source.name })}

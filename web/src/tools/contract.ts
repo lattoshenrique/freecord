@@ -22,7 +22,7 @@
  *   self / peers      who is in the room.
  *   speakerOn         the room's speakers are off: a tool that makes
  *                     sound is expected to go quiet.
- *   speakerLevel      how loudly THIS viewer wants this tool, 0 … 1. The
+ *   speakerLevel      how loudly THIS viewer wants this tool, 0 … 2. The
  *                     same fact with more resolution, honoured as far as
  *                     the player allows and no further. Local, like
  *                     speakerOn: never written into the shared state.
@@ -68,7 +68,7 @@ export interface ToolViewProps<S> {
   /** The room's speakers are off. A tool that makes sound must respect it. */
   speakerOn: boolean;
   /**
-   * How loudly this VIEWER wants this tool, 0 … 1 — the same fact as
+   * How loudly this VIEWER wants this tool, 0 … 2 — the same fact as
    * `speakerOn` at higher resolution, and honoured the same way: as far
    * as the player allows, and no further. A player with only mute and
    * unmute rounds it; a cross-origin page cannot be reached into at all,

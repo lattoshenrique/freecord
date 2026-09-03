@@ -74,4 +74,44 @@ test.describe('per-source volume', () => {
       )
       .toBe(1);
   });
+
+  test('amplifies one person up to 200% through a valid media stream', async ({ browser }) => {
+    const { slug } = await createRoom('mixer-boost');
+    handles = await joinMany(browser, slug, 2, 'boost');
+    const [me, them] = handles;
+
+    const sink = me.page.locator('.tile audio').first();
+    await expect(sink).toHaveCount(1, { timeout: 20_000 });
+    await expect
+      .poll(() =>
+        sink.evaluate(
+          (element: HTMLAudioElement) =>
+            (element.srcObject as MediaStream | null)?.getAudioTracks()[0]?.id,
+        ),
+      )
+      .toBeTruthy();
+    const originalTrack = await sink.evaluate(
+      (element: HTMLAudioElement) => (element.srcObject as MediaStream).getAudioTracks()[0]?.id,
+    );
+    expect(originalTrack).toBeTruthy();
+
+    await me.page.getByRole('button', { name: /volume per source/i }).click();
+    const mixer = me.page.getByRole('dialog', { name: /^volume$/i });
+    const slider = mixer.getByRole('slider', {
+      name: new RegExp(`volume for ${them.name}`, 'i'),
+    });
+    await expect(slider).toHaveAttribute('max', '200');
+    await slider.fill('200');
+
+    await expect(mixer.getByText('200%')).toBeVisible();
+    await expect.poll(() => sink.evaluate((element: HTMLAudioElement) => element.volume)).toBe(1);
+    await expect
+      .poll(() =>
+        sink.evaluate(
+          (element: HTMLAudioElement) =>
+            (element.srcObject as MediaStream).getAudioTracks()[0]?.id,
+        ),
+      )
+      .not.toBe(originalTrack);
+  });
 });
