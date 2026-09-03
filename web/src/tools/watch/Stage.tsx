@@ -31,6 +31,13 @@
  *             viewer who thinks the room is synchronised and is not will
  *             blame the room.
  *
+ * `speakerLevel` — this viewer's own volume for the tool — degrades along
+ * the same four steps, and for the same reason. Ours takes it exactly;
+ * YouTube and Twitch each expose a volume of their own and take it on
+ * their scale; the framed page takes nothing, which `frameNote` already
+ * says out loud. It is never written into the room's state: it is one
+ * person's opinion about how loud this is, not the room's.
+ *
  * The strip above them is shared, and so is the queue behind them: what
  * ends — a video, an episode, a playlist reaching its last entry — hands
  * the stage to whatever is next, whatever kind of thing that is. Both
@@ -278,6 +285,7 @@ function YouTubeStage({
   mine,
   setState,
   speakerOn,
+  speakerLevel,
   item,
   onTrouble,
 }: ToolViewProps<WatchState> & {
@@ -296,6 +304,8 @@ function YouTubeStage({
   setStateRef.current = setState;
   const speakerRef = useRef(speakerOn);
   speakerRef.current = speakerOn;
+  const levelRef = useRef(speakerLevel);
+  levelRef.current = speakerLevel;
   const mineRef = useRef(mine);
   mineRef.current = mine;
   const troubleRef = useRef(onTrouble);
@@ -526,6 +536,7 @@ function YouTubeStage({
           return;
         }
         playerRef.current = player;
+        player.setVolume(Math.round(levelRef.current * 100));
         if (!speakerRef.current) {
           player.mute();
         }
@@ -558,18 +569,20 @@ function YouTubeStage({
   useEffect(applyRoom, [state, at]);
 
   // Speakers off silences the video too — a room you cannot hear is a
-  // room you cannot hear.
+  // room you cannot hear. The level beside it is the same fact at higher
+  // resolution: how much of this, relative to the people watching it.
   useEffect(() => {
     const player = playerRef.current;
     if (!player) {
       return;
     }
+    player.setVolume(Math.round(speakerLevel * 100));
     if (speakerOn) {
       player.unMute();
     } else {
       player.mute();
     }
-  }, [speakerOn]);
+  }, [speakerOn, speakerLevel]);
 
   return <div className="watch-youtube" ref={hostRef} />;
 }
@@ -580,6 +593,7 @@ function MediaSource({
   mine,
   setState,
   speakerOn,
+  speakerLevel,
   item,
   onTrouble,
 }: ToolViewProps<WatchState> & {
@@ -671,6 +685,7 @@ function MediaSource({
     attachedRef.current = room.state.now;
     quiet();
     video.muted = !speakerOn;
+    video.volume = speakerLevel;
     void attachSource(video, item, (failure) => troubleRef.current(failure)).then((source) => {
       if (cancelled) {
         source.destroy();
@@ -763,13 +778,15 @@ function MediaSource({
   }, []);
 
   // Speakers off silences this too — a room you cannot hear is a room you
-  // cannot hear.
+  // cannot hear. The one player here that is ours takes the level exactly
+  // as it is given; the vendor embeds round it to what their API allows.
   useEffect(() => {
     const video = videoRef.current;
     if (video) {
       video.muted = !speakerOn;
+      video.volume = speakerLevel;
     }
-  }, [speakerOn]);
+  }, [speakerOn, speakerLevel]);
 
   return (
     <video
@@ -791,6 +808,7 @@ function TwitchSource({
   mine,
   setState,
   speakerOn,
+  speakerLevel,
   item,
   onTrouble,
 }: ToolViewProps<WatchState> & {
@@ -806,6 +824,8 @@ function TwitchSource({
   setStateRef.current = setState;
   const speakerRef = useRef(speakerOn);
   speakerRef.current = speakerOn;
+  const levelRef = useRef(speakerLevel);
+  levelRef.current = speakerLevel;
   const troubleRef = useRef(onTrouble);
   troubleRef.current = onTrouble;
   const quietUntil = useRef(0);
@@ -836,6 +856,7 @@ function TwitchSource({
         }
         playerRef.current = player;
         player.setMuted(!speakerRef.current);
+        player.setVolume(levelRef.current);
       },
       onPlayPause: () => {
         const player = playerRef.current;
@@ -880,7 +901,8 @@ function TwitchSource({
 
   useEffect(() => {
     playerRef.current?.setMuted(!speakerOn);
-  }, [speakerOn]);
+    playerRef.current?.setVolume(speakerLevel);
+  }, [speakerOn, speakerLevel]);
 
   return <div className="watch-twitch" ref={hostRef} />;
 }

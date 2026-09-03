@@ -22,6 +22,8 @@ export interface TwitchPlayer {
   getCurrentTime(): number;
   isPaused(): boolean;
   setMuted(muted: boolean): void;
+  /** 0 … 1. */
+  setVolume(volume: number): void;
   getEnded?(): boolean;
 }
 

@@ -223,6 +223,9 @@ export const ptBR: Catalog = {
   'settings.screenAudio.label': 'Compartilhar áudio do computador',
   'settings.screenAudio.hint':
     'O som do sistema ou da aba vai junto com a tela — a partir do próximo compartilhamento, não deste',
+  'settings.screenAudioGuard.label': 'Manter a sala fora disso',
+  'settings.screenAudioGuard.hint':
+    'O áudio da sua máquina inclui esta chamada, então sem isto todo mundo se ouve voltando. Medido, não presumido: uma captura em que você não está passa intacta.',
   'settings.mic.title': 'Microfone',
   'settings.mic.voice.label': 'Voz',
   'settings.mic.voice.hint':
@@ -269,6 +272,18 @@ export const ptBR: Catalog = {
   'controls.closeMenu': 'Fechar menu',
   'controls.dock': 'Controles da chamada',
   'controls.tools': 'Ferramentas',
+  'controls.mixer': 'Volume por fonte',
+
+  'mixer.title': 'Volume',
+  'mixer.empty': 'Ninguém mais por aqui, e nada tocando. Isto se preenche sozinho.',
+  'mixer.private': 'Estes níveis são só seus — ninguém mais ouve a diferença.',
+  'mixer.deafened': 'Suas caixas estão desligadas, então nada disto está tocando. Os níveis ficam guardados.',
+  'mixer.mute': 'Silenciar só este',
+  'mixer.unmute': 'Voltar a ouvir este',
+  'mixer.muteOne': 'Silenciar {name}',
+  'mixer.unmuteOne': 'Voltar a ouvir {name}',
+  'mixer.levelOf': 'Volume de {name}',
+  'mixer.screenOf': 'Tela de {name}',
 
   'tools.title': 'Ferramentas',
   'tools.on': 'no ar',

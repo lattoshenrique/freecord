@@ -209,6 +209,9 @@ export const jaJP: Catalog = {
   'settings.desktop.hint': '同じルームを専用ウィンドウで。ネイティブの画面選択と、このパソコン向けのダウンロード付き。',
   'settings.screenAudio.label': 'パソコンの音声を共有',
   'settings.screenAudio.hint': 'システムやタブの音が画面と一緒に流れます — この共有ではなく、次の共有から',
+  'settings.screenAudioGuard.label': '通話そのものを混ぜない',
+  'settings.screenAudioGuard.hint':
+    'パソコンの音にはこの通話も入っているので、これがないと全員が自分の声を遅れて聞くことになります。決めつけではなく実測で、あなたが入っていないキャプチャはそのまま通します。',
   'settings.mic.title': 'マイク',
   'settings.mic.voice.label': 'ボイス',
   'settings.mic.voice.hint': '部屋の後片付け役：エコーもファンの音も消え、音量は均されます',
@@ -253,6 +256,18 @@ export const jaJP: Catalog = {
   'controls.closeMenu': 'メニューを閉じる',
   'controls.dock': '通話の操作',
   'controls.tools': 'ツール',
+  'controls.mixer': '音源ごとの音量',
+
+  'mixer.title': '音量',
+  'mixer.empty': 'まだ誰もいなくて、鳴っているものもありません。ここは自然に埋まります。',
+  'mixer.private': 'この音量はあなただけのものです。ほかの人には違いが聞こえません。',
+  'mixer.deafened': 'スピーカーが切れているので、どれも鳴っていません。音量は保たれます。',
+  'mixer.mute': 'これだけミュート',
+  'mixer.unmute': 'これをまた聞く',
+  'mixer.muteOne': '{name} をミュート',
+  'mixer.unmuteOne': '{name} のミュートを解除',
+  'mixer.levelOf': '{name} の音量',
+  'mixer.screenOf': '{name} の画面',
 
   'tools.title': 'ツール',
   'tools.on': '実行中',

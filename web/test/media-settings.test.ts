@@ -103,9 +103,22 @@ describe('persistence', () => {
       mic: { ...micDefaults('music'), echoCancellation: true },
       camera: 'high' as const,
       screenAudio: true,
+      screenAudioGuard: false,
     };
     saveMediaSettings(custom);
     expect(loadMediaSettings()).toEqual(custom);
+  });
+
+  it('guards computer audio for anyone upgrading from a build without the switch', () => {
+    const storage = memoryStorage();
+    storage.setItem(
+      'freecord:media-settings',
+      JSON.stringify({ mic: micDefaults('voice'), camera: 'standard', screenAudio: true }),
+    );
+    vi.stubGlobal('localStorage', storage);
+    // Absent is not off: the room hearing itself is the behaviour the
+    // switch exists to prevent, so an upgrade lands on the new default.
+    expect(loadMediaSettings().screenAudioGuard).toBe(true);
   });
 
   it('sanitizes garbage: unknown ids fall back, screen audio defaults off', () => {

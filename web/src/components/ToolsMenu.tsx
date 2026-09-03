@@ -34,6 +34,7 @@ export default function ToolsMenu({
   self,
   peers,
   speakerOn,
+  speakerLevel,
   draft,
   onSetState,
   onDismiss,
@@ -46,6 +47,8 @@ export default function ToolsMenu({
   self: PeerInfo | null;
   peers: readonly PeerInfo[];
   speakerOn: boolean;
+  /** This viewer's level for the open tool, 0 … 1 (lib/audio-mix.ts). */
+  speakerLevel: (toolId: string) => number;
   /**
    * What the shelf was opened WITH, when something else opened it: a link
    * typed after `/play` that no tool could take on its own. Handed to
@@ -124,6 +127,7 @@ export default function ToolsMenu({
                 self={self}
                 peers={peers}
                 speakerOn={speakerOn}
+                speakerLevel={speakerLevel(tool.id)}
                 draft={draft}
                 onSelect={() => setSelectedId(tool.id)}
                 onSetState={(state) => onSetState(tool.id, state)}
@@ -147,6 +151,7 @@ function ToolCard({
   self,
   peers,
   speakerOn,
+  speakerLevel,
   draft,
   onSelect,
   onSetState,
@@ -160,6 +165,7 @@ function ToolCard({
   self: PeerInfo | null;
   peers: readonly PeerInfo[];
   speakerOn: boolean;
+  speakerLevel: number;
   draft?: string;
   onSelect: () => void;
   onSetState: (state: unknown) => void;
@@ -210,6 +216,7 @@ function ToolCard({
             self={self}
             peers={peers}
             speakerOn={speakerOn}
+            speakerLevel={speakerLevel}
             t={toolText}
             dismiss={onDismiss}
             draft={draft}

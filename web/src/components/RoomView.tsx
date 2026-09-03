@@ -38,13 +38,16 @@ import InviteButton from './InviteButton';
 import Logo from './Logo';
 import Brand from './Brand';
 import MeshBackground from './MeshBackground';
+import MixerMenu from './MixerMenu';
 import SettingsMenu from './SettingsMenu';
 import ToolsMenu from './ToolsMenu';
 import ToolStage from './ToolStage';
-import { askTools, hasLiveTool, stagedToolOf } from '../tools/registry';
+import { TOOLS, askTools, hasLiveTool, stagedToolOf } from '../tools/registry';
 import { toolText, useToolText, type RegisteredTool } from '../tools/contract';
 import { advanceStrain, initialStrainState } from '../lib/participation';
 import { applySinkId } from '../lib/audio-devices';
+import { setPlayback, type PlayingSource } from '../lib/audio-bus';
+import { mixKey, useAudioMix } from '../lib/audio-mix';
 import {
   CamIcon,
   CamOffIcon,
@@ -272,6 +275,7 @@ function MediaView({
   className,
   videoRef,
   sinkId,
+  volume,
 }: {
   stream: MediaStream;
   muted: boolean;
@@ -279,6 +283,8 @@ function MediaView({
   videoRef?: RefObject<HTMLVideoElement | null>;
   /** Playback device; remote cameras sound through the <video> itself. */
   sinkId?: string | null;
+  /** This source's own level, 0 … 1 (audio-mix.ts). */
+  volume?: number;
 }) {
   const ownRef = useRef<HTMLVideoElement>(null);
   const ref = videoRef ?? ownRef;
@@ -292,6 +298,11 @@ function MediaView({
       void applySinkId(ref.current, sinkId);
     }
   }, [sinkId, stream]);
+  useEffect(() => {
+    if (ref.current && volume !== undefined) {
+      ref.current.volume = volume;
+    }
+  }, [volume, stream]);
   useResumePlayback(ref, stream);
   return <video ref={ref} autoPlay playsInline muted={muted} className={className} />;
 }
@@ -300,11 +311,14 @@ function AudioSink({
   stream,
   sinkId,
   muted,
+  volume,
 }: {
   stream: MediaStream;
   sinkId?: string | null;
   /** Speakers off: the element stays wired so unmuting is instant. */
   muted?: boolean;
+  /** This source's own level, 0 … 1 (audio-mix.ts). */
+  volume?: number;
 }) {
   const ref = useRef<HTMLAudioElement>(null);
   useEffect(() => {
@@ -317,6 +331,11 @@ function AudioSink({
       void applySinkId(ref.current, sinkId);
     }
   }, [sinkId, stream]);
+  useEffect(() => {
+    if (ref.current && volume !== undefined) {
+      ref.current.volume = volume;
+    }
+  }, [volume, stream]);
   useResumePlayback(ref, stream);
   return <audio ref={ref} autoPlay muted={muted} />;
 }
@@ -502,6 +521,7 @@ function Tile({
   latencyTitle,
   style,
   sinkId,
+  volume,
   onSelect,
   pinned,
   leaving,
@@ -534,6 +554,8 @@ function Tile({
   style?: React.CSSProperties;
   /** Playback device for a remote peer's audio; self tiles pass none. */
   sinkId?: string | null;
+  /** How loudly this person is played here, 0 … 1 (audio-mix.ts). */
+  volume?: number;
   /** Click puts this person on stage (spotlight); absent on the stage tile itself. */
   onSelect?: () => void;
   /** Kept on stage by the viewer's choice. */
@@ -603,6 +625,7 @@ function Tile({
           muted={isSelf || silenced === true}
           className={`tile-video ${isSelf ? 'mirrored' : ''}`}
           sinkId={isSelf ? undefined : sinkId}
+          volume={isSelf ? undefined : volume}
         />
       ) : (
         <>
@@ -613,7 +636,9 @@ function Tile({
             micOff={micOff}
             deafened={deafened}
           />
-          {!isSelf && stream && <AudioSink stream={stream} sinkId={sinkId} muted={silenced} />}
+          {!isSelf && stream && (
+            <AudioSink stream={stream} sinkId={sinkId} muted={silenced} volume={volume} />
+          )}
         </>
       )}
       <span className="tile-name">
@@ -674,6 +699,59 @@ export default function RoomView({
   const { t, locale, setLocale } = useI18n();
   const session = useRoomSession(options);
   const { speaking, levelOf } = useSpeaking(session);
+  // Per-source levels. Read here once and handed down, so a slider moved
+  // in the mixer reaches the element that plays that source and nothing
+  // else re-decides what it means.
+  const mix = useAudioMix();
+  const [mixerOpen, setMixerOpen] = useState(false);
+  /*
+   * What the echo guard subtracts from a screen capture: exactly the
+   * streams this page's sinks are playing, at exactly the levels they are
+   * playing them. Anything else and it would be modelling a machine that
+   * never made that sound.
+   *
+   * High up here, above the waiting and ended screens, because those
+   * return early — a hook after them runs on some renders and not others,
+   * which React counts and refuses. It reads the session directly rather
+   * than the screen list assembled further down for the same reason.
+   *
+   * No dependency list on purpose: the list is rebuilt every render
+   * anyway, and the call is a no-op until somebody shares WITH sound.
+   */
+  useEffect(() => {
+    const audible = session.speakerOn ? 1 : 0;
+    const playing: PlayingSource[] = [];
+    for (const peer of session.peers) {
+      const voice = (session.mesh?.getPeerStreams(peer.id) ?? []).find(
+        (stream) => !session.screenStreamIds.has(stream.id),
+      );
+      if (voice) {
+        playing.push({
+          key: mixKey('person', peer.id),
+          stream: voice,
+          volume: audible * mix.volumeOf(mixKey('person', peer.id)),
+        });
+      }
+    }
+    for (const share of session.screens) {
+      if (share.id === session.selfId) {
+        continue;
+      }
+      const stream = session.mesh
+        ?.getPeerStreams(share.id)
+        .find((one) => one.id === share.streamId && one.getAudioTracks().length > 0);
+      if (stream) {
+        playing.push({
+          key: mixKey('screen', share.id),
+          stream,
+          volume: audible * mix.volumeOf(mixKey('screen', share.id)),
+        });
+      }
+    }
+    setPlayback(playing);
+  });
+  // Leaving the room leaves nothing playing behind it.
+  useEffect(() => () => setPlayback([]), []);
   // Whoever spoke last, others before ourselves: the spotlight follows
   // them when no screen is shared and nothing is pinned.
   const [lastSpeaker, setLastSpeaker] = useState<string | null>(null);
@@ -1309,6 +1387,7 @@ export default function RoomView({
   // out, marked `data-leaving`, which is what the stylesheet animates.
   const chatPresence = usePresence(chatOpen, MOTION.panel);
   const toolsPresence = usePresence(toolsOpen, MOTION.quick);
+  const mixerPresence = usePresence(mixerOpen, MOTION.quick);
   const settingsPresence = usePresence(settingsOpen, MOTION.panel);
   const jumpPresence = usePresence(newBelow, MOTION.quick);
   const badgeOn = !chatOpen && unread > 0 && badgeAt !== null;
@@ -1616,6 +1695,14 @@ export default function RoomView({
   if (hudStats?.width != null && hudStats?.height != null) {
     hudMetrics.push({ label: 'res', value: `${hudStats.width}×${hudStats.height}` });
   }
+  // How much of the room the echo guard is taking back out of our own
+  // capture. Absent until it is actually doing something — a capture we
+  // are not in has no reading worth a slot in the bar, and neither does
+  // the second and a half before it has found us.
+  const guard = session.screenAudioGuard;
+  if (guard?.active && guard.erleDb >= 1) {
+    hudMetrics.push({ label: 'echo', value: `−${Math.round(guard.erleDb)} dB` });
+  }
   // Relaying ourselves: the forwarding mode; fed through a relay: its name.
   const hudRelay = stageScreen ? (hudStats?.relayMode ?? relayName) : null;
   if (hudRelay) {
@@ -1634,6 +1721,18 @@ export default function RoomView({
       ?.getPeerStreams(item.share.id)
       .find((s) => s.id === item.share.streamId && s.getAudioTracks().length > 0);
     return stream ? [{ id: item.share.id, stream }] : [];
+  });
+
+  // The mixer's rows, for the two kinds it cannot work out for itself.
+  // A screen only earns a knob once it is actually carrying sound, and a
+  // tool only once the room has it going.
+  const audibleScreens = screenAudioStreams.map(({ id }) => ({
+    id,
+    name: session.peers.find((peer) => peer.id === id)?.name ?? t('room.unnamed'),
+  }));
+  const liveTools = TOOLS.filter((tool) => {
+    const room = session.tools.get(tool.id);
+    return room !== undefined && tool.parseState(room.state) !== null;
   });
 
   const tileStyle = !onStage && grid.size ? { width: grid.size.width, height: grid.size.height } : undefined;
@@ -1679,6 +1778,7 @@ export default function RoomView({
         latencyTitle={t('latency.peer', { name: peer.name })}
         style={onSelect ? tileStyle : undefined}
         sinkId={session.audioDevices.speakerId}
+        volume={mix.volumeOf(mixKey('person', peer.id))}
         onSelect={onSelect}
         pinned={pinnedTile}
         leaving={peer.leaving}
@@ -1694,6 +1794,7 @@ export default function RoomView({
           stream={stream}
           sinkId={session.audioDevices.speakerId}
           muted={!session.speakerOn}
+          volume={mix.volumeOf(mixKey('screen', id))}
         />
       ))}
       <header className="room-header" ref={headerRef}>
@@ -1729,6 +1830,7 @@ export default function RoomView({
               self={selfPeer}
               peers={session.peers}
               speakerOn={session.speakerOn}
+              speakerLevel={mix.volumeOf(mixKey('tool', stagedTool.tool.id))}
               onSetState={(state) => session.setToolState(stagedTool.tool.id, state)}
             />
           )}
@@ -2116,12 +2218,23 @@ export default function RoomView({
             self={selfPeer}
             peers={session.peers}
             speakerOn={session.speakerOn}
+            speakerLevel={(toolId) => mix.volumeOf(mixKey('tool', toolId))}
             draft={toolDraft}
             onSetState={session.setToolState}
             onDismiss={() => {
               setToolsOpen(false);
               setToolDraft('');
             }}
+          />
+        )}
+        {mixerPresence.mounted && (
+          <MixerMenu
+            leaving={mixerPresence.leaving}
+            peers={session.peers}
+            screens={audibleScreens}
+            tools={liveTools}
+            speakerOn={session.speakerOn}
+            onDismiss={() => setMixerOpen(false)}
           />
         )}
         {settingsPresence.mounted && (
@@ -2174,6 +2287,20 @@ export default function RoomView({
             onClick={session.toggleSpeaker}
           >
             {session.speakerOn ? <SpeakerIcon /> : <SpeakerOffIcon />}
+          </button>
+          {/* Beside the speaker key, because it answers the question that
+              key cannot: not "do I want to hear this room" but "do I want
+              this much of THAT". */}
+          <button
+            type="button"
+            className={`control ${mixerOpen ? 'control-active' : ''}`}
+            aria-haspopup="dialog"
+            aria-expanded={mixerOpen}
+            aria-label={t('controls.mixer')}
+            title={t('controls.mixer')}
+            onClick={() => setMixerOpen((open) => !open)}
+          >
+            <SlidersIcon />
           </button>
           {/* The "no slot" state is its own thing, not the off style: it is
               styled via [data-camera-slots="full"]. */}

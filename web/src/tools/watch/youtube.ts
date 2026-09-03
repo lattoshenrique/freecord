@@ -45,6 +45,8 @@ export interface YouTubePlayer {
   playVideoAt(index: number): void;
   mute(): void;
   unMute(): void;
+  /** 0 … 100. Their own scale, and the only volume control they expose. */
+  setVolume(volume: number): void;
   destroy(): void;
 }
 

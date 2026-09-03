@@ -42,6 +42,7 @@ Both views are handed the same props:
 | `mine` / `by` | whether this client set it, and which peer did |
 | `self` / `peers` | who is in the room |
 | `speakerOn` | the room's speakers are on; if your tool makes sound, respect it |
+| `speakerLevel` | how loudly **this viewer** wants your tool, 0 … 1. The same fact as `speakerOn` at higher resolution — honour it as far as your player allows and no further, and say so when it cannot be honoured at all. Both are local: writing either into your shared state would move the volume for the whole room |
 | `t(key, vars?)` | your own strings, in the viewer's language |
 | `dismiss()` | (shelf only) close the shelf |
 | `draft` | (shelf only) text the room's UI opened your panel with — a link typed after `/play`. Seed your field from it |

@@ -223,6 +223,9 @@ export const esES: Catalog = {
   'settings.screenAudio.label': 'Compartir el audio del equipo',
   'settings.screenAudio.hint':
     'El sonido del sistema o de la pestaña viaja con tu pantalla — a partir del próximo compartido, no de este',
+  'settings.screenAudioGuard.label': 'Dejar la sala fuera',
+  'settings.screenAudioGuard.hint':
+    'El audio de tu equipo incluye esta llamada, así que sin esto todos se oyen volver. Medido, no supuesto: una captura en la que no estás pasa intacta.',
   'settings.mic.title': 'Micrófono',
   'settings.mic.voice.label': 'Voz',
   'settings.mic.voice.hint':
@@ -269,6 +272,18 @@ export const esES: Catalog = {
   'controls.closeMenu': 'Cerrar menú',
   'controls.dock': 'Controles de la llamada',
   'controls.tools': 'Herramientas',
+  'controls.mixer': 'Volumen por fuente',
+
+  'mixer.title': 'Volumen',
+  'mixer.empty': 'Nadie más por aquí, y nada sonando. Esto se llena solo.',
+  'mixer.private': 'Estos niveles son solo tuyos — nadie más nota la diferencia.',
+  'mixer.deafened': 'Tus altavoces están apagados, así que nada de esto suena. Los niveles se guardan.',
+  'mixer.mute': 'Silenciar solo esto',
+  'mixer.unmute': 'Volver a oír esto',
+  'mixer.muteOne': 'Silenciar a {name}',
+  'mixer.unmuteOne': 'Volver a oír a {name}',
+  'mixer.levelOf': 'Volumen de {name}',
+  'mixer.screenOf': 'Pantalla de {name}',
 
   'tools.title': 'Herramientas',
   'tools.on': 'en marcha',

@@ -323,6 +323,18 @@ export default function SettingsMenu({
                   hint={t('settings.screenAudio.hint')}
                   onToggle={() => onSettings({ ...settings, screenAudio: !settings.screenAudio })}
                 />
+                {/* Only once there is computer audio to guard: on its own
+                    it is a switch for a thing that is not happening. */}
+                {settings.screenAudio && (
+                  <SwitchRow
+                    checked={settings.screenAudioGuard}
+                    label={t('settings.screenAudioGuard.label')}
+                    hint={t('settings.screenAudioGuard.hint')}
+                    onToggle={() =>
+                      onSettings({ ...settings, screenAudioGuard: !settings.screenAudioGuard })
+                    }
+                  />
+                )}
               </Group>
             )}
           </>

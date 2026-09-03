@@ -236,6 +236,9 @@ export const enUS = {
   'settings.screenAudio.label': 'Share computer audio',
   'settings.screenAudio.hint':
     'System or tab audio rides along with your screen — from the next share, not this one',
+  'settings.screenAudioGuard.label': 'Keep the room out of it',
+  'settings.screenAudioGuard.hint':
+    'Your machine’s audio includes this call, so without this everyone hears themselves come back. Measured, not assumed: a capture you are not in is passed through untouched.',
   'settings.mic.title': 'Microphone',
   'settings.mic.voice.label': 'Voice',
   'settings.mic.voice.hint':
@@ -282,6 +285,23 @@ export const enUS = {
   'controls.closeMenu': 'Close menu',
   'controls.dock': 'Call controls',
   'controls.tools': 'Tools',
+  'controls.mixer': 'Volume per source',
+
+  /*
+   * The mixer (components/MixerMenu.tsx). Every string here is either an
+   * instruction or a promise about privacy, so none of them get the
+   * randomised treatment the playful keys do.
+   */
+  'mixer.title': 'Volume',
+  'mixer.empty': 'Nobody else here yet, and nothing playing. This fills up on its own.',
+  'mixer.private': 'These levels are yours alone — nobody else hears the difference.',
+  'mixer.deafened': 'Your speakers are off, so none of this is playing. The levels are kept.',
+  'mixer.mute': 'Mute this one',
+  'mixer.unmute': 'Unmute this one',
+  'mixer.muteOne': 'Mute {name}',
+  'mixer.unmuteOne': 'Unmute {name}',
+  'mixer.levelOf': 'Volume for {name}',
+  'mixer.screenOf': '{name}’s screen',
 
   'tools.title': 'Tools',
   'tools.on': 'on',

@@ -26,6 +26,16 @@ export interface MediaSettings {
   camera: CameraQualityId;
   /** Send system/tab audio along with the screen share. Off by default. */
   screenAudio: boolean;
+  /**
+   * Take the room back out of that audio before it goes (echo-guard.ts).
+   * On by default, and only ever consulted when screenAudio is on: a
+   * capture of the whole machine contains the call itself, so without it
+   * everybody hears everybody a beat late. Off is for the person who has
+   * measured that they do not need it — a capture that never contained us
+   * costs nothing to leave guarded, because the guard measures that and
+   * stands aside.
+   */
+  screenAudioGuard: boolean;
 }
 
 /**
@@ -141,6 +151,7 @@ export const DEFAULT_MEDIA_SETTINGS: MediaSettings = {
   mic: micDefaults('voice'),
   camera: DEFAULT_CAMERA_QUALITY,
   screenAudio: false,
+  screenAudioGuard: true,
 };
 
 export function loadMediaSettings(): MediaSettings {
@@ -172,6 +183,9 @@ export function loadMediaSettings(): MediaSettings {
         ? (parsed.camera as CameraQualityId)
         : DEFAULT_CAMERA_QUALITY,
       screenAudio: parsed.screenAudio === true,
+      // Absent means an older build wrote this: default it ON, like a
+      // fresh install, rather than leaving an upgrade quietly unguarded.
+      screenAudioGuard: parsed.screenAudioGuard !== false,
     };
   } catch {
     return DEFAULT_MEDIA_SETTINGS;

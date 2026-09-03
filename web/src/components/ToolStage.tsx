@@ -18,6 +18,7 @@ export default function ToolStage({
   self,
   peers,
   speakerOn,
+  speakerLevel,
   onSetState,
 }: {
   tool: RegisteredTool;
@@ -25,6 +26,8 @@ export default function ToolStage({
   self: PeerInfo | null;
   peers: readonly PeerInfo[];
   speakerOn: boolean;
+  /** This viewer's level for this tool, 0 … 1 (lib/audio-mix.ts). */
+  speakerLevel: number;
   onSetState: (state: unknown) => void;
 }) {
   const t = useToolText(tool);
@@ -42,6 +45,7 @@ export default function ToolStage({
       self={self}
       peers={peers}
       speakerOn={speakerOn}
+      speakerLevel={speakerLevel}
       t={t}
     />
   );

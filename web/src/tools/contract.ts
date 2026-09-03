@@ -62,6 +62,23 @@ export interface ToolViewProps<S> {
   peers: readonly PeerInfo[];
   /** The room's speakers are off. A tool that makes sound must respect it. */
   speakerOn: boolean;
+  /**
+   * How loudly this VIEWER wants this tool, 0 … 1 — the same fact as
+   * `speakerOn` at higher resolution, and honoured the same way: as far
+   * as the player allows, and no further. A player with only mute and
+   * unmute rounds it; a cross-origin page cannot be reached into at all,
+   * which the stage is expected to say out loud rather than pretend.
+   *
+   * Beside `speakerOn` and not instead of it: "the speakers are off" is
+   * an instruction about the room, and a tool that read it as a zero
+   * would have no way to tell it from somebody who simply turned this
+   * one down.
+   *
+   * Local, like `speakerOn`. It must never be written into the tool's
+   * shared state — that is broadcast, and one person's slider would move
+   * the volume for the whole room.
+   */
+  speakerLevel: number;
   /** This tool's own strings, in the viewer's language. */
   t: ToolTranslate;
 }

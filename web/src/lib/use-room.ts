@@ -55,6 +55,8 @@ import {
   initialStallState,
   type StallState,
 } from './stall-watch';
+import { guardCapture, type GuardedCapture } from './audio-bus';
+import type { EchoGuardStats } from './echo-guard';
 import {
   allowHiFiOpus,
   cameraConstraints,
@@ -200,6 +202,8 @@ export function useRoomSession(options: JoinOptions) {
   const [screens, setScreens] = useState<ScreenShare[]>([]);
   const [localMedia, setLocalMedia] = useState<MediaStream | null>(null);
   const [localScreen, setLocalScreen] = useState<MediaStream | null>(null);
+  /** The echo guard's readings while WE are sharing sound; null otherwise. */
+  const [screenAudioGuard, setScreenAudioGuard] = useState<EchoGuardStats | null>(null);
   const [micOn, setMicOn] = useState(options.micEnabled);
   // Optimistic-off: the camera starts dark and lights up only on the
   // server's grant (camera-started) — never before.
@@ -278,6 +282,14 @@ export function useRoomSession(options: JoinOptions) {
   const selfIdRef = useRef<string | null>(null);
   const pendingScreenRef = useRef<MediaStream | null>(null);
   const localScreenRef = useRef<MediaStream | null>(null);
+  /**
+   * The guard cleaning our own capture, with the RAW track it is fed by.
+   * The raw track is not in the display stream any more — the clean one
+   * took its place there — so nothing else would ever stop it, and a
+   * capture left running is an operating system still saying we are
+   * sharing after we stopped.
+   */
+  const screenGuardRef = useRef<{ guard: GuardedCapture; raw: MediaStreamTrack } | null>(null);
   const qualityRef = useRef<ScreenQualityId>(screenQuality);
   /** Mirror for callbacks (share start) that must not close over state. */
   const mediaSettingsRef = useRef<MediaSettings>(mediaSettings);
@@ -366,12 +378,21 @@ export function useRoomSession(options: JoinOptions) {
         }
       }
     }
+    // The clean track was stopped with the stream above; the raw capture
+    // behind it, and the graph between them, are ours to close.
+    const guarded = screenGuardRef.current;
+    if (guarded) {
+      screenGuardRef.current = null;
+      guarded.guard.stop();
+      guarded.raw.stop();
+    }
     pendingScreenRef.current = null;
     localScreenRef.current = null;
     // The next share re-learns the link instead of inheriting this one's verdict.
     screenLadderRef.current = initialAdaptiveState();
     setLocalScreen(null);
     setScreenStats(null);
+    setScreenAudioGuard(null);
   }, []);
 
   /**
@@ -1708,6 +1729,21 @@ export function useRoomSession(options: JoinOptions) {
     signalingRef.current?.send({ t: 'camera-request' });
   }, []);
 
+  /**
+   * The guard's readings, for the HUD. It reports once a second from the
+   * audio thread, so this only carries the latest across; the interval
+   * exists at all only while we are sharing sound.
+   */
+  useEffect(() => {
+    if (!localScreen || !screenGuardRef.current) {
+      return;
+    }
+    const read = () => setScreenAudioGuard(screenGuardRef.current?.guard.stats() ?? null);
+    read();
+    const timer = setInterval(read, 1000);
+    return () => clearInterval(timer);
+  }, [localScreen]);
+
   const startScreenShare = useCallback(async () => {
     if (pendingScreenRef.current || localScreenRef.current) {
       return;
@@ -1722,6 +1758,25 @@ export function useRoomSession(options: JoinOptions) {
         audio: mediaSettingsRef.current.screenAudio ? screenAudioConstraints() : false,
       });
       pendingScreenRef.current = stream;
+      // Take the room back out of the capture before anybody else hears
+      // it. The clean track REPLACES the raw one inside the same stream,
+      // so the id already sent to the server still names what viewers
+      // will receive, and everything downstream — the publish below, the
+      // relay tree, the teardown — goes on seeing one display stream.
+      const captured = stream.getAudioTracks()[0];
+      if (captured && mediaSettingsRef.current.screenAudioGuard) {
+        const guard = await guardCapture(captured);
+        if (pendingScreenRef.current !== stream) {
+          // Given up on, refused or replaced while the worklet loaded.
+          guard.stop();
+          return;
+        }
+        if (guard.guarded) {
+          screenGuardRef.current = { guard, raw: captured };
+          stream.removeTrack(captured);
+          stream.addTrack(guard.track);
+        }
+      }
       const track = stream.getVideoTracks()[0];
       if (track) {
         // Tells the codec what to preserve: text sharpness or motion fluidity.
@@ -1789,6 +1844,7 @@ export function useRoomSession(options: JoinOptions) {
     watchScreen,
     localMedia,
     localScreen,
+    screenAudioGuard,
     micOn,
     camOn,
     speakerOn,

@@ -208,6 +208,9 @@ export const zhCN: Catalog = {
   'settings.desktop.hint': '同样的房间，独立窗口，带原生窗口选择器和适合这台电脑的下载。',
   'settings.screenAudio.label': '共享电脑声音',
   'settings.screenAudio.hint': '系统或标签页的声音会跟着屏幕一起走 —— 从下一次共享开始，不是这一次',
+  'settings.screenAudioGuard.label': '把通话本身排除在外',
+  'settings.screenAudioGuard.hint':
+    '电脑的声音里包含这通通话，不开启的话大家都会听到自己绕回来。这是测出来的，不是假定的：如果采集里本来就没有你，声音会原样通过。',
   'settings.mic.title': '麦克风',
   'settings.mic.voice.label': '人声',
   'settings.mic.voice.hint': '替你收拾房间：回声没了，风扇噪音没了，音量拉平',
@@ -252,6 +255,18 @@ export const zhCN: Catalog = {
   'controls.closeMenu': '关闭菜单',
   'controls.dock': '通话控制',
   'controls.tools': '工具',
+  'controls.mixer': '各音源音量',
+
+  'mixer.title': '音量',
+  'mixer.empty': '还没有其他人，也没有在播放的东西。这里会自己填满。',
+  'mixer.private': '这些音量只属于你——别人听不出差别。',
+  'mixer.deafened': '你的扬声器已关闭，所以这些都没有在播放。音量会保留。',
+  'mixer.mute': '只静音这一个',
+  'mixer.unmute': '重新听这一个',
+  'mixer.muteOne': '静音 {name}',
+  'mixer.unmuteOne': '取消静音 {name}',
+  'mixer.levelOf': '{name} 的音量',
+  'mixer.screenOf': '{name} 的屏幕',
 
   'tools.title': '工具',
   'tools.on': '进行中',
