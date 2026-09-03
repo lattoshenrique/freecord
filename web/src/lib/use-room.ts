@@ -20,6 +20,7 @@ import { ChatChannels, normalizeChatText } from './chat-channel';
 import { importRoomKey, openChat, sealChat } from './chat-crypto';
 import { FileTransfers, type FileTransfer } from './file-transfer';
 import { heroTransition } from './hero-transition';
+import { LinkHealthTracker } from './link-health';
 import { Mesh, type TrackEncoding } from './mesh';
 import { playJoinChime, playLeaveChime } from './notification-sound';
 import { Signaling } from './signaling';
@@ -282,6 +283,8 @@ export function useRoomSession(options: JoinOptions) {
   const transfersRef = useRef<FileTransfers | null>(null);
   /** Text over the mesh's `chat` channels; the server relays when a seat has none (chat-channel.ts). */
   const chatChannelsRef = useRef<ChatChannels | null>(null);
+  /** Hysteresis between noisy getStats readings and rare tree reroutes. */
+  const linkHealthRef = useRef(new LinkHealthTracker());
   const localMediaRef = useRef<MediaStream | null>(null);
   const selfIdRef = useRef<string | null>(null);
   const pendingScreenRef = useRef<MediaStream | null>(null);
@@ -713,6 +716,16 @@ export function useRoomSession(options: JoinOptions) {
           setReconnecting(false);
           signalingRef.current?.setResumeToken(message.resumeToken);
           const resumed = meshRef.current !== null && selfIdRef.current === message.selfId;
+          if (resumed) {
+            // A quality transition may have happened while signaling was
+            // offline (non-signal messages are deliberately not queued).
+            // Reasserting every tracked verdict is idempotent server-side.
+            for (const update of linkHealthRef.current.snapshot()) {
+              signalingRef.current?.send({ t: 'peer-link', ...update });
+            }
+          } else {
+            linkHealthRef.current = new LinkHealthTracker();
+          }
           selfIdRef.current = message.selfId;
           setSelfId(message.selfId);
           setPeers(message.peers);
@@ -1269,6 +1282,9 @@ export function useRoomSession(options: JoinOptions) {
         return;
       }
       setPeerLatency(latencies);
+      for (const update of linkHealthRef.current.sample(latencies)) {
+        signalingRef.current?.send({ t: 'peer-link', ...update });
+      }
 
       // Self-healing for a voice that went quiet on a path that still
       // claims to be connected (the NAT-rebind zombie the screen's watch

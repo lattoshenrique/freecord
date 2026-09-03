@@ -30,6 +30,15 @@ function broadcast(room: Room, message: ServerMessage, exceptId?: string): void 
   }
 }
 
+/** Receiver reports keyed by child: each set contains poor candidate parents. */
+function poorScreenLinks(room: Room): Map<string, ReadonlySet<string>> {
+  return new Map([...room.peers].map(([peerId, peer]) => [peerId, peer.poorLinks]));
+}
+
+function computeRoomScreenTree(room: Room, sharerId: string) {
+  return computeScreenTree(sharerId, room.peers.keys(), undefined, poorScreenLinks(room));
+}
+
 /**
  * (Re)distributes the screen-forwarding tree roles.
  *
@@ -42,7 +51,7 @@ function broadcastScreenRoutes(room: Room): void {
   // One tree per screen: a peer may be a child in one and a relay in another.
   for (const sharer of room.screens.values()) {
     const relays = room.screenRelays.get(sharer.id);
-    const tree = computeScreenTree(sharer.id, room.peers.keys());
+    const tree = computeRoomScreenTree(room, sharer.id);
     for (const [peerId, peer] of room.peers) {
       const route = tree.get(peerId);
       if (!route) {
@@ -192,6 +201,27 @@ export class SignalingSession {
         target.channel.send(envelope);
         return;
       }
+      case 'peer-link': {
+        // Only current room members can occupy this bounded set. A report
+        // describes media arriving FROM peerId TO this receiver, so it is
+        // deliberately directional.
+        if (message.peerId === this.peerId || !room.peers.has(message.peerId)) {
+          return;
+        }
+        const links = room.peers.get(this.peerId)?.poorLinks;
+        if (!links || links.has(message.peerId) === message.poor) {
+          return;
+        }
+        if (message.poor) {
+          links.add(message.peerId);
+        } else {
+          links.delete(message.peerId);
+        }
+        // Reports are already hysteretic on the client, so a real state
+        // transition may immediately heal every active screen tree.
+        broadcastScreenRoutes(room);
+        return;
+      }
       case 'chat': {
         const text = normalizeChatText(message.text);
         if (!text) {
@@ -271,7 +301,7 @@ export class SignalingSession {
         if (!sharer || sharer.id === this.peerId) {
           return;
         }
-        const tree = computeScreenTree(sharer.id, room.peers.keys());
+        const tree = computeRoomScreenTree(room, sharer.id);
         if ((tree.get(this.peerId)?.children.length ?? 0) === 0) {
           return;
         }
@@ -448,6 +478,13 @@ export function parseClientMessage(raw: unknown): ClientMessage | null {
         : null;
     case 'chat':
       return typeof message.text === 'string' ? { t: 'chat', text: message.text } : null;
+    case 'peer-link':
+      return typeof message.peerId === 'string' &&
+        message.peerId.length > 0 &&
+        message.peerId.length <= 128 &&
+        typeof message.poor === 'boolean'
+        ? { t: 'peer-link', peerId: message.peerId, poor: message.poor }
+        : null;
     case 'screen-request': {
       if (typeof message.streamId !== 'string' || message.streamId.length > 128) {
         return null;

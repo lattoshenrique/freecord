@@ -119,6 +119,8 @@ export type ServerMessage =
 export type ClientMessage =
   | { t: 'signal'; to: string; data: unknown }
   | { t: 'chat'; text: string }
+  /** Receiver-side verdict for one directed WebRTC path (peerId → self). */
+  | { t: 'peer-link'; peerId: string; poor: boolean }
   | { t: 'screen-request'; streamId: string; quality: ScreenQualityId }
   | { t: 'screen-stop' }
   /** A screen-tree relay announces the stream it uses for forwarding. */

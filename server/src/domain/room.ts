@@ -24,6 +24,11 @@ export interface PeerChannel {
 export interface Peer {
   name: string;
   channel: PeerChannel;
+  /**
+   * Parents whose media this peer persistently receives with high loss or
+   * latency. Used only to route screen trees around a weak directed link.
+   */
+  poorLinks: Set<string>;
   /** Last ping received — the basis for kicking zombie connections. */
   lastSeen: number;
   /** Secret that lets a dropped connection reclaim this seat (same peerId). */
@@ -321,6 +326,8 @@ export type ServerMessage =
 export type ClientMessage =
   | { t: 'signal'; to: string; data: unknown }
   | { t: 'chat'; text: string }
+  /** Receiver-side verdict for one directed WebRTC path (parent → self). */
+  | { t: 'peer-link'; peerId: string; poor: boolean }
   | { t: 'screen-request'; streamId: string; quality: ScreenQuality }
   | { t: 'screen-stop' }
   /** A screen-tree relay announces the stream it uses for forwarding. */

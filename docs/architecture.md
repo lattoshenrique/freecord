@@ -234,11 +234,20 @@ shares at once, each share has a tree of its own:
              Duda   Caio     depth ≤ 2 up to 13 people (1 + 3 + 9 seats), 3 at 20
 ```
 
-- The server computes the tree (`computeScreenTree`: BFS, lexicographic order
-  of peerIds, fanout 3) and sends each peer a `screen-route` with its children,
-  its source, the quality and `of` — whose share this tree carries.
-  Lexicographic order is what makes both edges arrive at the **same** tree
-  without coordinating.
+- The server computes the tree (`computeScreenTree`: breadth first, fanout 3)
+  and sends each peer a `screen-route` with its children, its source, the
+  quality and `of` — whose share this tree carries. Equal choices use a stable
+  hash seeded by the sharer, so both edges produce the **same** tree without
+  coordinating while concurrent shares spread their relay work across peers.
+- Every browser samples the WebRTC paths it already holds. Two consecutive
+  readings above 5% loss or 500 ms RTT mark only that directed parent → child
+  link poor through `peer-link`; thirty seconds of clearly healthy readings
+  clear it. The server assigns each level as a group and avoids a reported edge
+  whenever another parent has room; it may add one hop to bypass a poor direct
+  path. One report moves that child; two independent reports make the common
+  peer a poor relay candidate, keeping a weak connection at a leaf when
+  capacity permits. This hysteresis prevents a transient spike from
+  renegotiating the tree.
 - A peer with children forwards the track it received and announces
   `screen-relay` for that tree; the server updates its children's source. A
   peer may be a leaf in one tree and a relay in another: the client keeps a
@@ -274,10 +283,6 @@ the server relays without reading, so old clients interop untouched), and a
 demotion is sticky for the rest of the share: recovery beats optimism. The
 acceptance bar was that a passthrough failure must never be worse than
 yesterday's behavior, and the worst case is exactly yesterday's behavior.
-
-Relays are still chosen lexicographically for determinism, not for capacity: a
-weak laptop can become a bottleneck (much less of one now that forwarding does
-not encode). Picking relays by RTT/stability is the natural next step.
 
 A second deliberate price came with session resume: detached peers stay in the
 tree, so a relay that dies for real (transport AND media together) freezes its
@@ -645,10 +650,10 @@ them apart:
   on `pagehide`): the seat is vacated and `peer-left` goes out immediately.
 - A **bare close or silence** detaches the peer but keeps the seat: `welcome`
   carries a `resumeToken` (16 random bytes, valid only in that room), and a
-  reconnecting client presents it to reclaim the **same peerId** — which
-  matters because the screen tree is computed from lexicographic peerIds, so a
-  preserved id keeps the tree stable, and the P2P media legs never stopped
-  flowing anyway. No `peer-left` is broadcast during the grace.
+  reconnecting client presents it to reclaim the **same peerId** — which keeps
+  its stable place in the screen tree and its link-health reports, while the
+  P2P media legs never stopped flowing anyway. No `peer-left` is broadcast
+  during the grace.
 
 Death still happens in two stages, on the same clocks as before (a resume
 never extends the worst case):

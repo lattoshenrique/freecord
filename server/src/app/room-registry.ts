@@ -105,6 +105,7 @@ export class RoomRegistry {
     room.peers.set(peerId, {
       name,
       channel,
+      poorLinks: new Set(),
       lastSeen: this.now(),
       resumeToken: randomBytes(16).toString('base64url'),
       disconnectedAt: null,
@@ -205,6 +206,9 @@ export class RoomRegistry {
     room.screenRelays.delete(peerId);
     for (const relays of room.screenRelays.values()) {
       relays.delete(peerId);
+    }
+    for (const peer of room.peers.values()) {
+      peer.poorLinks.delete(peerId);
     }
     room.cameras.delete(peerId);
     room.deafened.delete(peerId);

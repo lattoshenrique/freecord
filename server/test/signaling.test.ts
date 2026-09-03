@@ -235,7 +235,11 @@ describe('screen relay tree', () => {
     expect(sharerRoute.children).toHaveLength(3);
 
     const byId = new Map(others.map((o) => [o.session.peerId, o]));
-    const relayId = [...byId.keys()].sort()[0]!; // BFS in lexicographic order
+    const relayId = sharerRoute.children.find((id) => {
+      const candidate = byId.get(id)!;
+      const route = routesOf(candidate.inbox).at(-1)!;
+      return route.t === 'screen-route' && route.children.length > 0;
+    })!;
     const relay = byId.get(relayId)!;
     const relayRoute = routesOf(relay.inbox).at(-1)!;
     if (relayRoute.t !== 'screen-route') throw new Error('no relay route');
@@ -296,6 +300,56 @@ describe('screen relay tree', () => {
         expect(route.children).toEqual([]);
       }
     }
+  });
+
+  it('reroutes a child after that receiver reports a persistently poor parent', () => {
+    const { registry, slug } = setup();
+    const sharer = connect(registry, slug, 'Sharer');
+    const others = ['B', 'C', 'D', 'E', 'F', 'G', 'H'].map((name) =>
+      connect(registry, slug, name),
+    );
+
+    sharer.session.handleMessage({ t: 'screen-request', streamId: 's-1', quality: 'balanced' });
+    const byId = new Map(others.map((peer) => [peer.session.peerId, peer]));
+    const leaf = others.find((peer) => {
+      const route = routesOf(peer.inbox).at(-1)!;
+      return route.t === 'screen-route' && route.source === null && route.children.length === 0;
+    })!;
+    const oldParent = others.find((peer) => {
+      const route = routesOf(peer.inbox).at(-1)!;
+      return route.t === 'screen-route' && route.children.includes(leaf.session.peerId);
+    })!;
+
+    leaf.session.handleMessage({
+      t: 'peer-link',
+      peerId: oldParent.session.peerId,
+      poor: true,
+    });
+
+    const newParent = [...byId.values()].find((peer) => {
+      const route = routesOf(peer.inbox).at(-1)!;
+      return route.t === 'screen-route' && route.children.includes(leaf.session.peerId);
+    })!;
+    expect(newParent.session.peerId).not.toBe(oldParent.session.peerId);
+
+    const rounds = routesOf(sharer.inbox).length;
+    leaf.session.handleMessage({
+      t: 'peer-link',
+      peerId: oldParent.session.peerId,
+      poor: true,
+    });
+    expect(routesOf(sharer.inbox)).toHaveLength(rounds);
+
+    leaf.session.handleMessage({
+      t: 'peer-link',
+      peerId: oldParent.session.peerId,
+      poor: false,
+    });
+    const recoveredParent = others.find((peer) => {
+      const route = routesOf(peer.inbox).at(-1)!;
+      return route.t === 'screen-route' && route.children.includes(leaf.session.peerId);
+    })!;
+    expect(recoveredParent.session.peerId).toBe(oldParent.session.peerId);
   });
 
   it('whoever joins during the share receives a route', () => {
@@ -468,6 +522,16 @@ describe('parseClientMessage', () => {
     ).toEqual({ t: 'screen-relay', of: 'p1', streamId: 'fwd' });
     expect(parseClientMessage(JSON.stringify({ t: 'screen-relay', of: 'p1', streamId: 7 }))).toBeNull();
     expect(parseClientMessage(JSON.stringify({ t: 'screen-relay', streamId: 'fwd' }))).toBeNull();
+  });
+
+  it('accepts only bounded peer-link verdicts', () => {
+    expect(
+      parseClientMessage(JSON.stringify({ t: 'peer-link', peerId: 'parent', poor: true })),
+    ).toEqual({ t: 'peer-link', peerId: 'parent', poor: true });
+    expect(parseClientMessage(JSON.stringify({ t: 'peer-link', peerId: '', poor: true }))).toBeNull();
+    expect(
+      parseClientMessage(JSON.stringify({ t: 'peer-link', peerId: 'parent', poor: 'yes' })),
+    ).toBeNull();
   });
 });
 

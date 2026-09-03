@@ -57,9 +57,10 @@ test.describe('screen share lock and route tree', () => {
         }
       }
 
-      // Lexicographic determinism: the sharer's children are the 3 lowest ids.
+      // The root stays capped; its stable per-share ordering spreads relay
+      // work instead of appointing the same three lowest ids in every tree.
       const viewersSorted = allIds.filter((id) => id !== sharer.selfId).sort();
-      expect(routes.get(sharer.selfId)!.children).toEqual(viewersSorted.slice(0, 3));
+      expect(routes.get(sharer.selfId)!.children).toHaveLength(3);
 
       // Depth <= 2: every viewer is a child of the sharer or of one of its children.
       const level1 = new Set<string>(expected.get(sharer.selfId)!.children);
@@ -180,6 +181,39 @@ test.describe('screen share lock and route tree', () => {
       const leafId = clients.map((c) => c.selfId).find((id) => expected.get(id)!.children.length === 0)!;
       byId.get(leafId)!.send({ t: 'screen-relay', of: sharer.selfId, streamId: 's-bogus' });
       await sharer.expectSilence((m) => m.t === 'screen-route');
+    } finally {
+      await cleanup(clients);
+    }
+  });
+
+  test('a receiver can route around a persistently poor parent link', async () => {
+    const { slug } = await createRoom('screen-link-health');
+    const clients = await joinMany(slug, 8);
+    try {
+      const sharer = clients[0];
+      const ids = clients.map((client) => client.selfId);
+      const before = computeScreenTree(sharer.selfId, ids);
+      const childId = ids.find((id) => {
+        const parentId = before.get(id)?.parentId;
+        return parentId !== null && parentId !== undefined && parentId !== sharer.selfId;
+      })!;
+      const oldParentId = before.get(childId)!.parentId!;
+
+      sharer.send({ t: 'screen-request', streamId: 's-health', quality: 'balanced' });
+      for (const client of clients) {
+        await client.expect('screen-route');
+      }
+
+      const child = clients.find((client) => client.selfId === childId)!;
+      child.send({ t: 'peer-link', peerId: oldParentId, poor: true });
+      const poorLinks = new Map([[childId, new Set([oldParentId])]]);
+      const after = computeScreenTree(sharer.selfId, ids, undefined, poorLinks);
+
+      expect(after.get(childId)!.parentId).not.toBe(oldParentId);
+      for (const client of clients) {
+        const route = await client.expect('screen-route');
+        expect(route.children).toEqual(after.get(client.selfId)!.children);
+      }
     } finally {
       await cleanup(clients);
     }

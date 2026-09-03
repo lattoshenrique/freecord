@@ -64,6 +64,8 @@ export interface Env {
 interface PeerAttachment {
   peerId: string;
   name: string;
+  /** Directed parents this receiver persistently sees as a poor media path. */
+  poorLinks?: string[];
   /** Last ping — the basis for kicking zombie connections (see alarm). */
   lastSeen: number;
   /** Secret that lets a dropped connection reclaim this seat (same peerId). */
@@ -91,6 +93,8 @@ interface Seat {
   peerId: string;
   name: string;
   resumeToken: string;
+  /** Link verdicts survive hibernation and a signaling resume. */
+  poorLinks?: string[];
   /** Last ping this side saw: the seat expires on the zombie clock. */
   lastSeen: number;
   /** When its socket dropped; absent while somebody is sitting in it. */
@@ -292,13 +296,14 @@ export class RoomDurableObject {
     server.serializeAttachment({
       peerId,
       name,
+      poorLinks: [],
       lastSeen: Date.now(),
       resumeToken,
     } satisfies PeerAttachment);
     // The seat goes to storage now, not when the socket drops: what a
     // restarted object knows about this room is what is written down.
     const seats = await this.seats();
-    seats[resumeToken] = { peerId, name, resumeToken, lastSeen: Date.now() };
+    seats[resumeToken] = { peerId, name, resumeToken, poorLinks: [], lastSeen: Date.now() };
     await this.putSeats(seats);
     // With people inside, the expiration clock stops and the zombie sweep
     // begins — without postponing one already due: a seat that just
@@ -384,6 +389,7 @@ export class RoomDurableObject {
     server.serializeAttachment({
       peerId: identity.peerId,
       name: identity.name,
+      poorLinks: identity.poorLinks ?? [],
       lastSeen: Date.now(),
       resumeToken: token,
     } satisfies PeerAttachment);
@@ -481,6 +487,38 @@ export class RoomDurableObject {
         }
         return;
       }
+      case 'peer-link': {
+        if (message.peerId === peerId) {
+          return;
+        }
+        const seats = await this.seats();
+        if (!Object.values(seats).some((seat) => seat.peerId === message.peerId)) {
+          return;
+        }
+        const poorLinks = new Set(attachment.poorLinks ?? []);
+        if (poorLinks.has(message.peerId) === message.poor) {
+          return;
+        }
+        if (message.poor) {
+          poorLinks.add(message.peerId);
+        } else {
+          poorLinks.delete(message.peerId);
+        }
+        const nextPoorLinks = [...poorLinks];
+        const ownSeat = seats[attachment.resumeToken];
+        if (ownSeat) {
+          ownSeat.poorLinks = nextPoorLinks;
+          await this.putSeats(seats);
+        }
+        ws.serializeAttachment({
+          ...attachment,
+          poorLinks: nextPoorLinks,
+        } satisfies PeerAttachment);
+        // The browser only reports a hysteretic transition, not every
+        // stats sample, so an active tree can be healed immediately.
+        await this.broadcastScreenRoutes();
+        return;
+      }
       case 'chat': {
         const text = normalizeChatText(message.text);
         if (text) {
@@ -547,8 +585,22 @@ export class RoomDurableObject {
         if (!sharer || sharer.id === peerId) {
           return;
         }
-        const peerIds = this.live().map((peer) => this.attachment(peer).peerId);
-        const tree = computeScreenTree(sharer.id, peerIds);
+        const sockets = this.live();
+        const detached = await this.detachedPeers();
+        const peerIds = [
+          ...sockets.map((peer) => this.attachment(peer).peerId),
+          ...Object.values(detached).map((seat) => seat.peerId),
+        ];
+        const poorLinks = this.poorScreenLinks(sockets);
+        for (const seat of Object.values(detached)) {
+          poorLinks.set(seat.peerId, new Set(seat.poorLinks ?? []));
+        }
+        const tree = computeScreenTree(
+          sharer.id,
+          peerIds,
+          undefined,
+          poorLinks,
+        );
         if ((tree.get(peerId)?.children.length ?? 0) === 0) {
           return;
         }
@@ -665,6 +717,7 @@ export class RoomDurableObject {
       peerId: attachment.peerId,
       name: attachment.name,
       resumeToken: attachment.resumeToken,
+      poorLinks: attachment.poorLinks ?? [],
       lastSeen: attachment.lastSeen,
       disconnectedAt: Date.now(),
     };
@@ -734,6 +787,7 @@ export class RoomDurableObject {
       for (const seat of expired) {
         this.broadcast({ t: 'peer-left', id: seat.peerId });
       }
+      await this.forgetPoorLinks(new Set(expired.map((seat) => seat.peerId)));
       await this.broadcastScreenRoutes();
     }
 
@@ -812,6 +866,7 @@ export class RoomDurableObject {
     for (const peerId of gone) {
       this.broadcast({ t: 'peer-left', id: peerId }, undefined, leaving);
     }
+    await this.forgetPoorLinks(gone);
     await this.broadcastScreenRoutes(leaving);
     await this.settleCompany(leaving);
     await this.rescheduleSweep(leaving);
@@ -835,9 +890,13 @@ export class RoomDurableObject {
       ...sockets.map((ws) => this.attachment(ws).peerId),
       ...Object.values(detached).map((seat) => seat.peerId),
     ];
+    const poorLinks = this.poorScreenLinks(sockets);
+    for (const seat of Object.values(detached)) {
+      poorLinks.set(seat.peerId, new Set(seat.poorLinks ?? []));
+    }
     // One tree per screen: a peer may be a child in one and a relay in another.
     for (const screen of screens) {
-      const tree = computeScreenTree(screen.id, peerIds);
+      const tree = computeScreenTree(screen.id, peerIds, undefined, poorLinks);
       const forwarding = relays[screen.id] ?? {};
       for (const ws of sockets) {
         const route = tree.get(this.attachment(ws).peerId);
@@ -1096,6 +1155,41 @@ export class RoomDurableObject {
 
   private attachment(ws: WebSocket): PeerAttachment {
     return ws.deserializeAttachment() as PeerAttachment;
+  }
+
+  private poorScreenLinks(sockets: WebSocket[]): Map<string, ReadonlySet<string>> {
+    return new Map(
+      sockets.map((ws) => {
+        const attachment = this.attachment(ws);
+        return [attachment.peerId, new Set(attachment.poorLinks ?? [])] as const;
+      }),
+    );
+  }
+
+  /** A departed id must not occupy every surviving attachment forever. */
+  private async forgetPoorLinks(gone: ReadonlySet<string>): Promise<void> {
+    const attachmentUpdates = this.live().flatMap((ws) => {
+      const attachment = this.attachment(ws);
+      const poorLinks = (attachment.poorLinks ?? []).filter((id) => !gone.has(id));
+      return poorLinks.length === (attachment.poorLinks ?? []).length
+        ? []
+        : [{ ws, attachment, poorLinks }];
+    });
+    const seats = await this.seats();
+    let changed = false;
+    for (const seat of Object.values(seats)) {
+      const poorLinks = (seat.poorLinks ?? []).filter((id) => !gone.has(id));
+      if (poorLinks.length !== (seat.poorLinks ?? []).length) {
+        seat.poorLinks = poorLinks;
+        changed = true;
+      }
+    }
+    if (changed) {
+      await this.putSeats(seats);
+    }
+    for (const { ws, attachment, poorLinks } of attachmentUpdates) {
+      ws.serializeAttachment({ ...attachment, poorLinks } satisfies PeerAttachment);
+    }
   }
 
   private peerInfo(ws: WebSocket): PeerInfo {
