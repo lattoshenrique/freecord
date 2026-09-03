@@ -283,7 +283,7 @@ test.describe('peer-to-peer file transfer', () => {
       .toBe(320);
   });
 
-  test('a paste too long for one message goes out as a .txt', async ({ browser }) => {
+  test('a pasted snippet becomes a code block, and a wall of text a file', async ({ browser }) => {
     const { slug } = await createRoom('files-paste-text');
     handles = await joinMany(browser, slug, 2);
     const [alice, bob] = handles;
@@ -292,18 +292,34 @@ test.describe('peer-to-peer file transfer', () => {
     await bob.page.locator('button[data-key="C"]').click();
 
     const area = alice.page.locator('.chat-panel textarea');
+    // A synthetic paste event carries the clipboard but does not itself
+    // insert anything — no keyboard shortcut can reach the real clipboard
+    // headless. So what is asserted for a paste the composer does NOT take
+    // over is that it left the event alone: `preventDefault` is the whole
+    // difference between "the browser pastes this" and "we do".
     const paste = (text: string) =>
       area.evaluate((node, value) => {
         const dt = new DataTransfer();
         dt.setData('text/plain', value);
-        node.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
+        const event = new ClipboardEvent('paste', {
+          clipboardData: dt,
+          bubbles: true,
+          cancelable: true,
+        });
+        node.dispatchEvent(event);
+        return event.defaultPrevented;
       }, text);
 
-    // Well under the budget: still a message, typed into the field as ever.
+    // Prose the field can hold is none of the composer's business: the
+    // browser pastes it, and the browser's own undo still works.
     await area.focus();
-    await paste('y'.repeat(1_200));
-    await expect(area).toHaveValue('y'.repeat(1_200));
-    await area.fill('');
+    expect(
+      await paste(
+        'Vamos fechar a release hoje se o gate passar, e se nao passar eu aviso no chat ' +
+          'para ninguem ficar esperando a tag aparecer sozinha.',
+      ),
+    ).toBe(false);
+    await expect(area).toHaveValue('');
 
     // Code is read for what it is: fenced in the field with its language
     // named, and sent as the coloured block the viewer draws — never cut,
@@ -314,8 +330,8 @@ test.describe('peer-to-peer file transfer', () => {
       '    for peer in stale:\n' +
       '        peers.remove(peer)\n' +
       '    return len(stale)';
-    await paste(snippet);
-    await expect(area).toHaveValue(new RegExp('^```python\\n' + 'def sweep'));
+    expect(await paste(snippet)).toBe(true);
+    await expect(area).toHaveValue(new RegExp('^```python\\ndef sweep'));
     await area.press('Enter');
 
     const block = alice.page.locator('.chat-code[data-language="python"]').last();
@@ -327,8 +343,9 @@ test.describe('peer-to-peer file transfer', () => {
       'peers.remove(peer)',
     );
 
-    // Past it: the field stays empty and the paste leaves as a file, whole.
-    await paste('x'.repeat(5_000));
+    // Past what a message may carry, and not code: the field stays empty and
+    // the paste leaves as a file, whole.
+    expect(await paste('x'.repeat(9_000))).toBe(true);
     const sent = alice.page.locator('.chat-file');
     await expect(sent).toContainText(/pasted-\d{8}-\d{6}\.txt/);
     await expect(area).toHaveValue('');
