@@ -63,19 +63,17 @@ the driver warns if the limit looks too low).
 
 ## How the server is booted
 
-`boot/serve.mjs` composes the REAL compiled server modules from
-`@freecord/server/dist` — the same `RoomRegistry`, `registerRoutes`,
-`TurnCredentialProvider` and the same 10 s zombie/expiry sweeps as
-`server/src/index.ts` — listening on an ephemeral port, serving `web/dist`
-statically with the SPA fallback (the `@fastify/static` single-process
-production shape).
+`boot/serve.mjs` calls the REAL compiled `buildServer` from
+`@freecord/server/dist` — the same `RoomRegistry`, routes, credential provider,
+native static host and 10 s zombie/company/expiry sweeps as `server/src/index.ts`
+— listening on an ephemeral port and serving `web/dist` with the SPA fallback.
 
 One deliberate deviation: production's global anti-abuse rate limit
 (60 req/min/IP) also counts WS upgrades and static assets, so any test run
 from one loopback IP would trip it while proving nothing about signaling.
 The boot keeps the same plugin with `RATE_LIMIT_MAX` env-tunable; tests run
-it effectively off. The limit itself is exercised implicitly in production
-config only.
+it effectively off. The production default remains covered by the server
+configuration.
 
 Load budgets: p95 is printed against `BUDGET_P95_MS` (default 50 ms — a
 deliberately generous local-loopback bound for a single-process edge; a

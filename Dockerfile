@@ -1,16 +1,18 @@
-# Servidor de salas + sinalização para Cloud Run (região São Paulo).
+# Rooms and signaling server for a same-origin reverse-proxy deployment.
 #
-# Só o workspace `server` entra na imagem: o web é servido pela Cloudflare,
-# na borda de GRU. Ver docs/architecture.md.
+# Serve the frontend on the same public origin and route /api and /ws here.
+# See docs/architecture.md.
 
 FROM node:20-alpine AS build
 WORKDIR /app
-# Os package.json de todos os workspaces são necessários para o `npm ci`
-# validar o lockfile, mesmo instalando só as dependências do server.
+# Every workspace manifest is needed for npm to validate the lockfile, even
+# though only server dependencies are installed in the image.
 COPY package.json package-lock.json ./
 COPY server/package.json server/
 COPY web/package.json web/
 COPY worker/package.json worker/
+COPY relay/package.json relay/
+COPY e2e/package.json e2e/
 RUN npm ci --workspace server --include-workspace-root
 COPY server ./server
 RUN npm run build --workspace server
@@ -22,8 +24,10 @@ COPY package.json package-lock.json ./
 COPY server/package.json server/
 COPY web/package.json web/
 COPY worker/package.json worker/
+COPY relay/package.json relay/
+COPY e2e/package.json e2e/
 RUN npm ci --workspace server --include-workspace-root --omit=dev && npm cache clean --force
 COPY --from=build /app/server/dist ./server/dist
-# Cloud Run injeta PORT; o config já lê da env.
+# The hosting platform injects PORT; the server reads it from the environment.
 USER node
 CMD ["node", "server/dist/index.js"]

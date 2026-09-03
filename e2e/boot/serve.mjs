@@ -1,10 +1,9 @@
 /**
  * Test boot for the rooms + signaling edge.
  *
- * Mirrors server/src/index.ts + server/src/http/server.ts using the REAL
- * compiled server modules (@freecord/server dist): same registry, same
- * routes, same sweeps, same plugin set and options — with ONE deliberate
- * deviation: the anti-abuse rate limit max is env-tunable. Production
+ * Boots the REAL compiled Node edge (@freecord/server dist): same server,
+ * registry, routes, sweeps and static host — with ONE deliberate deviation:
+ * the anti-abuse rate limit max is env-tunable. Production
  * pins 60 req/min/IP globally, which also gates WS upgrades and static
  * assets; a test/load run from one loopback IP would trip it immediately
  * while telling us nothing about the signaling under test.
@@ -17,46 +16,23 @@
  *
  * Prints one line when ready:  E2E_SERVER_LISTENING {"port":12345}
  */
-import cors from '@fastify/cors';
-import rateLimit from '@fastify/rate-limit';
-import fastifyStatic from '@fastify/static';
-import websocket from '@fastify/websocket';
-import Fastify from 'fastify';
 import { RoomRegistry } from '@freecord/server/dist/app/room-registry.js';
 import { sweepStalePeers } from '@freecord/server/dist/app/signaling.js';
-import { TurnCredentialProvider } from '@freecord/server/dist/app/turn.js';
-import { registerRoutes } from '@freecord/server/dist/http/routes.js';
+import { buildServer } from '@freecord/server/dist/http/server.js';
 
 async function main() {
   const registry = new RoomRegistry();
-  const app = Fastify({ logger: process.env.LOG === '1' });
-
-  await app.register(cors, { origin: true });
-  await app.register(rateLimit, {
-    max: Number(process.env.RATE_LIMIT_MAX ?? 60),
-    timeWindow: '1 minute',
+  const app = await buildServer({
+    registry,
+    webDist: process.env.WEB_DIST,
+    rateLimitMax: Number(process.env.RATE_LIMIT_MAX ?? 60),
+    logger: process.env.LOG === '1',
   });
-  await app.register(websocket, { options: { maxPayload: 64 * 1024 } });
 
-  registerRoutes(app, registry, new TurnCredentialProvider(null));
-
-  const webDist = process.env.WEB_DIST;
-  if (webDist) {
-    await app.register(fastifyStatic, { root: webDist, wildcard: false });
-    app.setNotFoundHandler((request, reply) => {
-      if (
-        (request.method === 'GET' || request.method === 'HEAD') &&
-        !request.url.startsWith('/api/')
-      ) {
-        return reply.sendFile('index.html');
-      }
-      return reply.code(404).send({ error: 'not_found' });
-    });
-  }
-
-  // Same two sweeps as production, on the same clock.
+  // Same three sweeps as production, on the same clock.
   const sweeper = setInterval(() => {
     sweepStalePeers(registry);
+    registry.tallyCompany();
     registry.sweepExpired();
   }, 10 * 1000);
   sweeper.unref();

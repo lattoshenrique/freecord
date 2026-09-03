@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { RoomRegistry } from '../src/app/room-registry.js';
 import { buildServer } from '../src/http/server.js';
 
@@ -96,5 +99,70 @@ describe('HTTP routes', () => {
       payload: { displayName: 'x' },
     });
     expect(missing.statusCode).toBe(404);
+  });
+});
+
+describe('single-process web host', () => {
+  let app: FastifyInstance;
+  let temporaryDirectory: string;
+  let webRoot: string;
+
+  beforeEach(async () => {
+    temporaryDirectory = await mkdtemp(join(tmpdir(), 'freecord-web-'));
+    webRoot = join(temporaryDirectory, 'public');
+    await mkdir(join(webRoot, 'assets'), { recursive: true });
+    await writeFile(
+      join(webRoot, 'index.html'),
+      '<!doctype html><meta property="og:image" content="https://freecord.test/og.png"><main>Freecord SPA</main>',
+    );
+    await writeFile(join(webRoot, 'assets', 'app.js'), 'console.log("freecord");');
+    await writeFile(join(temporaryDirectory, 'secret.txt'), 'must not be public');
+    app = await buildServer({ registry: new RoomRegistry(), webDist: webRoot, logger: false });
+  });
+
+  afterEach(async () => {
+    await app.close();
+    await rm(temporaryDirectory, { recursive: true, force: true });
+  });
+
+  it('serves a real asset with its content type and nosniff', async () => {
+    const response = await app.inject({ method: 'GET', url: '/assets/app.js' });
+    expect(response.statusCode).toBe(200);
+    expect(response.headers['content-type']).toBe('text/javascript; charset=utf-8');
+    expect(response.headers['x-content-type-options']).toBe('nosniff');
+    expect(response.body).toBe('console.log("freecord");');
+  });
+
+  it('serves index.html at the root and for an SPA route', async () => {
+    const root = await app.inject({ method: 'GET', url: '/' });
+    const route = await app.inject({ method: 'GET', url: '/community' });
+    expect(root.statusCode).toBe(200);
+    expect(route.statusCode).toBe(200);
+    expect(root.headers['content-type']).toBe('text/html; charset=utf-8');
+    expect(route.body).toContain('Freecord SPA');
+  });
+
+  it('rewrites room previews and keeps them out of search indexes', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/r/test-room',
+      headers: { host: 'rooms.freecord.test:3001' },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.headers['x-robots-tag']).toBe('noindex, nofollow');
+    expect(response.body).toContain('http://rooms.freecord.test:3001/og-room.png');
+  });
+
+  it('keeps unknown API paths as JSON 404s', async () => {
+    const response = await app.inject({ method: 'GET', url: '/api/unknown' });
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toEqual({ error: 'not_found' });
+  });
+
+  it('does not serve a file outside the configured web root', async () => {
+    const response = await app.inject({ method: 'GET', url: '/%2e%2e/secret.txt' });
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toContain('Freecord SPA');
+    expect(response.body).not.toContain('must not be public');
   });
 });

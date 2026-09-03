@@ -1,5 +1,4 @@
 import type { FastifyInstance } from 'fastify';
-import type { WebSocket } from 'ws';
 import { z } from 'zod';
 import type { RoomRegistry } from '../app/room-registry.js';
 import { DESKTOP_CATALOG_TTL_MS, fetchDesktopCatalog } from '../app/desktop-catalog.js';
@@ -173,7 +172,7 @@ export function registerRoutes(
     }
   });
 
-  app.get('/ws/rooms/:slug', { websocket: true }, async (socket: WebSocket, request) => {
+  app.get('/ws/rooms/:slug', { websocket: true }, async (socket, request) => {
     const params = slugParam.safeParse(request.params);
     const query = joinQuery.safeParse(request.query);
     if (!params.success || !query.success) {

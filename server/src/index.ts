@@ -17,7 +17,6 @@ async function main(): Promise<void> {
   );
   const app = await buildServer({
     registry,
-    corsOrigin: config.CORS_ORIGIN,
     webDist: config.WEB_DIST,
     turn,
   });

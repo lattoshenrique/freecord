@@ -78,22 +78,23 @@ src/
   else on this list is that the server does not know what any of it means
   — it keeps ONE OPAQUE JSON VALUE per tool id, capped at 4 KiB, and a new
   tool costs zero lines at either edge (`server/src/domain/tools.ts`,
-  `docs/tools.md`). Two rules carry the weight: the last word wins, so
-  nobody is the host; and a state is stored with the server's own clock
-  reading and goes out with its AGE, so a tool that keeps time — where a
-  video is, how much of a timer is left — never compares one browser's
-  clock to another's. Because the value is opaque, validating it is the
-  tool's job in every client (`parseState`), not the server's.
+  `docs/tools.md`). Two rules carry the weight: the last word wins by default,
+  while a built-in tool may declare a narrow server policy (Watch Together
+  keeps its first setter as controller); and a state is stored with the
+  server's own clock reading and goes out with its AGE, so a tool that keeps
+  time — where a video is, how much of a timer is left — never compares one
+  browser's clock to another's. Because the value is opaque, validating it is
+  the tool's job in every client (`parseState`), not the server's.
 - The one tool so far is watching something together
   (`web/src/tools/watch/`) — a YouTube video or playlist, a stream, a
   file, a Twitch channel, or somebody else's page when nothing better is
   reachable. It was two tools until the split stopped making sense to
   anybody holding a link. No media touches us in any of those: each
   browser embeds the player and only the agreement travels. Its `sync.ts`
-  holds the rule that keeps a shared player honest — a person moving the
-  player tells the room, a player falling behind fixes itself — told apart
-  by what the player admits about itself, and where it admits nothing (an
-  iframe reporting only a number) by comparing each reading against the
+  holds the rule that keeps a shared player honest — the controller moving
+  the player tells the room, a viewer falling behind fixes itself — told
+  apart by what the player admits about itself, and where it admits nothing
+  (an iframe reporting only a number) by comparing each reading against the
   wall time that passed.
 
 ### What a tool is allowed to weigh
@@ -587,10 +588,10 @@ two edges:
 
 | | `server/` (Node) | `worker/` (Cloudflare) |
 | --- | --- | --- |
-| Transport | Fastify + `ws` | `fetch` + WebSocket Hibernation |
+| Transport | Fastify + `@fastify/websocket` | `fetch` + WebSocket Hibernation |
 | Room state | `RoomRegistry`, one `Map` per process | one Durable Object per slug |
 | Expiry | `setInterval` sweeping zombies and empty rooms | DO alarm (sweeps while occupied, schedules the end once empty) |
-| Static files | `@fastify/static` | `ASSETS` binding (SPA fallback in the Worker) |
+| Static files | Node filesystem APIs + one Fastify route | `ASSETS` binding (SPA fallback in the Worker) |
 | Rate limit | `@fastify/rate-limit` | `ratelimit` binding (60/min per IP) |
 
 What does **not** change between the two: the closed protocol, the
@@ -604,6 +605,12 @@ own Worker) covers the case only this edge has: a raw socket that joins and
 then answers nothing at all — not a ping, not a close frame — which is what a
 vanished connection looks like from the room. One goodbye per departure, and
 nothing left in the roster the next arrival is handed.
+
+The Node edge keeps its page, API and WebSocket on one origin. Local Vite uses
+same-origin `/api` and `/ws` paths through its development proxy; a self-hosted
+deployment either serves `WEB_DIST` in the same process or preserves those
+paths in its reverse proxy. That removes cross-origin middleware from the
+runtime without adding a deployment service.
 
 One Worker-only rule, learned the hard way: the Durable Object runs every
 sweep on a single alarm, and a join or a resume must only ever move that
