@@ -1,14 +1,18 @@
 ---
-name: code-review
-description: Review a Freecord change against the five pillars that this codebase actually breaks on — edge parity, self-healing rooms, untrusted input, localized copy, and honest evidence. Use when reviewing a diff, a branch, a pull request, or your own work before a commit window; do not use for production incident triage or as authorization to fix what you find.
+name: freecord-code-review
+description: Review a Freecord change against the five pillars this codebase actually breaks on — edge parity, self-healing rooms, peer content, localized copy, honest evidence — then fix what was confirmed and close with a standard report. Use when reviewing or cleaning up a diff, a branch, a pull request, or your own work before a commit window; do not use for production incident triage, and do not let it widen into refactoring beyond the findings.
 ---
 
-# Review a Freecord change
+# Review and fix a Freecord change
 
-Judge a diff by the failures this system really has. Freecord is a P2P mesh
-with two server edges over one core, no accounts, and a shared worktree — so a
-review that only reads for style misses everything that has actually cost this
-project a release.
+Judge a diff by the failures this system really has, repair the ones you can
+prove, and say plainly what happened to each. Freecord is a P2P mesh with two
+server edges over one core, no accounts, and a shared worktree — so a review
+that only reads for style misses everything that has actually cost this project
+a release.
+
+Review and fix are one job here, but not one motion: find everything, then
+repair. The order is the whole discipline.
 
 ## Required context
 
@@ -70,11 +74,13 @@ Every timing constant here exists because something once did not recover.
   open or an ICE path dead, the watchdog in `web/src/lib/mesh.ts` has to be
   able to see it.
 
-### 3. Untrusted until parsed
+### 3. Peer content: checked on the way in, kept nowhere
 
-The room link is the credential and there are no accounts, so **everyone in a
-room is an untrusted input source**, including the peer that sent you a tool
-state, a chat message, or a file.
+One boundary, two directions. The room link is the credential and there are no
+accounts, so **everyone in a room is an untrusted input source** — and
+everything they send is content this product promises never to keep.
+
+Checked on the way in:
 
 - `parseState` is a security boundary, not a formality — the server carries one
   opaque JSON value per tool id and *cannot* validate what it does not
@@ -88,13 +94,33 @@ state, a chat message, or a file.
 - Does anything leak room internals — the mesh, media tracks, the chat key — to
   a tool that should only see its own value?
 
+Kept nowhere. Chat is ephemeral and sealed, files go peer to peer and never
+through a server, and the storage of zero content is a product promise, not an
+implementation detail (`.ai/rules.md`). **No automation checks this.** A green
+suite and all four other pillars pass over a retention leak without noticing:
+
+- Does the diff log, persist, or forward message text, a file name, a
+  participant name, or a tool's state? A `console.log` left in from debugging
+  ships to every user's console and is the most common form of this.
+- Does anything new land in Durable Object storage, `localStorage`, or an
+  error report that carries room content rather than room *shape*? Counts,
+  durations and ids are shape; what somebody typed is content.
+- Does an error path widen what a thrown object carries — a message body
+  attached to an exception, then logged upstream?
+- If the change adds telemetry or a HUD reading, does it measure the room
+  without quoting it?
+
 ### 4. Nothing a human reads is hardcoded
 
 Shipping locales are `en-US` (source of truth), `pt-BR`, `es`, `zh-CN`, `ja`.
 
-- Every user-visible string goes through i18n, in **all five** catalogs. A key
-  present in one is a string that ships blank elsewhere; a key removed from one
-  fails `web/test/i18n.test.ts`, which the browser suite will not catch.
+Read for what the test cannot see. `web/test/i18n.test.ts` already asserts key
+parity across all five catalogs, so a missing key is CI's job, not yours. What
+CI is blind to is the string that **never became a key**:
+
+- Is every new user-visible string routed through i18n at all? A literal left
+  in JSX creates no key, so parity stays green and the copy ships in English to
+  everyone. This is the finding automation structurally cannot make.
 - Some keys pick a **random variant per page load** (`web/src/i18n/messages.ts`).
   Never write a test — or a selector — that matches their text. Anchor on role,
   test id, or a stable accessible name.
@@ -139,6 +165,13 @@ findings is worse than no review, because it is confidently wrong.
 
 ## Working method
 
+This skill reviews **and fixes**. The two halves are sequential, never
+interleaved: find everything first, then repair. A reviewer who starts editing
+at the first finding stops reading, and the finding that mattered was in the
+file they never got to.
+
+### Phase 1 — review
+
 1. Get the diff and the branch point. Never review from a dirty shared tree
    without separating your own uncommitted work from the change under review.
 2. Read the changed functions in full, plus the callers the diff implies.
@@ -147,39 +180,101 @@ findings is worse than no review, because it is confidently wrong.
    state, or sequence that produces the wrong result. A finding you cannot make
    fail is a hypothesis — label it as one or drop it.
 5. Verify what you can cheaply verify. Run the focused test, grep for the other
-   edge, check the key exists in all five catalogs. Reviews that assert without
-   checking are how a wrong claim reaches a commit window.
-6. Report, ranked by severity, and say plainly what you did not examine.
+   edge, open every sweep hit. Reviews that assert without checking are how a
+   wrong claim reaches a commit window.
+6. Rank by consequence. Only now start fixing.
+
+### Phase 2 — fix
+
+Repair what you confirmed, in the change under review, and prove it.
+
+7. **Fix only confirmed findings.** A hypothesis does not earn an edit. If
+   step 4 could not produce the failing case, it goes in the report as a
+   question, not into the code.
+8. **Stay inside the diff's own files.** A real defect in a file this change
+   does not touch is reported, never fixed — in this tree it is likely another
+   session's work in progress, and `.ai/rules.md` forbids touching it. Same for
+   any file a peer has announced.
+9. **One finding, one edit.** If the repair grows into a redesign, a signature
+   change, or a rename that ripples, stop and report it as needing a decision.
+   Scope creep inside a review is unreviewable by definition.
+10. **Re-run the evidence after fixing.** Pillar 5 applies to your own repair:
+    typecheck, the tests the fix touches, and the browser project against a
+    fresh build if the fix reached the UI. A fix is an unreviewed change until
+    it has been run.
+11. **Leave the tree honest.** Fixes stay uncommitted unless the user asked for
+    a commit; if they did, the commit window in `.ai/rules.md` applies in full —
+    explicit paths, `git show --stat` verified, nothing of a peer's swept in.
+12. Report every finding with what actually happened to it.
 
 ## Report
 
-Lead with the verdict, then findings, most severe first:
+**Every run of this skill ends with the template below in chat** — findings or
+none, fixes applied or not, review abandoned halfway. Same shape every time, so
+two reviews can be compared at a glance and nobody has to reread the
+conversation to learn what changed on disk.
 
-```markdown
-**Review of <target>** — <N> findings (<N> blocking)
+Three rules give it its value:
 
-**Blocking**
-- `path/to/file.ts:120` · pillar 2 — <one-line defect>.
-  Fails when: <concrete input/state → wrong result>.
+1. **Every finding carries its outcome.** `fixed`, `reported` (out of the
+   diff's files, or needs a decision), or `unproved` (could not make it fail).
+   A finding list without outcomes leaves the reader to diff the tree to find
+   out what you did.
+2. **The pillar walk is reported even when empty.** "Pillars 1, 3 clean" is
+   information; silence reads as "not checked" and is indistinguishable from it.
+3. **Never claim a check you did not run.** If the browser project did not run
+   against the fix, say so — `não rodado` is a fact, a green tick you did not
+   earn is a lie with a checkmark on it.
 
-**Worth fixing**
-- `path/to/other.ts:44` · pillar 4 — <one-line defect>.
+### Template
 
-**Considered and clean** — <pillars walked with nothing found>
-**Not examined** — <what you did not look at, and why>
-```
+````markdown
+**Review de <alvo>** — <N> achados · <N> corrigidos · <N> reportados
+
+**Corrigidos** (verificados e reparados neste tree)
+- `path/file.ts:120` · pilar 2 — <defeito em uma linha>.
+  Falha quando: <entrada/estado → resultado errado>.
+  Correção: <o que mudou, em uma linha>.
+
+**Reportados, não corrigidos** (fora dos arquivos do diff, ou exige decisão)
+- `path/other.ts:44` · pilar 3 — <defeito>. Motivo de não corrigir: <qual>.
+
+**Não comprovados** (hipótese, sem caso de falha construído)
+- `path/third.ts:12` · pilar 1 — <suspeita>. O que confirmaria: <qual teste>.
+
+| pilar | resultado |
+|---|---|
+| 1 · both edges | <limpo / N achados / fora de escopo neste diff> |
+| 2 · self-healing | <…> |
+| 3 · peer content | <…> |
+| 4 · copy | <…> |
+| 5 · evidence | <…> |
+
+**Evidência depois das correções**
+- typecheck: <resultado> · testes tocados: <N passed> · browser em build fresco: <resultado ou "não rodado: <motivo>">
+
+**Estado do tree** — <arquivos alterados, não commitados / commitado em <sha>>
+**Não examinado** — <o que ficou de fora, e por quê>
+````
 
 Rank by consequence, not by how easy the fix is. A missing Worker edge outranks
 every naming preference in the diff. If the change is clean, say so in one line
 and stop — manufacturing nits to look thorough trains people to ignore reviews.
 
+When the review is abandoned partway, keep the template and say in the first
+line where it stopped and why, which pillars were reached, and whether any fix
+was already applied to the tree. A half-review that leaves edited files behind
+without saying so is worse than no review.
+
 ## Boundaries
 
-- **A review is read-only.** Reporting a finding does not authorize fixing it.
-  Fix only what the user also asked you to fix, and never in the same breath as
-  a review the user has not read yet.
+- **Fixing is authorized; widening is not.** The mandate is the findings you
+  confirmed inside the files the change under review already touches. It is not
+  a licence to refactor, rename, restyle, or improve code you happened to read
+  on the way.
 - Never "fix" a red typecheck in a file the diff does not own — in this shared
-  tree it is probably another session's work in progress.
+  tree it is probably another session's work in progress, and repairing it can
+  erase work that was mid-edit.
 - Do not weaken an assertion, add a retry, or extend a timeout to make a
   reviewed change pass. Diagnose the boundary instead.
 - Judge the change in front of you. A pre-existing problem the diff merely sits
