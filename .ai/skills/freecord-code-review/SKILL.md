@@ -137,6 +137,13 @@ A passing suite is a claim about a build. Verify which one.
 - A UI change is not green until the browser project ran against a **fresh**
   build: `E2E_BUILD_WEB=1 npm run test:browser --workspace e2e`. A stale
   `web/dist` makes a passing suite lie about what it tested.
+- In this shared tree the lie is worse than "yesterday's bundle". Whoever last
+  ran a build compiled **whatever was in the worktree at that moment**,
+  including other sessions' uncommitted work — so the bundle can contain code
+  that is in no commit, on no branch, and in nobody's review. Observed: a
+  `web/dist` carrying a peer's `jbuf` HUD strings hours before that work was
+  committed and while it was still absent from `origin/main`. Rebuild, or you
+  are grading someone else's unreviewed code and calling it your change.
 - A change to the DO alarm, the screen slots, or resume also needs
   `npm run check:worker --workspace e2e` against `wrangler dev`.
 - Does the evidence offered actually exercise the changed boundary, or a
