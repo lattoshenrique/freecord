@@ -10,6 +10,8 @@
  *   ROOMS=50 PEERS=12 JOIN_CONCURRENCY=50 PING_SECONDS=60
  *   PING_INTERVAL_MS=2000 CHAT_BURSTS=3 CAMERA_CYCLES=3 SCREEN_CYCLES=5
  *   BUDGET_P95_MS=50   local-loopback p95 budget for join + ping RTT
+ *   CHAT_PAYLOAD_CHARS=0   0 keeps the tiny probe; set it (e.g. 20000, the
+ *     envelope ceiling) to relay what a sealed room actually sends
  *   TARGET=http://host:port   drive an already-running edge instead of booting one
  */
 import { spawnSync } from 'node:child_process';
@@ -49,6 +51,38 @@ const rttSeries = new Series('ping RTT');
 const chatSeries = new Series('chat fanout delivery');
 const cameraSeries = new Series('camera request -> decision');
 const screenSeries = new Series('screen request -> route');
+
+/**
+ * Chat payload size, in characters. The default keeps the historical ~30-byte
+ * probe, which measures the fanout path and nothing about payload size.
+ *
+ * Set CHAT_PAYLOAD_CHARS to relay realistic traffic instead: a sealed room
+ * sends envelopes, and `normalizeChatText` passes an envelope through WHOLE
+ * (it cannot clamp inside ciphertext), so the edge really does carry up to
+ * `chatEnvelopeMaxLength` per message to every other peer. Anything below
+ * that ceiling is not testing what production relays — at 20000 the
+ * delivery p95 is ~3x the probe's, which the probe alone would never show.
+ */
+const CHAT_PAYLOAD_CHARS = Number(process.env.CHAT_PAYLOAD_CHARS || 0);
+
+/** A probe shaped like a sealed envelope, so the server relays it unclamped. */
+function chatProbe(roomIndex, label, sentAt) {
+  const plain = `lc:${roomIndex}:${label}:${sentAt}`;
+  if (CHAT_PAYLOAD_CHARS <= 0) {
+    return plain;
+  }
+  // CHAT_ENVELOPE in server/src/domain/room.ts: e2e:<16 chars>.<base64url>
+  const head = `e2e:${'A'.repeat(16)}.${sentAt}_`;
+  return head + 'x'.repeat(Math.max(1, CHAT_PAYLOAD_CHARS - head.length));
+}
+
+/** Reads back the send time from either probe shape. */
+function probeSentAt(text) {
+  if (text.startsWith('lc:')) {
+    return Number(text.split(':')[3]);
+  }
+  return Number(text.split('.')[1]?.split('_')[0]);
+}
 
 let chatExpected = 0;
 let chatReceived = 0;
@@ -127,8 +161,12 @@ async function run() {
     client.onMessage = (message) => {
       if (message.t === 'pong') {
         rttSeries.record(Date.now() - message.ts);
-      } else if (message.t === 'chat' && typeof message.text === 'string' && message.text.startsWith('lc:')) {
-        const sentAt = Number(message.text.split(':')[3]);
+      } else if (
+        message.t === 'chat' &&
+        typeof message.text === 'string' &&
+        (message.text.startsWith('lc:') || message.text.startsWith('e2e:'))
+      ) {
+        const sentAt = probeSentAt(message.text);
         if (Number.isFinite(sentAt)) {
           chatSeries.record(Date.now() - sentAt);
           chatReceived += 1;
@@ -156,7 +194,7 @@ async function run() {
     for (const room of rooms) {
       chatExpected += room.length * room.length; // every member hears every sender
       for (const client of room) {
-        client.send({ t: 'chat', text: `lc:${client.roomIndex}:${client.label}:${Date.now()}` });
+        client.send({ t: 'chat', text: chatProbe(client.roomIndex, client.label, Date.now()) });
       }
     }
     // Let each burst drain before the next (fanout is R x P^2 messages).
