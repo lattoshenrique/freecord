@@ -144,6 +144,18 @@ A passing suite is a claim about a build. Verify which one.
   `web/dist` carrying a peer's `jbuf` HUD strings hours before that work was
   committed and while it was still absent from `origin/main`. Rebuild, or you
   are grading someone else's unreviewed code and calling it your change.
+- **Make one assertion that only your change can satisfy.** A green run proves
+  nothing about *which* bundle it ran against unless something in it exists
+  only in your diff — a new test id, a class, a string. Anchor one assertion
+  there and the pass becomes evidence of the bundle, not just of the feature.
+  This is the cheapest defence against the trap above, and it works even when
+  you forgot to rebuild.
+- `E2E_BUILD_WEB=1` runs the web build, which is `tsc --noEmit && vite build`.
+  So **anyone's** red typecheck in the shared tree aborts your rebuild, and the
+  tempting escape — dropping the flag — puts you straight back into testing a
+  bundle you did not make. Confirm the red is not in your own change, then
+  rebuild with `npx vite build` from `web/`, which skips the typecheck without
+  giving up the fresh bundle.
 - A change to the DO alarm, the screen slots, or resume also needs
   `npm run check:worker --workspace e2e` against `wrangler dev`.
 - Does the evidence offered actually exercise the changed boundary, or a
