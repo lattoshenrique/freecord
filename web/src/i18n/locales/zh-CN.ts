@@ -433,6 +433,8 @@ export const zhCN: Catalog = {
   'latency.peer': '与 {name} 的直连延迟',
   'latency.self': '你在网状网络中的延迟 — 各链路的中位数',
 
+  'hud.aria': '网络读数 — 悬停查看其余部分',
+
   // Community page — English source lives in en-US.ts, owned by its author.
   'community.back':
     '返回首页',

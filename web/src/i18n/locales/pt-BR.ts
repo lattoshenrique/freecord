@@ -451,6 +451,8 @@ export const ptBR: Catalog = {
   'latency.peer': 'Latência direta com {name}',
   'latency.self': 'Sua latência no mesh — o meio dos seus enlaces',
 
+  'hud.aria': 'Leituras da rede — passe o mouse para ver o resto',
+
   // Community page — English source lives in en-US.ts, owned by its author.
   'community.back':
     'Voltar ao início',

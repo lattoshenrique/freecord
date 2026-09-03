@@ -28,7 +28,7 @@ test.describe('room HUD', () => {
     await expect(loss).toContainText(/%$/);
   });
 
-  test('says how the links are doing, not just how fast they are', async ({ browser }) => {
+  test('says how the links are doing, once it is asked', async ({ browser }) => {
     const { slug } = await createRoom('hud-peers');
     handles = await joinMany(browser, slug, 2);
     const [alice] = handles;
@@ -37,6 +37,16 @@ test.describe('room HUD', () => {
     const links = alice.page.locator('.hud-metric', { hasText: 'links' });
     await expect(links).toHaveCount(1, { timeout: 20_000 });
     await expect(links).toContainText('1/1');
+
+    // At rest the strip is the short answer: the detail is folded to nothing.
+    // Measured through the box rather than boundingBox(), which reports null
+    // for a zero-width element and would read the same as a missing one.
+    const widthOf = () => links.evaluate((el) => el.getBoundingClientRect().width);
+    await expect.poll(widthOf).toBe(0);
+
+    // Hovering is the whole gesture — the readings unfold to their own width.
+    await alice.page.locator('.hud-bar').hover();
+    await expect.poll(widthOf).toBeGreaterThan(0);
 
     // Two browsers on one machine find each other on the same network.
     const path = alice.page.locator('.hud-metric', { hasText: 'path' });

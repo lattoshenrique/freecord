@@ -858,6 +858,12 @@ export default function RoomView({
   const [commandNote, setCommandNote] = useState<string | null>(null);
   const [unread, setUnread] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  /**
+   * The telemetry strip opened by a tap. Hover already opens it, and hover is
+   * the whole gesture on a mouse — this is the phone's way in, where there is
+   * no pointer to rest anywhere.
+   */
+  const [hudOpen, setHudOpen] = useState(false);
   /** The tool shelf over the dock; what it opens is the room's, not ours. */
   const [toolsOpen, setToolsOpen] = useState(false);
   /**
@@ -1756,7 +1762,13 @@ export default function RoomView({
   // its own audible sink.
   // HUD telemetry: language-neutral technical tokens, deliberately not
   // i18n'd. Metrics without a reading yet are simply absent.
-  const hudMetrics: { label: string; value: string }[] = [];
+  /**
+   * The strip carries two kinds of reading. The few that answer "is the call
+   * all right" stay on screen; the rest — the ones you go looking for once
+   * the answer is no — wait behind a hover, so a room at rest shows three
+   * numbers instead of nine.
+   */
+  const hudMetrics: { label: string; value: string; detail?: boolean }[] = [];
   const rtts = [...session.peerLatency.values()]
     .map((latency) => latency.rttMs)
     .filter((rtt): rtt is number => rtt !== null);
@@ -1787,18 +1799,18 @@ export default function RoomView({
     // per person, and a peer stuck connecting is the room's real problem long
     // before any of the numbers below start looking wrong.
     const up = links.filter((latency) => latency.state === 'connected').length;
-    hudMetrics.push({ label: 'links', value: `${up}/${links.length}` });
+    hudMetrics.push({ label: 'links', value: `${up}/${links.length}`, detail: true });
   }
   // The wobble in the voice arriving, and what the buffer is holding back to
   // hide it. RTT can sit still while these two go up, and that is the pair
   // that explains a call that sounds late without ever sounding slow.
   const selfJitter = middleOf(present(links.map((latency) => latency.jitterMs)));
   if (selfJitter !== null) {
-    hudMetrics.push({ label: 'jitter', value: `${selfJitter} ms` });
+    hudMetrics.push({ label: 'jitter', value: `${selfJitter} ms`, detail: true });
   }
   const selfBuffer = middleOf(present(links.map((latency) => latency.jitterBufferMs)));
   if (selfBuffer !== null) {
-    hudMetrics.push({ label: 'jbuf', value: `${selfBuffer} ms` });
+    hudMetrics.push({ label: 'jbuf', value: `${selfBuffer} ms`, detail: true });
   }
   // The dearest path any link is on: one relayed peer is the thing worth
   // knowing, so the worst rung wins rather than the commonest.
@@ -1806,11 +1818,11 @@ export default function RoomView({
     links.some((latency) => latency.path === path),
   );
   if (worstPath) {
-    hudMetrics.push({ label: 'path', value: worstPath });
+    hudMetrics.push({ label: 'path', value: worstPath, detail: true });
   }
   const codecs = [...new Set(present(links.map((latency) => latency.codec)))];
   if (codecs.length > 0) {
-    hudMetrics.push({ label: 'codec', value: codecs.join('/') });
+    hudMetrics.push({ label: 'codec', value: codecs.join('/'), detail: true });
   }
   const hudStats = session.screenStats;
   if (hudStats?.kbps != null) {
@@ -1820,10 +1832,10 @@ export default function RoomView({
     });
   }
   if (hudStats?.fps != null) {
-    hudMetrics.push({ label: 'fps', value: `${Math.round(hudStats.fps)}` });
+    hudMetrics.push({ label: 'fps', value: `${Math.round(hudStats.fps)}`, detail: true });
   }
   if (hudStats?.width != null && hudStats?.height != null) {
-    hudMetrics.push({ label: 'res', value: `${hudStats.width}×${hudStats.height}` });
+    hudMetrics.push({ label: 'res', value: `${hudStats.width}×${hudStats.height}`, detail: true });
   }
   // How much of the room the echo guard is taking back out of our own
   // capture. Absent until it is actually doing something — a capture we
@@ -1831,12 +1843,12 @@ export default function RoomView({
   // the second and a half before it has found us.
   const guard = session.screenAudioGuard;
   if (guard?.active && guard.erleDb >= 1) {
-    hudMetrics.push({ label: 'echo', value: `−${Math.round(guard.erleDb)} dB` });
+    hudMetrics.push({ label: 'echo', value: `−${Math.round(guard.erleDb)} dB`, detail: true });
   }
   // Relaying ourselves: the forwarding mode; fed through a relay: its name.
   const hudRelay = stageScreen ? (hudStats?.relayMode ?? relayName) : null;
   if (hudRelay) {
-    hudMetrics.push({ label: 'relay', value: hudRelay });
+    hudMetrics.push({ label: 'relay', value: hudRelay, detail: true });
   }
 
   // System audio arrives straight from each SHARER (mesh, like the mic), in
@@ -1940,11 +1952,25 @@ export default function RoomView({
           </span>
         </div>
         {hudMetrics.length > 0 && (
-          <div className="hud-bar">
+          /* Focus opens it too: the keyboard's hover. Every reading stays in
+             the DOM either way, so nothing is hidden from a screen reader. */
+          <div
+            className="hud-bar"
+            role="group"
+            tabIndex={0}
+            aria-label={t('hud.aria')}
+            data-open={hudOpen ? 'true' : undefined}
+            onClick={() => setHudOpen((open) => !open)}
+          >
             {hudMetrics.map((metric) => (
-              <span key={metric.label} className="hud-metric">
-                <b>{metric.label}</b>
-                <i>{metric.value}</i>
+              <span
+                key={metric.label}
+                className={metric.detail ? 'hud-metric hud-detail' : 'hud-metric'}
+              >
+                <span className="hud-reading">
+                  <b>{metric.label}</b>
+                  <i>{metric.value}</i>
+                </span>
               </span>
             ))}
           </div>

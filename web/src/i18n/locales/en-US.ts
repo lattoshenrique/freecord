@@ -475,6 +475,8 @@ export const enUS = {
   'latency.peer': 'Direct latency with {name}',
   'latency.self': 'Your latency in the mesh — the middle of your links',
 
+  'hud.aria': 'Network readings — hover for the rest',
+
   'community.back': 'Back to start',
   'community.nav.label': 'About Freecord',
   'community.eyebrow': 'Open source · MIT licensed',

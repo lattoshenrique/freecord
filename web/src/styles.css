@@ -1203,9 +1203,12 @@ select:focus-visible,
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
-  gap: 1rem;
+  /* No gap of its own: the space between readings belongs to each reading,
+     so a reading that folds away takes its own margin with it. */
+  gap: 0;
   padding: 0.4rem 0.7rem;
   overflow: hidden;
+  cursor: default;
   animation: rise-in 0.35s var(--ease) both;
   background: var(--hud-bg);
   backdrop-filter: blur(10px);
@@ -1220,9 +1223,63 @@ select:focus-visible,
 .hud-metric {
   display: inline-flex;
   align-items: baseline;
-  gap: 0.35rem;
   /* A reading broken across two lines reads as two readings. */
   white-space: nowrap;
+}
+
+.hud-reading {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+
+.hud-metric + .hud-metric .hud-reading {
+  padding-left: 1rem;
+}
+
+/*
+ * The readings you go looking for, folded away until the strip is asked for
+ * them. A grid column from 0fr to 1fr animates to the width the text turns
+ * out to want, which no max-width guess can do without either clipping a
+ * long codec name or sliding to a stop against a limit nothing reaches.
+ */
+.hud-detail {
+  display: grid;
+  grid-template-columns: 0fr;
+  transition: grid-template-columns 0.28s var(--ease);
+}
+
+/*
+ * The space before a folded reading folds with it. Padding on a grid item is
+ * still padding when its column is 0, so leaving the 1rem in place left every
+ * hidden reading holding a sliver of the strip open.
+ */
+.hud-bar .hud-detail .hud-reading {
+  overflow: hidden;
+  min-width: 0;
+  padding-left: 0;
+  opacity: 0;
+  transition:
+    opacity 0.2s var(--ease),
+    padding-left 0.28s var(--ease);
+}
+
+.hud-bar:hover .hud-detail,
+.hud-bar:focus-visible .hud-detail,
+.hud-bar[data-open] .hud-detail {
+  grid-template-columns: 1fr;
+}
+
+.hud-bar:hover .hud-detail .hud-reading,
+.hud-bar:focus-visible .hud-detail .hud-reading,
+.hud-bar[data-open] .hud-detail .hud-reading {
+  opacity: 1;
+  padding-left: 1rem;
+  /* The text is held back until the room has been made for it — text that
+     fades in while the strip is still growing reads as text sliding out of
+     the numbers — but the space opens with the column, not after it. */
+  transition-delay: 0.12s, 0s;
 }
 
 .hud-metric b {

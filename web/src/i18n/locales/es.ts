@@ -451,6 +451,8 @@ export const esES: Catalog = {
   'latency.peer': 'Latencia directa con {name}',
   'latency.self': 'Tu latencia en la malla — el medio de tus enlaces',
 
+  'hud.aria': 'Lecturas de la red — pasa el ratón para ver el resto',
+
   // Community page — English source lives in en-US.ts, owned by its author.
   'community.back':
     'Volver al inicio',
