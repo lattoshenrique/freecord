@@ -100,6 +100,13 @@ export const esES: Catalog = {
     'Copiado — ahora ve a por la gente.',
   ],
   'invite.manualCopy': 'Copia el enlace de la sala:',
+  'invite.panelTitle': 'Comparte esta sala',
+  'invite.panelLead': 'Escanea el código QR o envía el enlace de invitación de abajo.',
+  'invite.qrAlt': 'Código QR de esta sala',
+  'invite.linkLabel': 'Enlace de la sala',
+  'invite.copyLink': 'Copiar enlace',
+  'invite.linkCopied': 'Enlace copiado',
+  'invite.close': 'Cerrar panel para compartir',
 
   'prejoin.title': 'Entrar en {room}',
   'prejoin.yourName': 'Tu nombre',

@@ -94,6 +94,13 @@ export const jaJP: Catalog = {
     'コピー完了 — あとは人を呼ぶだけ。',
   ],
   'invite.manualCopy': 'ルームのリンクをコピーしてください:',
+  'invite.panelTitle': 'このルームを共有',
+  'invite.panelLead': 'QR コードを読み取るか、下の招待リンクを送信してください。',
+  'invite.qrAlt': 'このルームの QR コード',
+  'invite.linkLabel': 'ルームのリンク',
+  'invite.copyLink': 'リンクをコピー',
+  'invite.linkCopied': 'リンクをコピーしました',
+  'invite.close': '共有パネルを閉じる',
 
   'prejoin.title': '{room} に参加',
   'prejoin.yourName': 'あなたの名前',

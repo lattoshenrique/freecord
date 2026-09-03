@@ -1,0 +1,194 @@
+/* The share handoff is isolated here so its modal cannot drift with the room layout. */
+.invite-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: rgba(4, 6, 10, 0.62);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: fade-in 0.2s var(--ease) both;
+}
+
+.invite-backdrop[data-leaving='true'] {
+  animation: fade-out var(--dur-panel) var(--ease-in) both;
+}
+
+.invite-panel {
+  position: relative;
+  width: min(100%, 31rem);
+  max-height: calc(var(--app-h) - 3rem);
+  overflow: auto;
+  padding: 1.5rem;
+  border: 1px solid var(--glass-border);
+  border-radius: calc(var(--radius) + 2px);
+  background: var(--glass-bg-strong);
+  box-shadow: var(--shadow), var(--glass-highlight);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  animation: rise-in 0.25s var(--ease) both;
+}
+
+.invite-panel[data-leaving='true'] {
+  animation: fall-out var(--dur-panel) var(--ease-in) both;
+}
+
+.invite-panel:focus {
+  outline: none;
+}
+
+.invite-panel-dismiss {
+  position: absolute;
+  top: 0.85rem;
+  right: 0.85rem;
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.invite-panel-dismiss:hover {
+  border-color: var(--border);
+  background: var(--panel);
+  color: var(--text);
+}
+
+.invite-panel-header {
+  padding-right: 2.5rem;
+}
+
+.invite-panel-header h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1.2rem;
+  letter-spacing: var(--track-display);
+}
+
+.invite-panel-header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+.invite-qr-frame {
+  width: min(17rem, 72vw);
+  margin: 1.3rem auto;
+  padding: 0.65rem;
+  border: 3px solid transparent;
+  border-radius: 22px;
+  background:
+    linear-gradient(#fff, #fff) padding-box,
+    linear-gradient(135deg, #5865f2, #a855f7 54%, #38bdf8) border-box;
+  box-shadow:
+    0 12px 36px rgba(0, 0, 0, 0.36),
+    0 0 42px rgba(112, 74, 232, 0.2);
+}
+
+.invite-qr {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.invite-qr-logo {
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.3));
+}
+
+.invite-link-field {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.invite-link-field label {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+}
+
+.invite-link-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.55rem;
+}
+
+.invite-link-row input {
+  min-width: 0;
+  padding: 0.7rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 0.78rem;
+  outline: none;
+}
+
+.invite-link-row input:focus {
+  border-color: var(--accent);
+}
+
+.invite-copy-again {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-width: 8.4rem;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid rgba(88, 101, 242, 0.7);
+  border-radius: 10px;
+  background: rgba(88, 101, 242, 0.18);
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.invite-copy-again:hover {
+  background: rgba(88, 101, 242, 0.3);
+}
+
+.invite-copy-again.is-copied {
+  border-color: rgba(74, 222, 128, 0.72);
+  background: rgba(74, 222, 128, 0.14);
+  color: #72e69c;
+}
+
+.invite-copy-again svg,
+.invite-panel-dismiss svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+@media (max-width: 640px) {
+  .invite-backdrop {
+    align-items: end;
+    padding: 0;
+  }
+
+  .invite-panel {
+    width: 100%;
+    max-height: calc(var(--app-h) - 1rem);
+    padding: 1.35rem 1rem calc(1.35rem + var(--safe-bottom));
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    border-radius: calc(var(--radius) + 2px) calc(var(--radius) + 2px) 0 0;
+  }
+
+  .invite-link-row {
+    grid-template-columns: 1fr;
+  }
+
+  .invite-copy-again {
+    width: 100%;
+  }
+}

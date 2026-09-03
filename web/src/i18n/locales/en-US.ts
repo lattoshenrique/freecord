@@ -114,6 +114,13 @@ export const enUS = {
     'Copied — now go get people.',
   ],
   'invite.manualCopy': 'Copy the room link:',
+  'invite.panelTitle': 'Share this room',
+  'invite.panelLead': 'Scan the QR code or send the invitation link below.',
+  'invite.qrAlt': 'QR code for this room',
+  'invite.linkLabel': 'Room link',
+  'invite.copyLink': 'Copy link',
+  'invite.linkCopied': 'Link copied',
+  'invite.close': 'Close sharing panel',
 
   'prejoin.title': 'Join {room}',
   'prejoin.yourName': 'Your name',

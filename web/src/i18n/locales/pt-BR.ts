@@ -100,6 +100,13 @@ export const ptBR: Catalog = {
     'Copiado — agora vai buscar gente.',
   ],
   'invite.manualCopy': 'Copie o link da sala:',
+  'invite.panelTitle': 'Compartilhe esta sala',
+  'invite.panelLead': 'Escaneie o QR Code ou envie o link de convite abaixo.',
+  'invite.qrAlt': 'QR Code desta sala',
+  'invite.linkLabel': 'Link da sala',
+  'invite.copyLink': 'Copiar link',
+  'invite.linkCopied': 'Link copiado',
+  'invite.close': 'Fechar painel de compartilhamento',
 
   'prejoin.title': 'Entrar em {room}',
   'prejoin.yourName': 'Seu nome',

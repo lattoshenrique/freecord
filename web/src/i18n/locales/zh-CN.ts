@@ -94,6 +94,13 @@ export const zhCN: Catalog = {
     '已复制 —— 接下来去叫人。',
   ],
   'invite.manualCopy': '复制房间链接：',
+  'invite.panelTitle': '分享此房间',
+  'invite.panelLead': '扫描二维码或发送下方的邀请链接。',
+  'invite.qrAlt': '此房间的二维码',
+  'invite.linkLabel': '房间链接',
+  'invite.copyLink': '复制链接',
+  'invite.linkCopied': '链接已复制',
+  'invite.close': '关闭分享面板',
 
   'prejoin.title': '加入 {room}',
   'prejoin.yourName': '你的名字',
