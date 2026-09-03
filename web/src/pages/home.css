@@ -52,10 +52,20 @@
   animation: none;
 }
 
-/* Everything under the button: the hint line, and the download link. */
+/* The hint line under the field: it has something to say, so it waits. */
 .start-center > *:nth-child(3),
 .start-center > *:nth-child(4) {
   animation-delay: 1.65s;
+}
+
+/*
+ * The download offer is not one of those. It is an *option*, and an option
+ * that fades in a second and a half late is one the eye has already finished
+ * with the page to find — so it holds the third or fourth slot without
+ * inheriting the wait. On screen with the field, like the field.
+ */
+.start-center > .download-button {
+  animation: none;
 }
 
 /*
@@ -220,6 +230,54 @@
 
 .start-prompt[data-block-caret='true'] input {
   caret-color: transparent;
+}
+
+/* A pasted named invitation is understood immediately: the prompt resolves
+ * into a confirmation mark while the room name sweeps over the pasted URL. */
+.start-prompt[data-named-invite='true'] {
+  border-color: rgba(110, 231, 183, 0.72);
+  background: rgba(18, 22, 25, 0.96);
+  box-shadow:
+    0 0 0 5px rgba(52, 211, 153, 0.09),
+    0 0 28px rgba(52, 211, 153, 0.12);
+  animation: start-invite-confirm 0.68s var(--ease) both;
+}
+
+.start-prompt[data-named-invite='true'] .start-prompt-sign {
+  color: #6ee7b7;
+}
+
+.start-prompt[data-named-invite='true'] .start-prompt-sign svg {
+  width: 1.1rem;
+  height: 1.1rem;
+  filter: drop-shadow(0 0 8px rgba(52, 211, 153, 0.7));
+  animation: start-invite-check 0.52s var(--ease) both;
+}
+
+@keyframes start-invite-confirm {
+  0% {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 5px rgba(88, 101, 242, 0.12);
+  }
+  48% {
+    box-shadow:
+      0 0 0 8px rgba(52, 211, 153, 0.13),
+      0 0 38px rgba(52, 211, 153, 0.2);
+  }
+}
+
+@keyframes start-invite-check {
+  0% {
+    opacity: 0;
+    transform: scale(0.45) rotate(-18deg);
+  }
+  62% {
+    transform: scale(1.16) rotate(2deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0);
+  }
 }
 
 /*
