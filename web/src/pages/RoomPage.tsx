@@ -4,7 +4,7 @@ import { ApiError, getRoom, renameRoom, type RoomSummary } from '../api';
 import { roomKeyFromHash } from '../lib/chat-crypto';
 import { heroTransition } from '../lib/hero-transition';
 import { randomNickname } from '../lib/identity';
-import { inviteHashWithRoomName } from '../lib/invite';
+import { compactInviteHash } from '../lib/invite';
 import { useI18n } from '../i18n';
 import Avatar from '../components/Avatar';
 import AvatarParade from '../components/AvatarParade';
@@ -106,19 +106,18 @@ export default function RoomPage() {
   // Escape reverts: the blur that follows must not save the draft.
   const discardRef = useRef(false);
 
-  // Keep the address itself ready to share. The room name is only preview
-  // metadata; the server remains authoritative when the recipient opens it.
+  // Canonicalize old `#k=…&n=…` invitations to the shortest lossless form.
+  // `replaceState` keeps the current doorstep and its router state intact.
   useEffect(() => {
-    const room = phase.kind === 'prejoin' || phase.kind === 'joined' ? phase.room : null;
-    if (!room || !slug) {
+    if (!slug) {
       return;
     }
-    const hash = inviteHashWithRoomName(window.location.hash, room.displayName);
+    const hash = compactInviteHash(window.location.hash);
     const next = `${window.location.pathname}${window.location.search}${hash}`;
     if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== next) {
       window.history.replaceState(window.history.state, '', next);
     }
-  }, [phase, slug]);
+  }, [slug]);
 
   useEffect(() => {
     if (!slug || handed) {

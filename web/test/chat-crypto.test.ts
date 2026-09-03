@@ -59,6 +59,7 @@ describe('chat-crypto', () => {
 
   it('extracts the room key from a location hash', () => {
     const encoded = generateRoomKey()!;
+    expect(roomKeyFromHash(`#${encoded}`)).toBe(encoded);
     expect(roomKeyFromHash(`#k=${encoded}`)).toBe(encoded);
     expect(roomKeyFromHash(`k=${encoded}`)).toBe(encoded);
     expect(roomKeyFromHash('')).toBeNull();

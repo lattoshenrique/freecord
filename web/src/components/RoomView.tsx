@@ -30,7 +30,7 @@ import Highlight from './Highlight';
 import { MAX_FILE_BYTES, formatBytes } from '../lib/file-transfer';
 import { bodyBudget, excerptOf, type ChatQuote } from '../lib/chat-body';
 import { localeCodes, readLine, usageOf } from '../lib/chat-commands';
-import { inviteUrlWithRoomName } from '../lib/invite';
+import { compactInviteUrl } from '../lib/invite';
 import { matches, queryTerms } from '../lib/chat-search';
 import { dayKey, dayLabel } from '../lib/chat-time';
 import { buildTranscript, transcriptFilename, type TranscriptLine } from '../lib/chat-transcript';
@@ -1626,7 +1626,7 @@ export default function RoomView({
       }
       case 'invite': {
         // Nothing on screen changes, so this one says what it did.
-        const invitation = inviteUrlWithRoomName(window.location.href, room.displayName);
+        const invitation = compactInviteUrl(window.location.href);
         void copyText(invitation).then((copied) =>
           setCommandNote(
             copied
@@ -2267,7 +2267,7 @@ export default function RoomView({
           <div className="controls">
           {/* The link is the invite, so it sits with the other keys rather
               than as a chip in the corner: the first thing a host looks for. */}
-          <InviteButton roomName={room.displayName} />
+          <InviteButton />
           <span className="dock-sep" aria-hidden="true" />
           <button
             type="button"

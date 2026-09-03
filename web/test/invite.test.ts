@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  inviteHashWithRoomName,
-  inviteUrlWithRoomName,
+  compactInviteHash,
+  compactInviteUrl,
   looksLikeInvite,
   parseInvite,
 } from '../src/lib/invite';
@@ -65,10 +65,11 @@ describe('parseInvite', () => {
   });
 });
 
-describe('named invite fragments', () => {
-  it('encodes a room name beside the key and reads Unicode back', () => {
-    const hash = inviteHashWithRoomName('#k=abc123', '  Sala do João 🎙️  ');
-    expect(hash).toBe('#k=abc123&n=Sala+do+Jo%C3%A3o+%F0%9F%8E%99%EF%B8%8F');
+describe('compact invite fragments', () => {
+  const KEY = '4qZp8bKx1jYv6tNc3mHs9dWr5fLg2aEu7iOo0sTxVPA';
+
+  it('still reads the Unicode preview carried by older named links', () => {
+    const hash = `#k=${KEY}&n=Sala+do+Jo%C3%A3o+%F0%9F%8E%99%EF%B8%8F`;
     expect(parseInvite(`/r/${SLUG}${hash}`)).toEqual({
       slug: SLUG,
       hash,
@@ -76,15 +77,25 @@ describe('named invite fragments', () => {
     });
   });
 
-  it('keeps old links valid and removes stale metadata for an unnamed room', () => {
-    expect(inviteHashWithRoomName('#k=abc123&n=Old+name', '')).toBe('#k=abc123');
-    expect(parseInvite(`/r/${SLUG}#k=abc123`)?.roomName).toBeNull();
+  it('removes parameter and name overhead without changing the key', () => {
+    expect(compactInviteHash(`#k=${KEY}&n=Design+sync`)).toBe(`#${KEY}`);
+    expect(parseInvite(`/r/${SLUG}#${KEY}`)).toEqual({
+      slug: SLUG,
+      hash: `#${KEY}`,
+      roomName: null,
+    });
   });
 
-  it('builds the complete URL used by sharing controls', () => {
-    expect(
-      inviteUrlWithRoomName(`https://freecord.example/r/${SLUG}#k=abc123`, 'Design sync'),
-    ).toBe(`https://freecord.example/r/${SLUG}#k=abc123&n=Design+sync`);
+  it('builds the shorter complete URL used by sharing controls', () => {
+    expect(compactInviteUrl(`https://freecord.example/r/${SLUG}#k=${KEY}&n=Design+sync`)).toBe(
+      `https://freecord.example/r/${SLUG}#${KEY}`,
+    );
+  });
+
+  it('preserves unknown future parameters while removing obsolete name metadata', () => {
+    expect(compactInviteHash(`#k=${KEY}&n=Old+name&future=1`)).toBe(
+      `#k=${KEY}&future=1`,
+    );
   });
 });
 

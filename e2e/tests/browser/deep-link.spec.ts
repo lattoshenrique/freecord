@@ -34,7 +34,7 @@ test.describe('opening a room in the desktop app', () => {
 
       const offer = page.getByRole('link', { name: /open this room in the desktop app/i });
       await expect(offer).toBeVisible({ timeout: 15_000 });
-      await expect(offer).toHaveAttribute('href', `freecord://r/${slug}#n=deep+link`);
+      await expect(offer).toHaveAttribute('href', `freecord://r/${slug}`);
 
       // Nothing on this page is allowed to navigate away: the app either
       // comes forward or it does not, and the tab is what stays behind.

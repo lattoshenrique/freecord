@@ -2,7 +2,7 @@
  * End-to-end chat encryption.
  *
  * The room key is a random AES-GCM-256 key that travels in the invite
- * link's fragment (#k=…) — browsers never send the fragment over the
+ * link's fragment (#<key>) — browsers never send the fragment over the
  * network, so the server only ever relays sealed envelopes it cannot
  * read. Media needs none of this: WebRTC already encrypts peer-to-peer
  * (DTLS-SRTP).
@@ -68,9 +68,13 @@ export function generateRoomKey(): string | null {
   return toBase64Url(crypto.getRandomValues(new Uint8Array(KEY_BYTES)));
 }
 
-/** Extracts the room key from a location hash (`#k=…`), if one is there. */
+/** Extracts a compact (`#<key>`) or legacy (`#k=<key>`) room key. */
 export function roomKeyFromHash(hash: string): string | null {
-  const params = new URLSearchParams(hash.startsWith('#') ? hash.slice(1) : hash);
+  const raw = hash.startsWith('#') ? hash.slice(1) : hash;
+  if (ENVELOPE_KEY_SHAPE.test(raw)) {
+    return raw;
+  }
+  const params = new URLSearchParams(raw);
   const key = params.get('k');
   return key && ENVELOPE_KEY_SHAPE.test(key) ? key : null;
 }

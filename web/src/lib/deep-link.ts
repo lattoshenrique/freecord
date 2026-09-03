@@ -4,7 +4,7 @@
  * A room link is the whole product — it gets pasted into someone else's chat
  * and clicked there. Installing an app must not make that link worse, so
  * neither half of this file ever changes what a link *is*: the address stays
- * an ordinary `https://…/r/<slug>#k=…` that works in any browser, and all
+ * an ordinary `https://…/r/<slug>#<key>` that works in any browser, and all
  * that changes is who answers it.
  *
  * Two answers, and they arrive from opposite directions:
@@ -28,7 +28,7 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { deepLinks } from './desktop';
-import { parseInvite } from './invite';
+import { compactInviteHash, parseInvite } from './invite';
 
 /** The scheme the desktop shell registers. Mirrored in desktop/src/deep-link.ts. */
 export const APP_SCHEME = 'freecord';
@@ -38,12 +38,12 @@ export const APP_SCHEME = 'freecord';
  *
  * `parseInvite` is what decides this is a room link at all — the one place
  * that knows the shape, rather than a second regular expression that could
- * drift from it. The fragment rides along verbatim: it carries the chat key,
- * and a room opened without it is a room nobody can read.
+ * drift from it. The fragment carries the chat key in its compact canonical
+ * form, and a room opened without it is a room nobody can read.
  */
 export function appLink(pathname: string, hash: string): string | null {
   const invite = parseInvite(`${pathname}${hash}`);
-  return invite ? `${APP_SCHEME}://r/${invite.slug}${invite.hash}` : null;
+  return invite ? `${APP_SCHEME}://r/${invite.slug}${compactInviteHash(invite.hash)}` : null;
 }
 
 /**

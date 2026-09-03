@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { useI18n } from '../i18n';
 import { copyText } from '../lib/clipboard';
-import { inviteUrlWithRoomName } from '../lib/invite';
+import { compactInviteUrl } from '../lib/invite';
 import { MOTION, usePresence } from '../lib/motion';
 import { CheckIcon, LinkIcon } from './icons';
 import InvitePanel from './InvitePanel';
 
 /** Copies the room link and opens its visual handoff — the link is the invite. */
-export default function InviteButton({ roomName }: { roomName: string }) {
+export default function InviteButton() {
   const { t } = useI18n();
   const [copied, setCopied] = useState(false);
   const [open, setOpen] = useState(false);
@@ -43,7 +43,7 @@ export default function InviteButton({ roomName }: { roomName: string }) {
   function shareRoom(): void {
     // Read this at the click, not at mount: the fragment carries the sealed
     // chat key and can change when a deep link routes an already-open app.
-    const url = inviteUrlWithRoomName(window.location.href, roomName);
+    const url = compactInviteUrl(window.location.href);
     setInviteUrl(url);
     setOpen(true);
     void copyLink(url);

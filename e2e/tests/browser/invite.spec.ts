@@ -25,7 +25,7 @@ test.describe('room invitation', () => {
     await guest.page.evaluate((key) => {
       history.replaceState(null, '', `${location.pathname}#k=${key}`);
     }, roomKey);
-    const invitation = `${guest.page.url()}&n=share+invite`;
+    const invitation = `${guest.page.url().split('#')[0]}#${roomKey}`;
 
     const shareButton = guest.page.getByRole('button', { name: /^invite$/i });
     await shareButton.click();
@@ -47,7 +47,7 @@ test.describe('room invitation', () => {
     await expect(guest.page.locator('.control-invite')).toBeFocused();
   });
 
-  test('reveals the encoded room name when an invitation is pasted', async ({ browser }) => {
+  test('resolves and reveals the room name when a compact invitation is pasted', async ({ browser }) => {
     const roomName = 'Sala do João 🎙️';
     const { slug } = await createRoom(roomName);
     const context = await browser.newContext({ locale: 'en-US' });
@@ -55,11 +55,8 @@ test.describe('room invitation', () => {
     handles = [{ context, page, name: '' }];
     await page.goto(baseUrl());
 
-    const params = new URLSearchParams({
-      k: '4qZp8bKx1jYv6tNc3mHs9dWr5fLg2aEu7iOo0sTxVPA',
-      n: roomName,
-    });
-    const invitation = `${baseUrl()}/r/${slug}#${params}`;
+    const roomKey = '4qZp8bKx1jYv6tNc3mHs9dWr5fLg2aEu7iOo0sTxVPA';
+    const invitation = `${baseUrl()}/r/${slug}#${roomKey}`;
     const roomField = page.getByRole('textbox', { name: /room name/i });
     await roomField.fill(invitation);
 

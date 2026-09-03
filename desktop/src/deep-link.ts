@@ -1,7 +1,7 @@
 /**
  * Opening a room link in the app instead of in a browser.
  *
- * The link is the product: somebody pastes `https://…/r/<slug>#k=…` into a
+ * The link is the product: somebody pastes `https://…/r/<slug>#<key>` into a
  * chat and everyone clicks it. Installing the app must not make that link
  * worse, so the shell registers a scheme of its own — `freecord://r/<slug>` —
  * and the website hands off to it (`web/src/lib/deep-link.ts`).
@@ -14,7 +14,7 @@
  *    the destination is then built against `APP_URL`. There is no input that
  *    makes this window load a page we do not serve — the origin is not taken
  *    from the link, it is not in the link at all.
- * 2. **The fragment is carried verbatim, and nothing else is.** `#k=…` is the
+ * 2. **The fragment is carried verbatim, and nothing else is.** `#<key>` is the
  *    chat key: drop it and the room opens unreadable. It never reaches a
  *    server, and the charset below refuses anything that could smuggle a
  *    second URL through it. The query string is dropped — no route reads one.
@@ -46,7 +46,7 @@ const PAGES = new Set(['/', '/community', '/how-it-works']);
 
 /**
  * A fragment we are willing to put in the address bar. The chat key is
- * `#k=<43 chars of base64url>`, and this is deliberately wider than that —
+ * `#<43 chars of base64url>`, and this is deliberately wider than that —
  * the shell has no business knowing the key's shape — while still refusing
  * the characters a second URL would need.
  */

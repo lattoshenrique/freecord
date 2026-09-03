@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
-import { createRoom, getStats } from '../api';
+import { createRoom, getRoom, getStats } from '../api';
 import { APP_BUILD, APP_VERSION } from '../lib/build-info';
 import { generateRoomKey } from '../lib/chat-crypto';
 import { heroTransition } from '../lib/hero-transition';
 import {
-  inviteHashWithRoomName,
+  compactInviteHash,
   looksLikeInvite,
   parseInvite,
   type ParsedInvite,
@@ -105,6 +105,39 @@ export default function HomePage() {
   }, []);
 
   /*
+   * New invitation links spend no characters repeating the room name. Once a
+   * complete link lands in the field, resolve its public metadata by slug and
+   * play the same reveal. Cancelling the result matters when somebody pastes
+   * a link and immediately keeps typing: that older room must not overwrite
+   * what the field has become.
+   */
+  useEffect(() => {
+    const visibleInvite = parseInvite(displayName);
+    if (!visibleInvite || visibleInvite.roomName) {
+      return;
+    }
+    let cancelled = false;
+    void getRoom(visibleInvite.slug)
+      .then((room) => {
+        if (cancelled) {
+          return;
+        }
+        const roomName = room.displayName.trim();
+        setDetectedInvite({ ...visibleInvite, roomName: roomName || null });
+        if (roomName) {
+          setDisplayName(roomName);
+          setInviteReveal((reveal) => reveal + 1);
+        }
+      })
+      .catch(() => {
+        // Joining remains the source of truth for missing or expired rooms.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [displayName]);
+
+  /*
    * The room's code, fetched while the page sits still. It is the biggest
    * chunk in the app and the one thing this screen is for, so by the time
    * the button is pressed it is already here — and the way in can be one
@@ -147,9 +180,10 @@ export default function HomePage() {
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     if (invite) {
-      // The fragment carries the chat key — hand it over untouched.
+      // The fragment carries the chat key — preserve it while shedding any
+      // syntax or legacy name metadata the room does not need.
       await preloadRoomPage();
-      heroTransition(() => navigate(`/r/${invite.slug}${invite.hash}`));
+      heroTransition(() => navigate(`/r/${invite.slug}${compactInviteHash(invite.hash)}`));
       return;
     }
     if (looksLikeInvite(displayName)) {
@@ -184,7 +218,7 @@ export default function HomePage() {
        * millisecond, which is also what leaves the mark, the name and the
        * button somewhere to fly to rather than a spinner.
        */
-      const hash = inviteHashWithRoomName(roomKey ? `#k=${roomKey}` : '', room.displayName);
+      const hash = compactInviteHash(roomKey ? `#k=${roomKey}` : '');
       heroTransition(() =>
         navigate(`/r/${room.slug}${hash}`, {
           state: { room },
