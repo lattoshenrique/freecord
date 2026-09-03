@@ -367,7 +367,6 @@ export const enUS = {
     'Your link came without this room’s key, so nothing can go out. Ask whoever invited you for the original link — the key rides after the # and never reaches a server.',
   'chat.locked': 'Encrypted — and your link came without the key',
   'chat.messageLabel': 'Chat message',
-  'chat.placeholder': 'Message… markdown works, / for commands, @ for a name',
   'chat.send': 'Send message',
   'chat.toolbar': 'Message formatting',
   'chat.unread': { one: 'new message', other: 'new messages' },

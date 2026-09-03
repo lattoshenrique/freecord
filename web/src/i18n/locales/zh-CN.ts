@@ -331,7 +331,6 @@ export const zhCN: Catalog = {
   'chat.noKey': '你的链接里没有这个房间的密钥，所以发不出去。找邀请你的人要原始链接 —— 密钥跟在 # 后面，永远不会到达服务器。',
   'chat.locked': '已加密 —— 而你的链接里没有密钥',
   'chat.messageLabel': '聊天消息',
-  'chat.placeholder': '消息… 支持 Markdown，输入 / 使用命令，输入 @ 提到某人',
   'chat.send': '发送消息',
   'chat.toolbar': '消息格式',
   'chat.unread': { other: '条新消息' },

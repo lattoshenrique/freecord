@@ -349,7 +349,6 @@ export const esES: Catalog = {
     'Tu enlace vino sin la clave de esta sala, así que no puede salir nada. Pide el enlace original a quien te invitó — la clave viaja después del # y nunca llega a un servidor.',
   'chat.locked': 'Cifrada — y tu enlace vino sin la clave',
   'chat.messageLabel': 'Mensaje del chat',
-  'chat.placeholder': 'Mensaje… el markdown funciona, / para comandos, @ para nombrar a alguien',
   'chat.send': 'Enviar mensaje',
   'chat.toolbar': 'Formato del mensaje',
   'chat.unread': { one: 'mensaje nuevo', other: 'mensajes nuevos' },

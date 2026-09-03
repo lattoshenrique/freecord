@@ -349,7 +349,6 @@ export const ptBR: Catalog = {
     'Seu link veio sem a chave desta sala, então não dá para enviar nada. Peça o link original a quem te convidou — a chave vem depois do # e nunca chega a um servidor.',
   'chat.locked': 'Criptografada — e o seu link veio sem a chave',
   'chat.messageLabel': 'Mensagem do chat',
-  'chat.placeholder': 'Mensagem… markdown funciona, / para comandos, @ para chamar alguém',
   'chat.send': 'Enviar mensagem',
   'chat.toolbar': 'Formatação da mensagem',
   'chat.unread': { one: 'nova mensagem', other: 'novas mensagens' },

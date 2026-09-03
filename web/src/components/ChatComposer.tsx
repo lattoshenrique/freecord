@@ -64,7 +64,7 @@ const TOOL_GROUPS: Array<
 
 /**
  * Tooltip syntax samples, so the toolbar still teaches that markdown can be
- * TYPED — the placeholder used to carry this and no longer does. The sample
+ * TYPED — the field has no placeholder to carry it any more. The sample
  * word is the button's own translated label, same trick as `Placeholders`.
  */
 const SYNTAX: Record<MarkdownAction, (word: string) => string> = {
@@ -652,7 +652,6 @@ export default function ChatComposer({
           value={value}
           rows={1}
           maxLength={maxLength}
-          placeholder={t('chat.placeholder')}
           aria-label={t('chat.messageLabel')}
           // The field keeps its own role — this is a textbox with a list
           // hanging off it, and the list says which row the keys are on.

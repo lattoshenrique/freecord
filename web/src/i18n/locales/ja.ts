@@ -333,7 +333,6 @@ export const jaJP: Catalog = {
     'あなたのリンクにはこのルームの鍵が入っていないため、送信できません。招待してくれた人に元のリンクをもらってください — 鍵は # のうしろを通り、サーバーには届きません。',
   'chat.locked': '暗号化されています — あなたのリンクには鍵がありません',
   'chat.messageLabel': 'チャットメッセージ',
-  'chat.placeholder': 'メッセージ… Markdown が使えます、/ でコマンド、@ で名前',
   'chat.send': 'メッセージを送信',
   'chat.toolbar': 'メッセージの書式',
   'chat.unread': { other: '件の新着メッセージ' },
