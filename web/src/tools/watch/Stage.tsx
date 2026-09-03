@@ -50,7 +50,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ToolViewProps } from '../contract';
 import { isWatchController, watchControllerName } from './control';
-import { CloseGlyph, HandGlyph, SkipGlyph, SyncGlyph } from './icons';
+import { CloseGlyph, HandGlyph, PlayGlyph, SkipGlyph, SyncGlyph } from './icons';
 import { twitchClipUrl } from './link';
 import { attachSource, liveEdgeOf, type SourceFailure } from './media';
 import { advance, mayAdvanceFrom, withListIndex } from './queue';
@@ -89,8 +89,14 @@ const QUIET_MS = 1200;
  * load which silently failed is retried while anybody still cares.
  */
 const SETTLE_TIMEOUT_MS = 10_000;
-/** After this many refusals the element is left to its own controls. */
+/** After this many refusals we stop asking and wait to be asked. */
 const REFUSALS_BEFORE_GIVING_UP = 3;
+/**
+ * How long the room's copy is allowed to be behind the room before we say
+ * so. A player takes a moment to start, and a key offered over every
+ * ordinary load would be a key that means nothing.
+ */
+const STALL_GRACE_MS = 4_000;
 
 /** What went wrong with what is on, in the words the stage has for it. */
 type Trouble = 'blocked' | SourceFailure;
@@ -129,11 +135,38 @@ function Together(props: ToolViewProps<WatchState> & { state: WatchState }) {
   const [resyncRequest, setResyncRequest] = useState(0);
   const canControl = isWatchController(by, self);
   const controllerName = watchControllerName(by, self, peers);
+  /** Whether THIS browser's copy is running, whatever the room says. */
+  const [playingHere, setPlayingHere] = useState(false);
+  /**
+   * The room is playing and this copy is not, for longer than a start
+   * takes. Nearly always an autoplay the browser refused.
+   *
+   * A viewer had no way out of that, and never did: the player is inert
+   * and its frame takes no pointer at all (stage.css), so the play button
+   * everybody could see was never one anybody could press — it just took
+   * hiding the rest of the chrome (youtube.ts) for the dead end to look
+   * like one. So the room offers a key of its own, drawn outside the
+   * inert frame, and pressing it is the gesture the browser was holding
+   * out for. It starts THIS copy and tells nobody.
+   */
+  const [stalled, setStalled] = useState(false);
 
   // Trouble belongs to what caused it. Without this, one dead link turns
   // the stage into an error message that outlives it — the room puts on
   // something else and still reads "did not play here".
   useEffect(() => setTrouble(null), [loadKeyOf(item)]);
+
+  // A fresh thing on the stage has not had its chance to start yet.
+  useEffect(() => setPlayingHere(false), [loadKeyOf(item)]);
+
+  useEffect(() => {
+    if (playingHere || !state.playing || canControl) {
+      setStalled(false);
+      return;
+    }
+    const timer = setTimeout(() => setStalled(true), STALL_GRACE_MS);
+    return () => clearTimeout(timer);
+  }, [playingHere, state.playing, canControl]);
 
   const clipUrl = twitchClipUrl(item);
   const framed = item.kind === 'source' && (item.play === 'frame' || clipUrl !== null);
@@ -172,43 +205,44 @@ function Together(props: ToolViewProps<WatchState> & { state: WatchState }) {
               : t('controllerChipUnknown')}
           </span>
         )}
-        {(item.kind !== 'source' || canControl) && (
-          <span className="watch-keys">
-            {item.kind !== 'source' && (
-              <button
-                type="button"
-                className="watch-key watch-resync"
-                aria-label={t('resync')}
-                title={t('resync')}
-                onClick={() => setResyncRequest((request) => request + 1)}
-              >
-                <SyncGlyph />
-              </button>
-            )}
-            {canControl && queued > 0 && (
-              <button
-                type="button"
-                className="watch-key"
-                aria-label={t('skip')}
-                title={t('skip')}
-                onClick={() => setState(advance(state))}
-              >
-                <SkipGlyph />
-              </button>
-            )}
-            {canControl && (
-              <button
-                type="button"
-                className="watch-key watch-close"
-                aria-label={t('closeForAll')}
-                title={t('closeForAll')}
-                onClick={() => setState(null)}
-              >
-                <CloseGlyph />
-              </button>
-            )}
-          </span>
-        )}
+        <span className="watch-keys">
+          {/* Local, and offered to everybody: it moves this copy to where
+              the room already is, which is the one correction a viewer
+              has always been allowed to make. Every player answers it. */}
+          {roomDrives(item) && (
+            <button
+              type="button"
+              className="watch-key watch-resync"
+              aria-label={t('resync')}
+              title={t('resync')}
+              onClick={() => setResyncRequest((request) => request + 1)}
+            >
+              <SyncGlyph />
+            </button>
+          )}
+          {canControl && queued > 0 && (
+            <button
+              type="button"
+              className="watch-key"
+              aria-label={t('skip')}
+              title={t('skip')}
+              onClick={() => setState(advance(state))}
+            >
+              <SkipGlyph />
+            </button>
+          )}
+          {canControl && (
+            <button
+              type="button"
+              className="watch-key watch-close"
+              aria-label={t('closeForAll')}
+              title={t('closeForAll')}
+              onClick={() => setState(null)}
+            >
+              <CloseGlyph />
+            </button>
+          )}
+        </span>
       </div>
 
       <div className="watch-frame">
@@ -218,6 +252,7 @@ function Together(props: ToolViewProps<WatchState> & { state: WatchState }) {
             item={item}
             canControl={canControl}
             resyncRequest={resyncRequest}
+            onPlayingHere={setPlayingHere}
             onTrouble={setTrouble}
           />
         ) : item.play === 'frame' ? (
@@ -227,9 +262,38 @@ function Together(props: ToolViewProps<WatchState> & { state: WatchState }) {
              not take one, so it gets the frame their site gives out. */
           <FramedPage url={clipUrl} title={item.title ?? t('stageLabel')} />
         ) : item.play === 'twitch' ? (
-          <TwitchSource {...props} item={item} canControl={canControl} onTrouble={setTrouble} />
+          <TwitchSource
+            {...props}
+            item={item}
+            canControl={canControl}
+            resyncRequest={resyncRequest}
+            onPlayingHere={setPlayingHere}
+            onTrouble={setTrouble}
+          />
         ) : (
-          <MediaSource {...props} item={item} canControl={canControl} onTrouble={setTrouble} />
+          <MediaSource
+            {...props}
+            item={item}
+            canControl={canControl}
+            resyncRequest={resyncRequest}
+            onPlayingHere={setPlayingHere}
+            onTrouble={setTrouble}
+          />
+        )}
+        {/* Only over a player the room actually drives. Somebody else's
+            page is nobody's to start from here, and it says so already. */}
+        {stalled && roomDrives(item) && !hide && !trouble && (
+          <button
+            type="button"
+            className="watch-catchup"
+            onClick={() => setResyncRequest((request) => request + 1)}
+          >
+            <span className="watch-catchup-key">
+              <PlayGlyph />
+            </span>
+            <span className="watch-catchup-label">{t('catchUp')}</span>
+            <span className="watch-catchup-note">{t('catchUpNote')}</span>
+          </button>
         )}
         {(trouble || !framable) && (
           <div className="watch-trouble" role="status">
@@ -327,12 +391,14 @@ function YouTubeStage({
   canControl,
   resyncRequest,
   item,
+  onPlayingHere,
   onTrouble,
 }: ToolViewProps<WatchState> & {
   state: WatchState;
   item: YouTubeItem;
   canControl: boolean;
   resyncRequest: number;
+  onPlayingHere: (playing: boolean) => void;
   onTrouble: (trouble: Trouble) => void;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -354,6 +420,8 @@ function YouTubeStage({
   canControlRef.current = canControl;
   const troubleRef = useRef(onTrouble);
   troubleRef.current = onTrouble;
+  const playingHereRef = useRef(onPlayingHere);
+  playingHereRef.current = onPlayingHere;
 
   /** What the player has loaded — not necessarily the room's, yet. */
   const loadedRef = useRef(loadKeyOf(item));
@@ -520,6 +588,9 @@ function YouTubeStage({
     } catch {
       return; // the iframe is going away under us
     }
+    playingHereRef.current(
+      playerState === PLAYER_STATE.playing || playerState === PLAYER_STATE.buffering,
+    );
 
     if (alignNewLive(player)) {
       return;
@@ -564,8 +635,8 @@ function YouTubeStage({
     if (playerState === PLAYER_STATE.unstarted || playerState === PLAYER_STATE.cued) {
       // Not started: something still getting ready, or an autoplay the
       // browser refused. Nobody paused anything — so nothing is reported;
-      // we ask our own player again and, if the browser keeps saying no,
-      // its play button is right there.
+      // we ask our own player again, and if the browser keeps saying no
+      // the stage offers the room's own key (see `stalled` in Together).
       if (room.state.playing) {
         player.playVideo();
         quiet({ time: positionAt(room.state, room.at), playing: true });
@@ -726,12 +797,16 @@ function MediaSource({
   speakerOn,
   speakerLevel,
   canControl,
+  resyncRequest,
   item,
+  onPlayingHere,
   onTrouble,
 }: ToolViewProps<WatchState> & {
   state: WatchState;
   item: SourceItem;
   canControl: boolean;
+  resyncRequest: number;
+  onPlayingHere: (playing: boolean) => void;
   onTrouble: (trouble: Trouble) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -743,6 +818,8 @@ function MediaSource({
   mineRef.current = mine;
   const troubleRef = useRef(onTrouble);
   troubleRef.current = onTrouble;
+  const playingHereRef = useRef(onPlayingHere);
+  playingHereRef.current = onPlayingHere;
   /** What this element was pointed at, whatever the room has done since. */
   const attachedRef = useRef<WatchItem>(item);
   /** Sampling and reporting are suspended until this moment. */
@@ -756,7 +833,9 @@ function MediaSource({
    * quiets the sampler, and a sampler quieted once a second is a sampler
    * that never hears the person press PAUSE — so the room stays playing
    * and this browser keeps being dragged back to it. After a few
-   * refusals we stop asking and leave the element's own controls to it.
+   * refusals we stop asking and wait to be asked — by the element's own
+   * controls, which the controller has, or by the room's key over the
+   * picture, which is what everybody else gets (`stalled` in Together).
    */
   const refusedRef = useRef(0);
 
@@ -878,6 +957,7 @@ function MediaSource({
       if (!video || Date.now() < quietUntil.current) {
         return;
       }
+      playingHereRef.current(!video.paused);
       const room = roomRef.current;
       const reading = {
         time: video.currentTime,
@@ -913,6 +993,26 @@ function MediaSource({
     return () => clearInterval(timer);
   }, []);
 
+  // Asked to catch up — the key in the bar, or the one over the picture.
+  // A person pressing it is the gesture the browser was holding out for,
+  // so the refusals are forgiven and this copy tries again from where the
+  // room actually is. Local: nothing here reaches the room.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (resyncRequest === 0 || !video) {
+      return;
+    }
+    refusedRef.current = 0;
+    quiet();
+    if (hasSharedClock(roomRef.current.state.now)) {
+      video.currentTime = positionAt(roomRef.current.state, roomRef.current.at);
+    }
+    if (roomRef.current.state.playing) {
+      tryPlay(video);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resyncRequest]);
+
   // Speakers off silences this too — a room you cannot hear is a room you
   // cannot hear. Every player stays inside the range its API accepts;
   // WebRTC voices and shared audio are what the room can amplify beyond it.
@@ -930,8 +1030,14 @@ function MediaSource({
       className="watch-media"
       controls={canControl}
       playsInline
-      onPlay={report}
-      onPause={report}
+      onPlay={() => {
+        playingHereRef.current(true);
+        report();
+      }}
+      onPause={() => {
+        playingHereRef.current(false);
+        report();
+      }}
       onSeeked={report}
       onEnded={ended}
     />
@@ -946,12 +1052,16 @@ function TwitchSource({
   speakerOn,
   speakerLevel,
   canControl,
+  resyncRequest,
   item,
+  onPlayingHere,
   onTrouble,
 }: ToolViewProps<WatchState> & {
   state: WatchState;
   item: SourceItem;
   canControl: boolean;
+  resyncRequest: number;
+  onPlayingHere: (playing: boolean) => void;
   onTrouble: (trouble: Trouble) => void;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -966,6 +1076,8 @@ function TwitchSource({
   levelRef.current = speakerLevel;
   const troubleRef = useRef(onTrouble);
   troubleRef.current = onTrouble;
+  const playingHereRef = useRef(onPlayingHere);
+  playingHereRef.current = onPlayingHere;
   const quietUntil = useRef(0);
 
   useEffect(() => {
@@ -996,10 +1108,15 @@ function TwitchSource({
         playerRef.current = player;
         player.setMuted(!speakerRef.current);
         player.setVolume(Math.min(1, levelRef.current));
+        playingHereRef.current(!player.isPaused());
       },
       onPlayPause: () => {
         const player = playerRef.current;
-        if (!canControl || !player || Date.now() < quietUntil.current) {
+        if (!player) {
+          return;
+        }
+        playingHereRef.current(!player.isPaused());
+        if (!canControl || Date.now() < quietUntil.current) {
           return;
         }
         const current = roomRef.current.state;
@@ -1011,8 +1128,18 @@ function TwitchSource({
       },
     }).catch(() => troubleRef.current('failed'));
 
+    // An autoplay their embed never attempted fires no event at all, so
+    // the tick is what notices a channel that simply never started.
+    const timer = setInterval(() => {
+      const player = playerRef.current;
+      if (player) {
+        playingHereRef.current(!player.isPaused());
+      }
+    }, TICK_MS);
+
     return () => {
       cancelled = true;
+      clearInterval(timer);
       playerRef.current = null;
       mount.remove();
     };
@@ -1040,6 +1167,23 @@ function TwitchSource({
       }
     }
   }, [state, at, mine]);
+
+  // Asked to catch up (see the same effect in MediaSource).
+  useEffect(() => {
+    const player = playerRef.current;
+    if (resyncRequest === 0 || !player) {
+      return;
+    }
+    quietUntil.current = Date.now() + QUIET_MS;
+    const room = roomRef.current;
+    if (hasSharedClock(room.state.now)) {
+      player.seek(positionAt(room.state, room.at));
+    }
+    if (room.state.playing) {
+      player.play();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resyncRequest]);
 
   useEffect(() => {
     playerRef.current?.setMuted(!speakerOn);

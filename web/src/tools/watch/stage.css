@@ -156,6 +156,71 @@
 }
 
 /*
+ * The room is playing and this copy is not.
+ *
+ * Almost always an autoplay the browser refused, and the answer used to
+ * be the player's own play button — which a viewer no longer has, because
+ * a control bar that refuses every press is worse than none (youtube.ts).
+ * So this is the room's own way in, drawn OUTSIDE the inert player so it
+ * can actually be pressed, and pressing it is the gesture the browser was
+ * waiting for. Local: it starts this copy and catches it up, and says
+ * nothing to anybody else.
+ */
+.watch-catchup {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1.2rem;
+  border: 0;
+  width: 100%;
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+  color: var(--text, #e6e8ee);
+  background: rgba(4, 6, 10, 0.62);
+  animation: fade-in var(--dur-panel, 0.26s) var(--ease, ease) both;
+  transition: background var(--dur-quick, 0.15s) ease;
+}
+
+.watch-catchup:hover,
+.watch-catchup:focus-visible {
+  background: rgba(4, 6, 10, 0.74);
+}
+
+.watch-catchup-key {
+  display: grid;
+  place-items: center;
+  width: 3.4rem;
+  height: 3.4rem;
+  border-radius: 50%;
+  background: var(--accent, #5865f2);
+  color: #fff;
+  transition: transform var(--dur-quick, 0.15s) var(--ease, ease);
+}
+
+.watch-catchup:hover .watch-catchup-key,
+.watch-catchup:focus-visible .watch-catchup-key {
+  transform: scale(1.06);
+}
+
+.watch-catchup-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.watch-catchup-note {
+  font-size: 0.78rem;
+  line-height: 1.45;
+  max-width: 30ch;
+  color: var(--muted, #9aa3b2);
+}
+
+/*
  * Something did not play, or will not play here. Not a broken room: a
  * sentence, a way out to where it came from, and — when the room has
  * something lined up — the key that moves past it.

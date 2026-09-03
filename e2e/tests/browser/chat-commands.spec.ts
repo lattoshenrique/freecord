@@ -105,6 +105,95 @@ async function installLiveYouTube(page: Page): Promise<void> {
 }
 
 /**
+ * A browser that will not autoplay — the ordinary case, and the one that
+ * used to strand a viewer.
+ *
+ * The player refuses to start on its own and keeps refusing until
+ * somebody's hand asks for it, which is exactly what an autoplay policy
+ * does. Nothing here is YouTube-specific: the same refusal reaches a
+ * `<video>` element and a Twitch embed.
+ */
+async function installStubbornYouTube(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    interface Config {
+      playerVars: { autoplay?: number };
+      events: { onReady(): void; onStateChange(event: { data: number }): void };
+    }
+
+    class StubbornPlayer {
+      readonly config: Config;
+      /** -1 unstarted, 1 playing, 2 paused — YouTube's own numbers. */
+      private state = -1;
+      private time = 0;
+
+      constructor(_element: HTMLElement, raw: unknown) {
+        this.config = raw as Config;
+        harness.instances.push(this);
+        queueMicrotask(() => this.config.events.onReady());
+      }
+
+      playVideo(): void {
+        // The refusal: asked a hundred times, it starts only once a
+        // person has asked for it in this tab.
+        if (!harness.allowed) {
+          return;
+        }
+        this.state = 1;
+        this.config.events.onStateChange({ data: 1 });
+      }
+
+      pauseVideo(): void {
+        this.state = 2;
+      }
+
+      getPlayerState(): number {
+        return this.state;
+      }
+
+      getCurrentTime(): number {
+        return this.time;
+      }
+
+      seekTo(seconds: number): void {
+        this.time = seconds;
+      }
+
+      getDuration(): number {
+        return 600;
+      }
+
+      getVideoData(): { isLive: false } {
+        return { isLive: false };
+      }
+
+      loadVideoById(options: { startSeconds?: number }): void {
+        this.seekTo(options.startSeconds ?? 0);
+      }
+      cueVideoById(options: { startSeconds?: number }): void {
+        this.seekTo(options.startSeconds ?? 0);
+      }
+      loadPlaylist(): void {}
+      cuePlaylist(): void {}
+      getPlaylistIndex(): number { return -1; }
+      getPlaylist(): null { return null; }
+      playVideoAt(): void {}
+      mute(): void {}
+      unMute(): void {}
+      setVolume(): void {}
+      destroy(): void {}
+    }
+
+    const harness = { instances: [] as StubbornPlayer[], allowed: false };
+    const target = window as unknown as {
+      YT: { Player: typeof StubbornPlayer };
+      __stubborn: typeof harness;
+    };
+    target.__stubborn = harness;
+    target.YT = { Player: StubbornPlayer };
+  });
+}
+
+/**
  * Slash commands: the chat as a second door onto the dock and the chat's
  * own header.
  *
@@ -316,6 +405,56 @@ test.describe('chat commands', () => {
     await ownerBox.press('Enter');
     await expect(owner.locator('.watch-frame')).toHaveCount(0);
     await expect(viewer.locator('.watch-frame')).toHaveCount(0);
+  });
+
+  test('a viewer whose browser refuses to autoplay is offered a way in', async ({ browser }) => {
+    const { slug } = await createRoom('watch-stalled-viewer');
+    handles = [
+      await joinRoomPage(browser, slug, 'owner', { prepare: installStubbornYouTube }),
+      await joinRoomPage(browser, slug, 'viewer', { prepare: installStubbornYouTube }),
+    ];
+    const owner = handles[0]!.page;
+    const viewer = handles[1]!.page;
+
+    await owner.locator('button[data-key="C"]').click();
+    const ownerBox = owner.locator('.chat-panel textarea');
+    await ownerBox.fill('/play https://www.youtube.com/watch?v=dQw4w9WgXcQ');
+    await ownerBox.press('Enter');
+
+    await expect(owner.locator('.watch-frame')).toHaveCount(1);
+    await expect(viewer.locator('.watch-frame')).toHaveCount(1);
+
+    // The room is playing and this copy is not. The viewer has none of the
+    // player's own chrome to press, so the room offers its own key.
+    const key = viewer.locator('.watch-catchup');
+    await expect(key).toBeVisible({ timeout: 20_000 });
+
+    // Not to the controller: their player's own controls are right there,
+    // and a second play button over them would be the room second-guessing
+    // the person driving.
+    await expect(owner.locator('.watch-catchup')).toHaveCount(0);
+
+    // A hand on it is the gesture the browser was holding out for.
+    await viewer.evaluate(() => {
+      (window as unknown as { __stubborn: { allowed: boolean } }).__stubborn.allowed = true;
+    });
+    await key.click();
+
+    await expect
+      .poll(() =>
+        viewer.evaluate(
+          () =>
+            (window as unknown as {
+              __stubborn: { instances: Array<{ getPlayerState(): number }> };
+            }).__stubborn.instances[0]?.getPlayerState(),
+        ),
+      )
+      .toBe(1);
+    await expect(key).toHaveCount(0);
+
+    // And it stayed this viewer's business: the room was never told.
+    await expect(owner.locator('.watch-frame')).toHaveCount(1);
+    await expect(viewer.locator('.watch-controller-chip')).toContainText('owner');
   });
 
   test('YouTube Live starts at the edge, settles seek bursts once, and can resync locally', async ({
