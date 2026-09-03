@@ -78,6 +78,11 @@ const SYNTAX: Record<MarkdownAction, (word: string) => string> = {
   quote: (word) => `> ${word}`,
 };
 
+/** The moment, in a shape a file name can carry: 20260903-021453. */
+function clipboardStamp(): string {
+  return new Date().toISOString().replace(/[-:]/g, '').replace(/\..*/, '').replace('T', '-');
+}
+
 /**
  * Clipboard images arrive as "image.png" from every browser; a name with the
  * moment in it tells two screenshots apart on the receiving end.
@@ -87,8 +92,18 @@ function nameClipboardFile(file: File): File {
     return file;
   }
   const ext = file.name.slice(file.name.lastIndexOf('.') + 1);
-  const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..*/, '').replace('T', '-');
-  return new File([file], `pasted-${stamp}.${ext}`, { type: file.type, lastModified: file.lastModified });
+  return new File([file], `pasted-${clipboardStamp()}.${ext}`, {
+    type: file.type,
+    lastModified: file.lastModified,
+  });
+}
+
+/** A paste too long for one message, turned into the file it really is. */
+function textAsFile(text: string): File {
+  return new File([text], `pasted-${clipboardStamp()}.txt`, {
+    type: 'text/plain',
+    lastModified: Date.now(),
+  });
 }
 
 const SHORTCUTS: Record<string, MarkdownAction> = {
@@ -154,8 +169,13 @@ export default function ChatComposer({
   onSend: (text?: string) => void;
   /** Opens the file picker for a peer-to-peer transfer; absent = no button. */
   onAttach?: () => void;
-  /** Files pasted into the field (a screenshot on the clipboard) go out as transfers. */
-  onPasteFiles?: (files: File[]) => void;
+  /**
+   * Files pasted into the field (a screenshot on the clipboard) go out as
+   * transfers. `overflow` marks the one case that was not a file on the
+   * clipboard at all: text too long for a message, wrapped in a .txt so
+   * nothing is lost — the room says so, since the field stays empty.
+   */
+  onPasteFiles?: (files: File[], overflow?: boolean) => void;
   onCancelQuote?: () => void;
 }) {
   const { t } = useI18n();
@@ -376,17 +396,28 @@ export default function ChatComposer({
       return;
     }
     // A screenshot or a copied image lands as a file item; plain text has
-    // none and falls through to the browser's own paste.
+    // none and falls through to the text branch below.
     const files = [...event.clipboardData.items]
       .filter((item) => item.kind === 'file')
       .map((item) => item.getAsFile())
       .filter((file): file is File => file !== null)
       .map(nameClipboardFile);
-    if (files.length === 0) {
+    if (files.length > 0) {
+      event.preventDefault();
+      onPasteFiles(files);
+      return;
+    }
+    // A paste that does not fit goes as a .txt transfer instead of being
+    // silently cut in half by the field's own maxLength — a log or a long
+    // note pasted into chat is a file, and arrives whole.
+    const text = event.clipboardData.getData('text/plain');
+    const area = event.currentTarget;
+    const room = maxLength - (value.length - (area.selectionEnd - area.selectionStart));
+    if (text.length === 0 || text.length <= room) {
       return;
     }
     event.preventDefault();
-    onPasteFiles(files);
+    onPasteFiles([textAsFile(text)], true);
   }
 
   /**

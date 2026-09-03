@@ -136,14 +136,18 @@ export const ROOM_LIMITS = {
   maxScreens: 3,
   displayNameMaxLength: 60,
   guestNameMaxLength: 40,
-  /** Plaintext budget, enforced by the composer and re-clamped here. */
-  chatMessageMaxLength: 500,
   /**
-   * Wire cap for a sealed chat envelope. 500 UTF-16 chars are at most
-   * ~1500 bytes of UTF-8; +16 (GCM tag) and base64url is ~2024 chars,
-   * +21 of framing ("e2e:<iv>.") ≈ 2045 — 2800 leaves headroom.
+   * Plaintext budget, enforced by the composer and re-clamped here. Long
+   * enough for a pasted stack trace or a paragraph of notes; past it the
+   * composer sends the paste as a .txt transfer instead of cutting it.
    */
-  chatEnvelopeMaxLength: 2800,
+  chatMessageMaxLength: 2000,
+  /**
+   * Wire cap for a sealed chat envelope. 2000 UTF-16 chars are at most
+   * ~6000 bytes of UTF-8; +16 (GCM tag) and base64url is ~8022 chars,
+   * +21 of framing ("e2e:<iv>.") ≈ 8043 — 11000 leaves headroom.
+   */
+  chatEnvelopeMaxLength: 11000,
   /**
    * Signals held for a detached peer (see enqueueSignal). Items bound the
    * memory per seat; bytes keep the Worker's copy under a Durable Object

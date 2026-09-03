@@ -6,9 +6,8 @@ import {
   roomKeyFromHash,
   sealChat,
 } from '../src/lib/chat-crypto';
-
-/** Mirror of ROOM_LIMITS.chatEnvelopeMaxLength (server/src/domain/room.ts). */
-const ENVELOPE_WIRE_CAP = 2800;
+import { CHAT_ENVELOPE_MAX_LENGTH as ENVELOPE_WIRE_CAP } from '../src/lib/chat-channel';
+import { CHAT_BODY_MAX } from '../src/lib/chat-body';
 
 async function keyPair() {
   const encoded = generateRoomKey()!;
@@ -49,11 +48,11 @@ describe('chat-crypto', () => {
     expect(await openChat(key, sealed.slice(0, -4))).toEqual({ text: '', unreadable: true });
   });
 
-  it('the worst-case 500-char plaintext seals under the wire cap', async () => {
+  it('the worst-case full-length plaintext seals under the wire cap', async () => {
     const { key } = await keyPair();
     // U+FFFF is 3 bytes of UTF-8 per UTF-16 unit — the densest a
     // composer-legal message gets.
-    const sealed = await sealChat(key, '￿'.repeat(500));
+    const sealed = await sealChat(key, '￿'.repeat(CHAT_BODY_MAX));
     expect(sealed.length).toBeLessThanOrEqual(ENVELOPE_WIRE_CAP);
   });
 

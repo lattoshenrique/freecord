@@ -425,6 +425,7 @@ export const ptBR: Catalog = {
     'Arquivo precisa de quem receba, e não tem ninguém aqui.',
   ],
   'file.tooLarge': 'Até {max} por arquivo — acima disso o navegador desiste.',
+  'file.pastedText': 'Longo demais para uma mensagem — foi como arquivo de texto.',
   'file.offer': '{name} quer te enviar um arquivo',
   'file.to': 'para {name}',
   'file.accept': 'Aceitar',

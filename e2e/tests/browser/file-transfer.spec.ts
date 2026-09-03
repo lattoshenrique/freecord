@@ -283,6 +283,41 @@ test.describe('peer-to-peer file transfer', () => {
       .toBe(320);
   });
 
+  test('a paste too long for one message goes out as a .txt', async ({ browser }) => {
+    const { slug } = await createRoom('files-paste-text');
+    handles = await joinMany(browser, slug, 2);
+    const [alice, bob] = handles;
+
+    await alice.page.locator('button[data-key="C"]').click();
+    await bob.page.locator('button[data-key="C"]').click();
+
+    const area = alice.page.locator('.chat-panel textarea');
+    const paste = (text: string) =>
+      area.evaluate((node, value) => {
+        const dt = new DataTransfer();
+        dt.setData('text/plain', value);
+        node.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
+      }, text);
+
+    // Well under the budget: still a message, typed into the field as ever.
+    await area.focus();
+    await paste('y'.repeat(1_200));
+    await expect(area).toHaveValue('y'.repeat(1_200));
+    await area.fill('');
+
+    // Past it: the field stays empty and the paste leaves as a file, whole.
+    await paste('x'.repeat(5_000));
+    const sent = alice.page.locator('.chat-file');
+    await expect(sent).toContainText(/pasted-\d{8}-\d{6}\.txt/);
+    await expect(area).toHaveValue('');
+    await expect(alice.page.locator('.chat-file-note')).toContainText('text file');
+
+    const offered = bob.page.locator('.chat-file');
+    await expect(offered).toContainText(/pasted-\d{8}-\d{6}\.txt/, { timeout: 20_000 });
+    await offered.getByRole('button', { name: 'Accept' }).click();
+    await expect(offered).toContainText('Received', { timeout: 30_000 });
+  });
+
   test('a declined offer settles on both sides', async ({ browser }) => {
     const { slug } = await createRoom('files-decline');
     handles = await joinMany(browser, slug, 2);

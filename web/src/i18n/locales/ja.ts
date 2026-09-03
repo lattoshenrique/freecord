@@ -409,6 +409,7 @@ export const jaJP: Catalog = {
     'ファイルには受け取る人が要りますが、ここには誰もいません。',
   ],
   'file.tooLarge': '1 ファイル {max} まで — それを超えるとブラウザが音を上げます。',
+  'file.pastedText': 'メッセージ1件には長すぎるので、テキストファイルとして送りました。',
   'file.offer': '{name} さんがファイルを送ろうとしています',
   'file.to': '{name} さんへ',
   'file.accept': '受け取る',

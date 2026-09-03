@@ -1113,8 +1113,8 @@ export default function RoomView({
     );
   }
 
-  function sendFiles(files: File[]): void {
-    setFileNote(null);
+  function sendFiles(files: File[], overflow = false): void {
+    setFileNote(overflow ? t('file.pastedText') : null);
     for (const file of files) {
       if (file.size > MAX_FILE_BYTES) {
         setFileNote(t('file.tooLarge', { max: formatBytes(MAX_FILE_BYTES, locale) }));
@@ -2320,7 +2320,7 @@ export default function RoomView({
               // the field never held it (ChatComposer.tsx).
               onSend={(picked) => runLine(picked ?? draft)}
               onAttach={() => fileInputRef.current?.click()}
-              onPasteFiles={sendFiles}
+              onPasteFiles={(files, overflow) => sendFiles(files, overflow)}
               onCancelQuote={() => setReplyTo(null)}
             />
           </aside>

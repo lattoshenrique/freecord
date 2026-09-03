@@ -19,7 +19,7 @@ export interface ChatQuote {
 export const QUOTE_EXCERPT_MAX = 140;
 
 /** Mirrors ROOM_LIMITS.chatMessageMaxLength: a plaintext body past this is cut. */
-export const CHAT_BODY_MAX = 500;
+export const CHAT_BODY_MAX = 2000;
 
 interface WireBody {
   q: { n: string; t: string };

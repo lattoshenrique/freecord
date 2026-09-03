@@ -407,6 +407,7 @@ export const zhCN: Catalog = {
     '文件得有人接收，而这里一个人也没有。',
   ],
   'file.tooLarge': '每个文件最大 {max} —— 再大浏览器就撂挑子了。',
+  'file.pastedText': '一条消息装不下，已作为文本文件发送。',
   'file.offer': '{name} 想给你发送一个文件',
   'file.to': '发给 {name}',
   'file.accept': '接收',

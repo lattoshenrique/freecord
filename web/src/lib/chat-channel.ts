@@ -29,9 +29,9 @@
 import { isSealedEnvelope } from './chat-crypto';
 
 /** Mirror of ROOM_LIMITS.chatMessageMaxLength (server/src/domain/room.ts). */
-export const CHAT_TEXT_MAX_LENGTH = 500;
+export const CHAT_TEXT_MAX_LENGTH = 2000;
 /** Mirror of ROOM_LIMITS.chatEnvelopeMaxLength. */
-export const CHAT_ENVELOPE_MAX_LENGTH = 2800;
+export const CHAT_ENVELOPE_MAX_LENGTH = 11000;
 /** A name longer than this is nobody's; the roster has the real one anyway. */
 const NAME_MAX_LENGTH = 64;
 

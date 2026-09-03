@@ -449,6 +449,7 @@ export const enUS = {
     'A file needs a receiver, and there is nobody here.',
   ],
   'file.tooLarge': 'Up to {max} per file — past that the browser taps out.',
+  'file.pastedText': 'Too long for one message — it went as a text file instead.',
   'file.offer': '{name} wants to send you a file',
   'file.to': 'to {name}',
   'file.accept': 'Accept',

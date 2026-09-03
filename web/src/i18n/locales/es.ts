@@ -425,6 +425,7 @@ export const esES: Catalog = {
     'Un archivo necesita quien lo reciba, y aquí no hay nadie.',
   ],
   'file.tooLarge': 'Hasta {max} por archivo — más allá el navegador se rinde.',
+  'file.pastedText': 'Demasiado largo para un mensaje — se fue como archivo de texto.',
   'file.offer': '{name} quiere enviarte un archivo',
   'file.to': 'para {name}',
   'file.accept': 'Aceptar',
