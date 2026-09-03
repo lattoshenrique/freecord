@@ -68,6 +68,8 @@ import {
   micEncoding,
   saveMediaSettings,
   screenAudioConstraints,
+  screenAudioEncoding,
+  SCREEN_AUDIO_CONTENT_HINT,
   type MediaSettings,
 } from './media-settings';
 import { StatsSampler, senderReports, type PeerLatency, type ScreenStats } from './stats';
@@ -992,13 +994,17 @@ export function useRoomSession(options: JoinOptions) {
                 );
               }
               for (const track of stream.getAudioTracks()) {
+                // Not a voice: whatever is on that screen is a game, a
+                // film or music, and the browser's default for a mono
+                // microphone would encode all three as speech at ~32 kbps.
+                track.contentHint = SCREEN_AUDIO_CONTENT_HINT;
                 // System audio goes out like the mic — straight to every
                 // peer, never through the tree: ~128 kbps × 7 is nothing
                 // next to one video hop, and it skips the relays' latency.
                 // Riding the display stream tags it: viewers key on the
                 // announced streamId to exclude it from camera tiles and
                 // play it beside the (muted) stage video.
-                meshRef.current?.addLocalTrack(track, stream);
+                meshRef.current?.addLocalTrack(track, stream, screenAudioEncoding());
               }
               syncScreenTree();
             }

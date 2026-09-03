@@ -112,6 +112,20 @@ localhost. `CORS_ORIGIN` restricts the origin in production.
 - Presence is shared: a muted microphone and muted speakers show on the
   tile for everyone, including people who join later. Muting the speakers
   mutes the mic too.
+- **Volume per source.** The speaker key answers "do I want to hear this
+  room"; a mixer beside it answers the far more common question — one
+  microphone running hot, a shared game over the people watching it, a
+  video over the conversation about it. A slider and a mute for each
+  person, each screen carrying sound, and each tool the room has playing.
+  The levels are the listener's own: nothing about them is sent anywhere,
+  and nobody else hears the difference.
+- **Sharing computer audio does not make the room hear itself.** A loopback
+  capture is the whole machine, this call included, so it would send
+  everybody a copy of everybody a beat late. The capture is cleaned before
+  it goes: the room's own output is a signal we still have, so it is found
+  inside the capture (correlation for the delay, an adaptive filter for the
+  rest) and subtracted. Measured, not assumed — a capture we do not appear
+  in, like a single shared browser tab, is passed through untouched.
 - Latency in plain sight: the real peer-to-peer RTT with each person (never
   the hop to the server), plus the resolution/fps/bitrate of a shared screen.
 - The room link is the access credential: an unguessable random slug. The
@@ -136,8 +150,9 @@ localhost. `CORS_ORIGIN` restricts the origin in production.
   at full size. The other side accepts first; both must be online, and when
   NAT forces a TURN relay it forwards ciphertext it cannot read. Up to 1 GB.
 - Call settings live in a dialog: microphone profile (voice or studio),
-  camera quality, computer audio in the share, sounds, language, and the
-  desktop app download for the visitor's own OS.
+  camera quality, computer audio in the share (and whether to keep the room
+  out of it), sounds, language, and the desktop app download for the
+  visitor's own OS.
 - A **tool shelf** in the dock, one tool so far. **Watch together**: paste
   a link and it opens for the room — everyone's own player, one shared
   timeline. Anyone plays, pauses or skips, and whoever joins late lands

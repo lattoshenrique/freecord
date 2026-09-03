@@ -353,6 +353,43 @@ client, one deploy. What it adds is permission the browser cannot give
   every viewer — not through the screen tree, because ~128 kbps of Opus times
   eleven peers costs less than one hop of forwarding complexity. The stage
   `<video>` stays muted; a dedicated audio sink plays the share.
+
+  That 128 kbps is asked for, not assumed: the track carries a `music`
+  content hint and a sender cap of its own, because a browser left to itself
+  encodes it as a mono microphone at ~32 kbps, which is the right answer for
+  a voice and turns a soundtrack to mush.
+
+  A loopback is the machine's WHOLE output, this call included, so that track
+  is put through an echo canceller first (`web/src/lib/echo-guard.ts`) and the
+  clean track replaces the raw one inside the same display stream — the stream
+  id already announced still names what viewers receive. The echo here is
+  digital rather than acoustic, which is what makes it tractable: the loopback
+  contains a copy of a signal we rendered and still hold. A cross-correlation
+  of the two loudness envelopes finds the delay to within a hop, a second pass
+  on the samples lands it on the sample, and a short leaky NLMS filter around
+  that point subtracts the rest. What the filter leaves is ducked by a
+  suppressor whose authority is capped by the leakage it can actually measure —
+  which is also what makes the whole thing safe on by default, because a
+  capture we do not appear in (a shared browser tab, a machine playing the room
+  to headphones) drives that measurement to nothing and every stage becomes a
+  no-op.
+
+  The reference it subtracts is a second tap on the same streams the room's
+  audio sinks are playing, at the same levels (`web/src/lib/audio-bus.ts`) —
+  Web Audio beside the elements, never in front of them, so `setSinkId`, the
+  speaker key and the per-source levels keep working on the path where a
+  regression means a call nobody can hear. Two things are deliberately outside
+  it: the watch tool's vendor iframes, which are not ours to tap (a room
+  watching a video while somebody shares system audio hears it twice — a
+  duplicate of what every peer already has, not a feedback loop), and the
+  notification chimes, which are brief enough not to be worth a graph.
+- **Volume per source is local, and stays local.** Levels live in
+  `web/src/lib/audio-mix.ts` and are applied as each media element's own
+  `volume`. Only a tool's level is persisted: peer ids are per-session, so
+  remembering one would restore a stranger's setting onto whoever inherited
+  the id. A tool reads its own through `speakerLevel` on `ToolViewProps` —
+  beside `speakerOn`, never inside the tool's shared state, which is broadcast
+  to the room.
 - **A bigger appetite.** An installed app can assume a real machine and a real
   link, so the screen uplink budget rises from 10 to 25 Mbps and every preset's
   bitrate ceiling doubles. Browsers keep the conservative numbers.

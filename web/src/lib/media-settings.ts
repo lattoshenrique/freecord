@@ -86,6 +86,8 @@ export interface SenderCaps {
   maxBitrate: number;
   maxFramerate?: number;
   degradationPreference?: RTCDegradationPreference;
+  /** Where congestion cuts last; the mesh gives audio 'high' either way. */
+  priority?: RTCPriorityType;
 }
 
 export function micEncoding(mic: MicSettings): SenderCaps {
@@ -144,6 +146,33 @@ export function screenAudioConstraints(): MediaTrackConstraints {
     autoGainControl: false,
   };
 }
+
+/**
+ * What a shared machine's audio is worth spending.
+ *
+ * It is not a voice and must not be encoded as one: whatever is on that
+ * screen is a game, a film or music, in stereo, and Opus at the ~32 kbps
+ * a browser picks by default for a mono microphone turns all three to
+ * mush. The hint says which of the two encoders to use — speech coding a
+ * soundtrack is the worse half of the damage — and the cap gives it room.
+ *
+ * The number is the one the architecture already budgeted for: this track
+ * goes mesh-direct to every peer rather than through the screen tree, so
+ * it is paid N−1 times, and 128 kbps of stereo Opus times nineteen is
+ * still a fraction of one screen's video.
+ */
+export const OPUS_SCREEN_MAX_BITRATE = 128_000;
+
+export function screenAudioEncoding(): SenderCaps {
+  // The mesh already marks every audio sender 'high' on its own, but that
+  // and this land through two `setParameters` calls on the same sender in
+  // the same tick, and only one of them can win. Saying it here too makes
+  // the outcome the same whichever does.
+  return { maxBitrate: OPUS_SCREEN_MAX_BITRATE, priority: 'high' };
+}
+
+/** Program audio, not talking: the encoder should preserve it as music. */
+export const SCREEN_AUDIO_CONTENT_HINT: 'music' = 'music';
 
 const STORAGE_KEY = 'freecord:media-settings';
 

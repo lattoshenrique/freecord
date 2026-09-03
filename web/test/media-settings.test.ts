@@ -8,6 +8,10 @@ import {
   micDefaults,
   micEncoding,
   saveMediaSettings,
+  screenAudioConstraints,
+  screenAudioEncoding,
+  OPUS_SCREEN_MAX_BITRATE,
+  OPUS_VOICE_MAX_BITRATE,
 } from '../src/lib/media-settings';
 
 /** A trimmed but structurally honest Chrome offer: audio + video m-lines. */
@@ -136,5 +140,29 @@ describe('camera presets', () => {
   it('resolves ids and falls back to standard', () => {
     expect(cameraPresetById('high').height).toBe(1080);
     expect(cameraPresetById('unknown' as never).id).toBe('standard');
+  });
+});
+
+describe('a shared machine’s audio', () => {
+  it('is given room a microphone would not need', () => {
+    // The point of the number is that it is not the voice one: whatever is
+    // on that screen is a game, a film or music, and the voice budget is
+    // where those go to die.
+    expect(screenAudioEncoding().maxBitrate).toBe(OPUS_SCREEN_MAX_BITRATE);
+    expect(OPUS_SCREEN_MAX_BITRATE).toBeGreaterThan(OPUS_VOICE_MAX_BITRATE);
+  });
+
+  it('keeps the priority the mesh gives audio, so the two writers agree', () => {
+    expect(screenAudioEncoding().priority).toBe('high');
+  });
+
+  it('rides without the microphone\'s cleanup chain', () => {
+    // Every one of these exists to fix a room with a person in it; against
+    // program audio they only remove what the viewer came to hear.
+    expect(screenAudioConstraints()).toEqual({
+      echoCancellation: false,
+      noiseSuppression: false,
+      autoGainControl: false,
+    });
   });
 });

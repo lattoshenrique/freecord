@@ -51,6 +51,14 @@ interface Tap {
 let wanted: readonly PlayingSource[] = [];
 let context: AudioContext | null = null;
 let bus: GainNode | null = null;
+/**
+ * Whether THIS context has the worklet. Adding the module twice runs its
+ * `registerProcessor` twice, which throws inside the worklet and rejects
+ * the second `addModule` — so a second capture on a live context would
+ * quietly fall back to the raw track. One share at a time is the rule
+ * today; this is what keeps that from being load-bearing.
+ */
+let moduleLoaded = false;
 const taps = new Map<string, Tap>();
 /** How many captures are being cleaned; the graph lives while any is. */
 let users = 0;
@@ -136,7 +144,10 @@ export async function guardCapture(track: MediaStreamTrack): Promise<GuardedCapt
   let ctx: AudioContext;
   try {
     ctx = ensureContext();
-    await ctx.audioWorklet.addModule(workletUrl);
+    if (!moduleLoaded) {
+      await ctx.audioWorklet.addModule(workletUrl);
+      moduleLoaded = true;
+    }
   } catch {
     releaseContext();
     return raw;
@@ -223,6 +234,7 @@ function releaseContext(): void {
   }
   bus?.disconnect();
   bus = null;
+  moduleLoaded = false;
   void context?.close().catch(() => {});
   context = null;
 }
