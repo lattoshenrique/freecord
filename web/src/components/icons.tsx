@@ -157,6 +157,22 @@ export function SlidersIcon() {
   );
 }
 
+/**
+ * The mixer. Faders standing up, deliberately unlike SlidersIcon's
+ * horizontal pair: the two sit five keys apart in the same dock, and one
+ * glyph for both makes the dock a guessing game.
+ */
+export function FadersIcon() {
+  return (
+    <svg {...base}>
+      <path d="M7 4v5M7 15v5M12 4v9M12 19v1M17 4v1M17 11v9" />
+      <circle cx="7" cy="12" r="2.2" />
+      <circle cx="12" cy="16" r="2.2" />
+      <circle cx="17" cy="8" r="2.2" />
+    </svg>
+  );
+}
+
 const tool: SVGProps<SVGSVGElement> = { ...base, width: 15, height: 15 };
 
 export function BoldIcon() {

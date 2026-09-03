@@ -66,6 +66,7 @@ import {
   ReplyIcon,
   ScreenIcon,
   SearchIcon,
+  FadersIcon,
   SlidersIcon,
   ToolboxIcon,
   TranscriptIcon,
@@ -2300,7 +2301,7 @@ export default function RoomView({
             title={t('controls.mixer')}
             onClick={() => setMixerOpen((open) => !open)}
           >
-            <SlidersIcon />
+            <FadersIcon />
           </button>
           {/* The "no slot" state is its own thing, not the off style: it is
               styled via [data-camera-slots="full"]. */}
