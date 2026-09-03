@@ -49,9 +49,17 @@ export const jaJP: Catalog = {
   'home.card.hint': 'リンクが招待状。認証はこれで全部です。',
 
   'how.link': '仕組み',
+  'how.nav.label': 'Freecord について',
+  'how.eyebrow': '設計からプライベート · ピアツーピア',
   'how.title': 'Freecord の仕組み',
   'how.lead':
     '部屋はリンクそのもので、会話はその部屋にいるブラウザ同士を直接流れます。ボタンを押したあとに何が起きるのか、そしてサーバーが決して見ないものを説明します。',
+  'how.fact.account.value': 'ゼロ',
+  'how.fact.account.label': 'アカウントやプロフィール',
+  'how.fact.people.value': '20',
+  'how.fact.people.label': '1 ルームの人数',
+  'how.fact.screens.value': '3',
+  'how.fact.screens.label': '同時に共有できる画面',
 
   'how.steps.title': '3 つのステップ',
   'how.step.create.title': '部屋をつくる',
@@ -66,17 +74,47 @@ export const jaJP: Catalog = {
   'how.mesh.title': '音声も映像もサーバーを通りません',
   'how.mesh.body':
     '音声・映像・画面はネイティブの WebRTC でブラウザからブラウザへ、エンドツーエンドで暗号化されて流れます。サーバーがするのはブラウザ同士を引き合わせることと、ルームにいる人の一覧を持つことです — 盗み聞きするメディアサーバーは存在せず、その請求書もありません。もう一つ、しかも誰かが頼んだときだけ：「いっしょに観る」にページを貼ると、サーバーはそのページを一度だけ開き、マークアップから再生できるものを読み取り、答えを返し、何も残しません。そのときもメディアはサーバーを通りません — 動画は各ブラウザが元の場所から取得します。直接つなぐには厳しすぎるネットワークには TURN リレーが要りますが、私たちは 1 台も動かしていないので、その稀な接続は第三者を黙って経由せずに失敗します。',
+  'how.diagram.media.badge': '直接経路',
   'how.diagram.media': '音声・映像・画面：ブラウザ同士を直接',
+  'how.diagram.media.legend': '直接流れるもの',
+  'how.diagram.media.voice': '音声',
+  'how.diagram.media.video': '映像',
+  'how.diagram.media.screen': '共有画面',
+  'how.diagram.signaling.badge': '最小限のサーバー',
   'how.diagram.signaling': 'サーバーを通るのはシグナリングだけ：誰がいるか、どうつなぐか',
+  'how.diagram.signaling.legend': 'サーバーが運ぶもの',
+  'how.diagram.signaling.presence': '誰がいるか',
+  'how.diagram.signaling.connection': 'どう接続するか',
+  'how.diagram.person.you': 'あなた',
+  'how.diagram.person.lia': 'Lia',
+  'how.diagram.person.rui': 'Rui',
+  'how.diagram.person.maya': 'Maya',
+  'how.diagram.server': 'サーバー',
+  'how.diagram.prompt': '光る点を追うと、それぞれの情報がどこを通るか分かります。',
+  'how.diagram.pause': 'アニメーションを停止',
+  'how.diagram.play': 'アニメーションを再生',
+  'how.diagram.story.kicker': 'かんたんに言うと',
+  'how.diagram.story.title': 'サーバーは、人を紹介するホストのようなものです。',
+  'how.diagram.story.ask.title': 'まず誰がいるかを尋ねます',
+  'how.diagram.story.ask.body': 'ブラウザが Freecord に連絡し、到着したことを知らせます。',
+  'how.diagram.story.meet.title': 'サーバーが全員を紹介します',
+  'how.diagram.story.meet.body': 'ブラウザ同士が見つけ合うための接続情報を渡します。',
+  'how.diagram.story.talk.title': 'その後、会話から離れます',
+  'how.diagram.story.talk.body': '接続後、音声・映像・画面はルームの参加者同士を直接流れます。',
 
+  'how.details.title': 'ほかのデータはどうなるか',
+  'how.details.body': 'チャット、ファイル、画面共有も同じ原則です。内容はサーバーから遠ざけ、制限は明確に示します。',
+  'how.chat.eyebrow': '暗号化 · 一時的',
   'how.chat.title': 'チャットは封をされ、そして消えます',
   'how.chat.body':
     'メッセージはリンクに載ってきた鍵で自分のブラウザ内で暗号化され、音声と同じように他のブラウザへ直接届きます。サーバーが中継するのは直接の経路がないときだけで、しかも読めない文字列を渡すだけです。ファイルはサーバーを通りもしません。保存はしません。部屋が閉じれば会話も一緒に消えます。',
 
+  'how.screen.eyebrow': '同時に 3 画面',
   'how.screen.title': '画面共有は同時に 3 つまで、それぞれツリー状に中継',
   'how.screen.body':
     'サーバーが与える画面共有の枠は最大 3 つで、共有者の接続が切れれば数秒でその枠を解放します。画面は共有者から全員へ送られるのではなく、まず 3 人へ、その 3 人がさらに 3 人へ転送します。だから誰の上り帯域も部屋の人数に比例して増えません。共有された画面ごとに専用のツリーがあります。',
 
+  'how.limits.eyebrow': '20 席 · 空室 15 分',
   'how.limits.title': '部屋が従うルール',
   'how.limits.body':
     '1 ルーム 20 人まで。空のルームは 15 分で閉じます。35 秒沈黙したブラウザは席を失うので、固まったタブが席を占め続けることはありません。20 人を超えるとメッシュは正直な答えではなくなります。次の一手は自前のメディアノード — 画面共有がすでにピア間で中継しているのと同じ考え方です。',
@@ -87,6 +125,9 @@ export const jaJP: Catalog = {
   'how.run.copy': 'コマンドをコピー',
   'how.run.copied': 'コピーしました',
   'how.more.start': '部屋をつくる',
+  'how.cta.eyebrow': 'インストール不要',
+  'how.cta.title': 'いちばん明快な説明は、自分のルームです。',
+  'how.cta.body': '数秒で作り、信頼する相手にリンクを送ってみてください。',
 
   'invite.copy': '招待',
   'invite.copied': [
@@ -204,6 +245,9 @@ export const jaJP: Catalog = {
   'participation.toolOffTitle': 'これには参加していません',
   'participation.toolOffBody': '部屋は {tool} を見ています。ここでは何も読み込んでいません。',
   'participation.toolJoinOnce': '今回だけ {tool} に入る',
+  'participation.sitOut': 'これには参加しない',
+  'participation.comeBack': '{tool} に入る',
+  'participation.sitOutHint': 'ここだけの設定です。ほかの人にはそのまま流れています。',
   'settings.about.title': 'このアプリについて',
   'settings.close': '設定を閉じる',
   'settings.sounds.title': 'サウンド',
@@ -289,7 +333,7 @@ export const jaJP: Catalog = {
     'あなたのリンクにはこのルームの鍵が入っていないため、送信できません。招待してくれた人に元のリンクをもらってください — 鍵は # のうしろを通り、サーバーには届きません。',
   'chat.locked': '暗号化されています — あなたのリンクには鍵がありません',
   'chat.messageLabel': 'チャットメッセージ',
-  'chat.placeholder': 'メッセージ… Markdown が使えます、/ でコマンド',
+  'chat.placeholder': 'メッセージ… Markdown が使えます、/ でコマンド、@ で名前',
   'chat.send': 'メッセージを送信',
   'chat.toolbar': 'メッセージの書式',
   'chat.unread': { other: '件の新着メッセージ' },
@@ -305,6 +349,8 @@ export const jaJP: Catalog = {
   'chat.reply': '返信',
   'chat.replyingTo': '{name} に返信中',
   'chat.cancelReply': '返信をやめる',
+  'chat.mentionMenu': 'この部屋の人',
+  'chat.mentionsYou': 'あなたへのメンション',
   'chat.jumpToLatest': '新しいメッセージへ',
   'chat.copy': 'メッセージをコピー',
   'chat.copied': 'コピーしました',
@@ -392,10 +438,28 @@ export const jaJP: Catalog = {
   // Community page — English source lives in en-US.ts, owned by its author.
   'community.back':
     'ホームに戻る',
+  'community.nav.label':
+    'Freecord について',
+  'community.eyebrow':
+    'オープンソース · MIT ライセンス',
   'community.title':
     'Freecord はオープンソースです',
   'community.lead':
     '友だちと話すための場所。あなたに何も求めません。アカウントもダウンロードも不要で、あいだに誰も入りません。コードを読み、自分で動かし、よりよくするのを手伝ってください。',
+  'community.fact.license.value':
+    'MIT',
+  'community.fact.license.label':
+    '利用・改変・セルフホスト',
+  'community.fact.stack.value':
+    '100%',
+  'community.fact.stack.label':
+    '公開されたプロトコルとソース',
+  'community.fact.cost.value':
+    '¥0',
+  'community.fact.cost.label':
+    '必須サービスやキー',
+  'community.promise.kicker':
+    '原則',
   'community.promise.title':
     '約束',
   'community.promise.guest.title':
@@ -414,6 +478,12 @@ export const jaJP: Catalog = {
     'ベンダーなし、SDK なし',
   'community.promise.vendor.body':
     'メディア事業者もサードパーティ SDK もありません。プロトコルはすべてリポジトリにあり、全体が無料のインフラで動いています。唯一あり得る例外は任意の TURN です。直接接続を遮断するネットワーク向けの中継で、復号できない暗号化トラフィックをそのまま転送するだけ。自分で立てる場合も変更は 1 行です。本サービスでは現在どれも設定していません。正直に、裏側も書きます：「いっしょに観る」が他人のページをそのまま映すことしかできない場合、そのページはここにいる全員のブラウザで読み込まれ、そのページ自身のスクリプトが動きます。向こうのサイトからは、ふつうのサイトと同じように各自の接続が見えます。設定のスイッチひとつで、あなたのところには何も読み込まれなくなり、ルームはあなた抜きで見続けます。',
+  'community.participate.kicker':
+    '参加の入口',
+  'community.participate.title':
+    '使う、調べる、良くする',
+  'community.participate.body':
+    '貢献に WebRTC の専門知識は要りません。気づいたことや学びたいことに合う入口を選べます。',
   'community.source.title':
     'ソースを読む',
   'community.source.body':
@@ -441,6 +511,8 @@ export const jaJP: Catalog = {
     'issue を見る',
   'community.desktop.title':
     'デスクトップでも',
+  'community.desktop.kicker':
+    'ひとつの製品を、すべての環境で',
   'community.desktop.body':
     'macOS・Windows・Linux 向けのアプリが同じページを包み、ブラウザにはできないことを足します。ネイティブの画面選択と、本物のシステムメディア権限です。',
   'community.footer':

@@ -54,9 +54,17 @@ export const ptBR: Catalog = {
   'home.card.hint': 'O link é o convite. É essa a camada de autenticação inteira.',
 
   'how.link': 'Como funciona',
+  'how.nav.label': 'Sobre o Freecord',
+  'how.eyebrow': 'Privado desde o princípio · ponto a ponto',
   'how.title': 'Como o Freecord funciona',
   'how.lead':
-    'Uma sala é um link, e a conversa vai direto entre os navegadores que estão nela. Isto é o que acontece depois que você aperta o botão — e o que o nosso servidor nunca vê.',
+    'Crie um link, convide as pessoas e converse direto entre os navegadores. Nenhuma conta atrasa a entrada, e nenhum servidor de mídia fica no meio da conversa.',
+  'how.fact.account.value': 'Zero',
+  'how.fact.account.label': 'contas ou perfis',
+  'how.fact.people.value': '20',
+  'how.fact.people.label': 'pessoas por sala',
+  'how.fact.screens.value': '3',
+  'how.fact.screens.label': 'telas ao mesmo tempo',
 
   'how.steps.title': 'Três passos',
   'how.step.create.title': 'Crie a sala',
@@ -71,18 +79,49 @@ export const ptBR: Catalog = {
 
   'how.mesh.title': 'A mídia nunca toca o nosso servidor',
   'how.mesh.body':
-    'Voz, vídeo e tela fluem de navegador para navegador por WebRTC nativo, criptografados fim a fim. O nosso servidor apresenta os navegadores uns aos outros e guarda a lista de quem está na sala — não existe servidor de mídia para bisbilhotar, nem conta para pagar por ele. Uma coisa a mais, e só quando alguém pede: cole uma página em Assistir juntos e o servidor abre aquela página uma vez, lê na marcação o que dá para tocar, responde e não guarda nada. Nem aí passa mídia por ele — cada navegador busca o vídeo onde ele mora. Uma rede restritiva demais para conexão direta precisaria de um relay TURN; não mantemos nenhum, então essas poucas conexões falham em vez de passar caladas por um terceiro.',
+    'Voz, vídeo e tela usam WebRTC nativo para viajar direto entre as pessoas da sala. O servidor apenas apresenta os navegadores e mantém a presença sincronizada. Ele não carrega mídia nem guarda a conversa. Como o Freecord não usa relay TURN, uma rede rara que bloqueie toda conexão direta pode falhar em vez de mandar a chamada silenciosamente por um terceiro.',
+  'how.diagram.media.badge': 'Caminho direto',
   'how.diagram.media': 'Voz, vídeo e tela: direto entre os navegadores',
+  'how.diagram.media.legend': 'O que viaja diretamente',
+  'how.diagram.media.voice': 'voz',
+  'how.diagram.media.video': 'vídeo',
+  'how.diagram.media.screen': 'tela compartilhada',
+  'how.diagram.signaling.badge': 'Servidor mínimo',
   'how.diagram.signaling': 'Pelo servidor, só a sinalização: quem está na sala e como alcançar cada um',
+  'how.diagram.signaling.legend': 'O que passa pelo servidor',
+  'how.diagram.signaling.presence': 'quem está aqui',
+  'how.diagram.signaling.connection': 'como conectar',
+  'how.diagram.person.you': 'Você',
+  'how.diagram.person.lia': 'Lia',
+  'how.diagram.person.rui': 'Rui',
+  'how.diagram.person.maya': 'Maya',
+  'how.diagram.server': 'servidor',
+  'how.diagram.prompt': 'Siga os pontos luminosos para ver por onde passa cada tipo de informação.',
+  'how.diagram.pause': 'Pausar animação',
+  'how.diagram.play': 'Reproduzir animação',
+  'how.diagram.story.kicker': 'Sem tecnês',
+  'how.diagram.story.title': 'Pense no servidor como o anfitrião que apresenta as pessoas.',
+  'how.diagram.story.ask.title': 'Você pergunta quem está na sala',
+  'how.diagram.story.ask.body': 'Seu navegador fala com o Freecord e avisa que você chegou.',
+  'how.diagram.story.meet.title': 'O servidor apresenta todo mundo',
+  'how.diagram.story.meet.body': 'Ele entrega os dados de conexão para os navegadores se encontrarem.',
+  'how.diagram.story.talk.title': 'Depois ele sai da conversa',
+  'how.diagram.story.talk.body': 'Com todos conectados, voz, vídeo e telas passam direto entre as pessoas da sala.',
 
+  'how.details.title': 'O que acontece com todo o resto',
+  'how.details.body':
+    'Chat, arquivos e compartilhamento de tela seguem o mesmo princípio: conteúdo longe do servidor e limites sempre visíveis.',
+  'how.chat.eyebrow': 'Cifrado · temporário',
   'how.chat.title': 'O chat é lacrado e temporário',
   'how.chat.body':
     'As mensagens são cifradas no seu navegador com a chave que veio no link e vão direto para os outros navegadores, como a voz; o servidor só repassa uma quando falta um caminho direto, e repassa um texto que não consegue ler. Arquivos nem passam por ele. Nada é guardado: quando a sala fecha, a conversa vai junto.',
 
+  'how.screen.eyebrow': '3 compartilhamentos simultâneos',
   'how.screen.title': 'Até três telas ao mesmo tempo, cada uma repassada em árvore',
   'how.screen.body':
     'O servidor concede no máximo três vagas de tela, e libera uma em segundos se a conexão de quem compartilha cair. Uma tela não vai de quem compartilha para todo mundo: ela chega a três pares, e cada um repassa para outros três, então o upload de ninguém cresce junto com a sala. Cada tela compartilhada tem uma árvore só sua.',
 
+  'how.limits.eyebrow': '20 lugares · 15 min vazia',
   'how.limits.title': 'As regras que a sala segue',
   'how.limits.body':
     'Vinte pessoas por sala. Uma sala vazia fecha em quinze minutos. Um navegador que fica trinta e cinco segundos calado perde o lugar, para uma aba travada não ficar de posse de uma vaga para sempre. Acima de vinte a malha deixa de ser a resposta honesta: o próximo passo é um nó de mídia nosso, do jeito que o compartilhamento de tela já repassa entre os pares.',
@@ -93,6 +132,9 @@ export const ptBR: Catalog = {
   'how.run.copy': 'Copiar comandos',
   'how.run.copied': 'Copiado!',
   'how.more.start': 'Criar uma sala',
+  'how.cta.eyebrow': 'Nada para instalar',
+  'how.cta.title': 'A explicação mais clara é uma sala sua.',
+  'how.cta.body': 'Crie uma em poucos segundos e mande o link para alguém em quem você confia.',
 
   'invite.copy': 'Convidar',
   'invite.copied': [
@@ -215,6 +257,9 @@ export const ptBR: Catalog = {
   'participation.toolOffTitle': 'Você ficou de fora desta',
   'participation.toolOffBody': 'A sala está em {tool}. Nada disso está carregando aqui.',
   'participation.toolJoinOnce': 'Entrar em {tool} só desta vez',
+  'participation.sitOut': 'Ficar de fora desta',
+  'participation.comeBack': 'Entrar em {tool}',
+  'participation.sitOutHint': 'Só aqui — para os outros continua no ar.',
   'settings.about.title': 'Sobre',
   'settings.close': 'Fechar configurações',
   'settings.sounds.title': 'Sons',
@@ -304,7 +349,7 @@ export const ptBR: Catalog = {
     'Seu link veio sem a chave desta sala, então não dá para enviar nada. Peça o link original a quem te convidou — a chave vem depois do # e nunca chega a um servidor.',
   'chat.locked': 'Criptografada — e o seu link veio sem a chave',
   'chat.messageLabel': 'Mensagem do chat',
-  'chat.placeholder': 'Mensagem… markdown funciona, / para comandos',
+  'chat.placeholder': 'Mensagem… markdown funciona, / para comandos, @ para chamar alguém',
   'chat.send': 'Enviar mensagem',
   'chat.toolbar': 'Formatação da mensagem',
   'chat.unread': { one: 'nova mensagem', other: 'novas mensagens' },
@@ -320,6 +365,8 @@ export const ptBR: Catalog = {
   'chat.reply': 'Responder',
   'chat.replyingTo': 'Respondendo a {name}',
   'chat.cancelReply': 'Cancelar resposta',
+  'chat.mentionMenu': 'Quem está aqui',
+  'chat.mentionsYou': 'Menciona você',
   'chat.jumpToLatest': 'Ir para as mensagens novas',
   'chat.copy': 'Copiar a mensagem',
   'chat.copied': 'Copiado',
@@ -407,10 +454,28 @@ export const ptBR: Catalog = {
   // Community page — English source lives in en-US.ts, owned by its author.
   'community.back':
     'Voltar ao início',
+  'community.nav.label':
+    'Sobre o Freecord',
+  'community.eyebrow':
+    'Código aberto · licença MIT',
   'community.title':
     'O Freecord é open source',
   'community.lead':
-    'Um lugar para conversar com os amigos que não pede nada de você: sem conta, sem download, sem ninguém no meio. Leia o código, rode o seu, ou ajude a melhorar.',
+    'O Freecord é construído em público para conversas que pertencem a quem participa delas. Leia cada linha, rode sua própria cópia, conte o que quebrou ou ajude a decidir o que vem depois.',
+  'community.fact.license.value':
+    'MIT',
+  'community.fact.license.label':
+    'use, modifique e hospede',
+  'community.fact.stack.value':
+    '100%',
+  'community.fact.stack.label':
+    'protocolo e código abertos',
+  'community.fact.cost.value':
+    'R$ 0',
+  'community.fact.cost.label':
+    'em serviços ou chaves obrigatórios',
+  'community.promise.kicker':
+    'Princípios',
   'community.promise.title':
     'A promessa',
   'community.promise.guest.title':
@@ -428,7 +493,13 @@ export const ptBR: Catalog = {
   'community.promise.vendor.title':
     'Sem fornecedor, sem SDK',
   'community.promise.vendor.body':
-    'Nenhum fornecedor de mídia e nenhum SDK de terceiro. O protocolo inteiro está no repositório e tudo roda em infraestrutura gratuita. A única exceção possível é o TURN, opcional: um relay para redes que bloqueiam conexão direta — ele repassa tráfego cifrado que não consegue ler, e hospedar o seu é mudança de uma linha. Este serviço não tem nenhum configurado hoje. O outro lado, dito na cara: quando Assistir juntos não consegue mais do que colocar a página de outra pessoa na tela, essa página carrega no navegador de todo mundo aqui e roda os scripts dela, e o site do outro lado enxerga a conexão de cada um como qualquer site enxergaria. Uma chave nas suas configurações e nada disso carrega para você — a sala continua assistindo sem você.',
+    'Não há fornecedor de mídia nem SDK de comunicação de terceiros. O protocolo vive no repositório, e integrações opcionais continuam visíveis e sob seu controle. Quando o Assistir juntos carrega uma página externa, cada pessoa se conecta diretamente àquele site; você pode desativar isso nas configurações.',
+  'community.participate.kicker':
+    'Seu ponto de entrada',
+  'community.participate.title':
+    'Use, investigue, melhore',
+  'community.participate.body':
+    'Você não precisa dominar WebRTC para contribuir. Escolha o caminho que combina com o que você percebeu ou quer aprender.',
   'community.source.title':
     'Leia o código',
   'community.source.body':
@@ -456,6 +527,8 @@ export const ptBR: Catalog = {
     'Ver as issues',
   'community.desktop.title':
     'No computador também',
+  'community.desktop.kicker':
+    'Um produto, toda plataforma',
   'community.desktop.body':
     'Um app para macOS, Windows e Linux embrulha esta mesma página e acrescenta o que o navegador não dá: seletor de tela nativo e permissões de mídia de verdade do sistema.',
   'community.footer':

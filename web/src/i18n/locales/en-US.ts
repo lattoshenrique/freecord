@@ -68,9 +68,17 @@ export const enUS = {
   'home.card.hint': 'The link is the invite. That is the entire auth layer.',
 
   'how.link': 'How it works',
+  'how.nav.label': 'About Freecord',
+  'how.eyebrow': 'Private by design · peer to peer',
   'how.title': 'How Freecord works',
   'how.lead':
-    'A room is a link, and the conversation goes straight between the browsers in it. Here is what happens after you press the button — and what our server never sees.',
+    'Create a link, invite your people, and talk directly between browsers. No account stands in the way, and no media server sits in the middle of the conversation.',
+  'how.fact.account.value': 'Zero',
+  'how.fact.account.label': 'accounts or profiles',
+  'how.fact.people.value': '20',
+  'how.fact.people.label': 'people per room',
+  'how.fact.screens.value': '3',
+  'how.fact.screens.label': 'screens at the same time',
 
   'how.steps.title': 'Three steps',
   'how.step.create.title': 'Create the room',
@@ -85,18 +93,49 @@ export const enUS = {
 
   'how.mesh.title': 'The media never touches our server',
   'how.mesh.body':
-    'Voice, video and screen flow browser to browser over native WebRTC, encrypted end to end. Our server introduces the browsers to each other and keeps the list of who is in the room — there is no media server to eavesdrop, and no bill for one either. One thing more, and only when somebody asks for it: paste a page into Watch together and the server opens that one page, reads its markup for what is playable, answers, and keeps nothing. No media passes through it then either — every browser fetches the video from wherever it lives. A network too restrictive for a direct connection would need a TURN relay; we run none, so those rare connections fail instead of quietly passing through a third party.',
+    'Voice, video and screen sharing use native WebRTC to travel directly between the people in the room. The server only introduces browsers and keeps presence in sync. It carries no media and stores no conversation. Because Freecord runs no TURN relay, a rare network that blocks every direct connection may fail instead of quietly routing the call through a third party.',
+  'how.diagram.media.badge': 'Direct path',
   'how.diagram.media': 'Voice, video and screen: straight between the browsers',
+  'how.diagram.media.legend': 'What travels directly',
+  'how.diagram.media.voice': 'voice',
+  'how.diagram.media.video': 'video',
+  'how.diagram.media.screen': 'shared screen',
+  'how.diagram.signaling.badge': 'Thin server layer',
   'how.diagram.signaling': 'Through the server, only the signaling: who is in the room, and how to reach them',
+  'how.diagram.signaling.legend': 'What the server carries',
+  'how.diagram.signaling.presence': 'who is here',
+  'how.diagram.signaling.connection': 'how to connect',
+  'how.diagram.person.you': 'You',
+  'how.diagram.person.lia': 'Lia',
+  'how.diagram.person.rui': 'Rui',
+  'how.diagram.person.maya': 'Maya',
+  'how.diagram.server': 'server',
+  'how.diagram.prompt': 'Follow the glowing dots to see where each kind of information goes.',
+  'how.diagram.pause': 'Pause animation',
+  'how.diagram.play': 'Play animation',
+  'how.diagram.story.kicker': 'In plain language',
+  'how.diagram.story.title': 'Think of the server as the host who makes introductions.',
+  'how.diagram.story.ask.title': 'You ask who is in the room',
+  'how.diagram.story.ask.body': 'Your browser contacts Freecord and announces that you arrived.',
+  'how.diagram.story.meet.title': 'The server introduces everyone',
+  'how.diagram.story.meet.body': 'It shares the connection details browsers need to find one another.',
+  'how.diagram.story.talk.title': 'Then it steps out of the conversation',
+  'how.diagram.story.talk.body': 'Once connected, voice, video and screens move directly between the people in the room.',
 
+  'how.details.title': 'What happens to everything else',
+  'how.details.body':
+    'Chat, files and screen sharing follow the same principle: keep the server out of the content, and make the limits visible.',
+  'how.chat.eyebrow': 'Encrypted · ephemeral',
   'how.chat.title': 'The chat is sealed, and temporary',
   'how.chat.body':
     'Messages are encrypted in your browser with the key that came in the link, and travel straight to the other browsers like the voice does; the server only passes one along when a direct path is missing, and it relays text it cannot read. Files never touch it at all. Nothing is stored: when the room closes, the conversation goes with it.',
 
+  'how.screen.eyebrow': '3 simultaneous shares',
   'how.screen.title': 'Up to three screens at once, each relayed as a tree',
   'how.screen.body':
     'The server grants at most three screen slots, and frees one within seconds if its sharer’s connection drops. A screen does not go from the sharer to everyone: it reaches three peers, and each of them forwards it to three more, so nobody’s upload grows with the room. Each shared screen has a tree of its own.',
 
+  'how.limits.eyebrow': '20 seats · 15 min empty',
   'how.limits.title': 'The rules the room lives by',
   'how.limits.body':
     'Twenty people per room. An empty room closes after fifteen minutes. A browser that goes quiet for thirty-five seconds loses its seat, so a crashed tab cannot squat on one forever. Past twenty a mesh stops being the honest answer: the next step is a media node of our own, the way screen sharing already relays between peers.',
@@ -107,6 +146,9 @@ export const enUS = {
   'how.run.copy': 'Copy commands',
   'how.run.copied': 'Copied!',
   'how.more.start': 'Create a room',
+  'how.cta.eyebrow': 'Nothing to install',
+  'how.cta.title': 'The clearest explanation is a room of your own.',
+  'how.cta.body': 'Create one in a few seconds, then send the link to someone you trust.',
 
   'invite.copy': 'Invite',
   'invite.copied': [
@@ -228,6 +270,9 @@ export const enUS = {
   'participation.toolOffTitle': 'You sat this one out',
   'participation.toolOffBody': 'The room is on {tool}. None of it is loading here.',
   'participation.toolJoinOnce': 'Join {tool} this once',
+  'participation.sitOut': 'Sit this one out',
+  'participation.comeBack': 'Join {tool}',
+  'participation.sitOutHint': 'Yours alone — it stays on for everybody else.',
   'settings.about.title': 'About',
   'settings.close': 'Close settings',
   'settings.sounds.title': 'Sounds',
@@ -322,7 +367,7 @@ export const enUS = {
     'Your link came without this room’s key, so nothing can go out. Ask whoever invited you for the original link — the key rides after the # and never reaches a server.',
   'chat.locked': 'Encrypted — and your link came without the key',
   'chat.messageLabel': 'Chat message',
-  'chat.placeholder': 'Message… markdown works, / for commands',
+  'chat.placeholder': 'Message… markdown works, / for commands, @ for a name',
   'chat.send': 'Send message',
   'chat.toolbar': 'Message formatting',
   'chat.unread': { one: 'new message', other: 'new messages' },
@@ -338,6 +383,8 @@ export const enUS = {
   'chat.reply': 'Reply',
   'chat.replyingTo': 'Replying to {name}',
   'chat.cancelReply': 'Cancel reply',
+  'chat.mentionMenu': 'People here',
+  'chat.mentionsYou': 'Mentions you',
   'chat.jumpToLatest': 'Jump to the new messages',
   'chat.copy': 'Copy the message',
   'chat.copied': 'Copied',
@@ -429,10 +476,19 @@ export const enUS = {
   'latency.self': 'Your latency in the mesh — the middle of your links',
 
   'community.back': 'Back to start',
+  'community.nav.label': 'About Freecord',
+  'community.eyebrow': 'Open source · MIT licensed',
   'community.title': 'Freecord is open source',
   'community.lead':
-    'A place to talk with friends that asks nothing of you: no account, no download, nobody in the middle. Read the code, run your own, or help make it better.',
+    'Freecord is built in public for conversations that belong to the people having them. Read every line, run your own copy, report what breaks, or help shape what comes next.',
+  'community.fact.license.value': 'MIT',
+  'community.fact.license.label': 'use, fork and self-host',
+  'community.fact.stack.value': '100%',
+  'community.fact.stack.label': 'open protocol and source',
+  'community.fact.cost.value': '$0',
+  'community.fact.cost.label': 'required services or keys',
 
+  'community.promise.kicker': 'Principles',
   'community.promise.title': 'The promise',
   'community.promise.guest.title': 'No signup, ever',
   'community.promise.guest.body':
@@ -446,7 +502,12 @@ export const enUS = {
     'Messages are encrypted in your browser with a key that lives in the room link. Browsers never send a fragment to a server, so ours relays text it cannot read — and stores none of it either: the chat disappears with the room. The flip side is honest: anyone holding the link can read along, exactly as they can walk in.',
   'community.promise.vendor.title': 'No vendor, no SDK',
   'community.promise.vendor.body':
-    'No media provider and no third-party SDK. The entire protocol lives in the repository and the whole thing runs on free infrastructure. The single possible exception is optional TURN, a relay for networks that block direct connections — it forwards encrypted traffic it cannot read, and self-hosting it is a one-line change. This service has none configured today. A cost worth naming: when Watch together can only put somebody else’s page on screen, that page loads in every browser here and runs its own scripts, and the site on the other end sees each viewer’s connection the way any site does. One switch in your settings keeps all of it from loading for you, and the room watches on without you.',
+    'There is no media provider or third-party communications SDK. The protocol lives in the repository, and optional integrations stay visible and under your control. When Watch together loads an external page, every viewer connects to that site directly; you can disable that behavior in settings.',
+
+  'community.participate.kicker': 'Your way in',
+  'community.participate.title': 'Use it, inspect it, improve it',
+  'community.participate.body':
+    'You do not need to be a WebRTC expert to contribute. Choose the path that matches what you noticed or what you want to learn.',
 
   'community.source.title': 'Read the source',
   'community.source.body':
@@ -468,6 +529,7 @@ export const enUS = {
   'community.issues.browse': 'Browse the issues',
 
   'community.desktop.title': 'On the desktop too',
+  'community.desktop.kicker': 'One product, every platform',
   'community.desktop.body':
     'A desktop app for macOS, Windows and Linux wraps the same page and adds what a browser will not: a native screen picker and real system media permissions.',
 

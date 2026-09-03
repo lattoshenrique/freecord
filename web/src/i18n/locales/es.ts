@@ -54,9 +54,17 @@ export const esES: Catalog = {
   'home.card.hint': 'El enlace es la invitación. Esa es toda la capa de autenticación.',
 
   'how.link': 'Cómo funciona',
+  'how.nav.label': 'Sobre Freecord',
+  'how.eyebrow': 'Privado desde el diseño · punto a punto',
   'how.title': 'Cómo funciona Freecord',
   'how.lead':
     'Una sala es un enlace, y la conversación va directa entre los navegadores que están en ella. Esto es lo que pasa después de pulsar el botón — y lo que nuestro servidor nunca ve.',
+  'how.fact.account.value': 'Cero',
+  'how.fact.account.label': 'cuentas o perfiles',
+  'how.fact.people.value': '20',
+  'how.fact.people.label': 'personas por sala',
+  'how.fact.screens.value': '3',
+  'how.fact.screens.label': 'pantallas al mismo tiempo',
 
   'how.steps.title': 'Tres pasos',
   'how.step.create.title': 'Crea la sala',
@@ -72,17 +80,48 @@ export const esES: Catalog = {
   'how.mesh.title': 'El contenido nunca toca nuestro servidor',
   'how.mesh.body':
     'La voz, el vídeo y la pantalla van de navegador a navegador por WebRTC nativo, cifrados de extremo a extremo. Nuestro servidor presenta los navegadores entre sí y guarda la lista de quién está en la sala: no hay servidor de medios que pueda escuchar, ni factura que pagar por uno. Una cosa más, y solo cuando alguien la pide: pega una página en Ver juntos y el servidor abre esa página una vez, lee en su marcado qué se puede reproducir, responde y no guarda nada. Tampoco ahí pasa ningún medio por él: cada navegador descarga el vídeo de donde viva. Una red demasiado restrictiva para una conexión directa necesitaría un relay TURN; no tenemos ninguno, así que esas pocas conexiones fallan en vez de pasar en silencio por un tercero.',
+  'how.diagram.media.badge': 'Ruta directa',
   'how.diagram.media': 'Voz, vídeo y pantalla: directo entre los navegadores',
+  'how.diagram.media.legend': 'Lo que viaja directamente',
+  'how.diagram.media.voice': 'voz',
+  'how.diagram.media.video': 'vídeo',
+  'how.diagram.media.screen': 'pantalla compartida',
+  'how.diagram.signaling.badge': 'Servidor mínimo',
   'how.diagram.signaling': 'Por el servidor, solo la señalización: quién está en la sala y cómo llegar a cada uno',
+  'how.diagram.signaling.legend': 'Lo que lleva el servidor',
+  'how.diagram.signaling.presence': 'quién está aquí',
+  'how.diagram.signaling.connection': 'cómo conectar',
+  'how.diagram.person.you': 'Tú',
+  'how.diagram.person.lia': 'Lia',
+  'how.diagram.person.rui': 'Rui',
+  'how.diagram.person.maya': 'Maya',
+  'how.diagram.server': 'servidor',
+  'how.diagram.prompt': 'Sigue los puntos luminosos para ver por dónde va cada tipo de información.',
+  'how.diagram.pause': 'Pausar animación',
+  'how.diagram.play': 'Reproducir animación',
+  'how.diagram.story.kicker': 'Sin tecnicismos',
+  'how.diagram.story.title': 'Piensa en el servidor como el anfitrión que presenta a la gente.',
+  'how.diagram.story.ask.title': 'Preguntas quién está en la sala',
+  'how.diagram.story.ask.body': 'Tu navegador contacta con Freecord y avisa de que has llegado.',
+  'how.diagram.story.meet.title': 'El servidor presenta a todos',
+  'how.diagram.story.meet.body': 'Entrega los datos que necesitan los navegadores para encontrarse.',
+  'how.diagram.story.talk.title': 'Después sale de la conversación',
+  'how.diagram.story.talk.body': 'Una vez conectados, la voz, el vídeo y las pantallas viajan directamente entre las personas.',
 
+  'how.details.title': 'Qué pasa con todo lo demás',
+  'how.details.body':
+    'El chat, los archivos y la pantalla siguen el mismo principio: mantener el contenido fuera del servidor y mostrar los límites con claridad.',
+  'how.chat.eyebrow': 'Cifrado · temporal',
   'how.chat.title': 'El chat va sellado, y es temporal',
   'how.chat.body':
     'Los mensajes se cifran en tu navegador con la clave que venía en el enlace y van directos a los otros navegadores, como la voz; el servidor solo retransmite uno cuando falta un camino directo, y retransmite un texto que no puede leer. Los archivos ni siquiera pasan por él. No se guarda nada: cuando la sala se cierra, la conversación se va con ella.',
 
+  'how.screen.eyebrow': '3 pantallas simultáneas',
   'how.screen.title': 'Hasta tres pantallas a la vez, cada una retransmitida en árbol',
   'how.screen.body':
     'El servidor concede como máximo tres plazas de pantalla, y libera una en segundos si se le cae la conexión a quien comparte. Una pantalla no va de quien comparte a todo el mundo: llega a tres pares, y cada uno la reenvía a otros tres, así la subida de nadie crece con la sala. Cada pantalla compartida tiene su propio árbol.',
 
+  'how.limits.eyebrow': '20 plazas · 15 min vacía',
   'how.limits.title': 'Las reglas que sigue la sala',
   'how.limits.body':
     'Veinte personas por sala. Una sala vacía se cierra a los quince minutos. Un navegador que se queda callado treinta y cinco segundos pierde su sitio, para que una pestaña colgada no lo ocupe para siempre. Por encima de veinte la malla deja de ser la respuesta honesta: el siguiente paso es un nodo de medios propio, igual que la pantalla compartida ya se retransmite entre pares.',
@@ -93,6 +132,9 @@ export const esES: Catalog = {
   'how.run.copy': 'Copiar comandos',
   'how.run.copied': '¡Copiado!',
   'how.more.start': 'Crear una sala',
+  'how.cta.eyebrow': 'Nada que instalar',
+  'how.cta.title': 'La explicación más clara es una sala propia.',
+  'how.cta.body': 'Crea una en unos segundos y comparte el enlace con alguien de confianza.',
 
   'invite.copy': 'Invitar',
   'invite.copied': [
@@ -215,6 +257,9 @@ export const esES: Catalog = {
   'participation.toolOffTitle': 'Te quedaste fuera de esta',
   'participation.toolOffBody': 'La sala está en {tool}. Nada de eso se está cargando aquí.',
   'participation.toolJoinOnce': 'Entrar en {tool} solo esta vez',
+  'participation.sitOut': 'Quedarte fuera de esta',
+  'participation.comeBack': 'Entrar en {tool}',
+  'participation.sitOutHint': 'Solo aquí: para los demás sigue puesto.',
   'settings.about.title': 'Acerca de',
   'settings.close': 'Cerrar ajustes',
   'settings.sounds.title': 'Sonidos',
@@ -304,7 +349,7 @@ export const esES: Catalog = {
     'Tu enlace vino sin la clave de esta sala, así que no puede salir nada. Pide el enlace original a quien te invitó — la clave viaja después del # y nunca llega a un servidor.',
   'chat.locked': 'Cifrada — y tu enlace vino sin la clave',
   'chat.messageLabel': 'Mensaje del chat',
-  'chat.placeholder': 'Mensaje… el markdown funciona, / para comandos',
+  'chat.placeholder': 'Mensaje… el markdown funciona, / para comandos, @ para nombrar a alguien',
   'chat.send': 'Enviar mensaje',
   'chat.toolbar': 'Formato del mensaje',
   'chat.unread': { one: 'mensaje nuevo', other: 'mensajes nuevos' },
@@ -320,6 +365,8 @@ export const esES: Catalog = {
   'chat.reply': 'Responder',
   'chat.replyingTo': 'Respondiendo a {name}',
   'chat.cancelReply': 'Cancelar respuesta',
+  'chat.mentionMenu': 'Quién está aquí',
+  'chat.mentionsYou': 'Te menciona',
   'chat.jumpToLatest': 'Ir a los mensajes nuevos',
   'chat.copy': 'Copiar el mensaje',
   'chat.copied': 'Copiado',
@@ -407,10 +454,28 @@ export const esES: Catalog = {
   // Community page — English source lives in en-US.ts, owned by its author.
   'community.back':
     'Volver al inicio',
+  'community.nav.label':
+    'Sobre Freecord',
+  'community.eyebrow':
+    'Código abierto · licencia MIT',
   'community.title':
     'Freecord es open source',
   'community.lead':
     'Un lugar para hablar con amigos que no te pide nada: sin cuenta, sin descarga, sin nadie en medio. Lee el código, monta el tuyo o ayuda a mejorarlo.',
+  'community.fact.license.value':
+    'MIT',
+  'community.fact.license.label':
+    'úsalo, modifícalo y alójalo',
+  'community.fact.stack.value':
+    '100 %',
+  'community.fact.stack.label':
+    'protocolo y código abiertos',
+  'community.fact.cost.value':
+    '0 €',
+  'community.fact.cost.label':
+    'en servicios o claves obligatorios',
+  'community.promise.kicker':
+    'Principios',
   'community.promise.title':
     'La promesa',
   'community.promise.guest.title':
@@ -429,6 +494,12 @@ export const esES: Catalog = {
     'Sin proveedor, sin SDK',
   'community.promise.vendor.body':
     'Ningún proveedor de medios y ningún SDK de terceros. Todo el protocolo está en el repositorio y el conjunto funciona sobre infraestructura gratuita. La única excepción posible es TURN, opcional: un relé para redes que bloquean la conexión directa; reenvía tráfico cifrado que no puede leer, y alojarlo tú mismo es cambiar una línea. Este servicio no tiene ninguno configurado hoy. La otra cara, dicha sin rodeos: cuando Ver juntos no puede hacer más que poner en pantalla la página de otra persona, esa página se carga en el navegador de todos los presentes y ejecuta sus propios scripts, y el sitio del otro lado ve la conexión de cada uno como la vería cualquier sitio. Un interruptor en tus ajustes evita que todo eso se cargue en tu caso, y la sala sigue viendo sin ti.',
+  'community.participate.kicker':
+    'Tu puerta de entrada',
+  'community.participate.title':
+    'Úsalo, estúdialo, mejóralo',
+  'community.participate.body':
+    'No necesitas dominar WebRTC para contribuir. Elige el camino que encaje con lo que has visto o quieres aprender.',
   'community.source.title':
     'Lee el código',
   'community.source.body':
@@ -456,6 +527,8 @@ export const esES: Catalog = {
     'Ver las issues',
   'community.desktop.title':
     'En el escritorio también',
+  'community.desktop.kicker':
+    'Un producto, todas las plataformas',
   'community.desktop.body':
     'Una app para macOS, Windows y Linux envuelve esta misma página y añade lo que el navegador no da: un selector de pantalla nativo y permisos de medios reales del sistema.',
   'community.footer':

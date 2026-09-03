@@ -63,50 +63,91 @@ export default function CommunityPage() {
   return (
     <main className="community">
       <article className="community-inner">
-        {/* The mark is the way back: one affordance, top left, like the home. */}
-        <Link to="/" className="community-brand" aria-label={t('community.back')}>
-          <Brand size={26} />
-        </Link>
+        <nav className="community-nav" aria-label={t('community.nav.label')}>
+          <Link to="/" className="community-brand" aria-label={t('community.back')}>
+            <Brand size={26} />
+          </Link>
+          <Link to={HOW_IT_WORKS} className="community-nav-link">
+            {t('how.link')}
+          </Link>
+        </nav>
 
-        <header>
+        <header className="community-hero">
+          <p className="community-eyebrow">{t('community.eyebrow')}</p>
           <h1>{t('community.title')}</h1>
           <p className="community-lead">{t('community.lead')}</p>
-          <p className="community-links">
-            <Link to={HOW_IT_WORKS}>{t('how.link')}</Link>
-          </p>
+          <div className="community-hero-actions">
+            <a className="community-button community-button-primary" href={REPO} target="_blank" rel="noreferrer">
+              {t('community.source.repo')}
+              <span aria-hidden="true">↗</span>
+            </a>
+            <Link className="community-button community-button-secondary" to={HOW_IT_WORKS}>
+              {t('how.link')}
+            </Link>
+          </div>
+          <dl className="community-facts">
+            <div>
+              <dt>{t('community.fact.license.value')}</dt>
+              <dd>{t('community.fact.license.label')}</dd>
+            </div>
+            <div>
+              <dt>{t('community.fact.stack.value')}</dt>
+              <dd>{t('community.fact.stack.label')}</dd>
+            </div>
+            <div>
+              <dt>{t('community.fact.cost.value')}</dt>
+              <dd>{t('community.fact.cost.label')}</dd>
+            </div>
+          </dl>
         </header>
 
-        <section>
+        <section className="community-section community-principles">
+          <p className="community-section-label">01 · {t('community.promise.kicker')}</p>
           <h2>{t('community.promise.title')}</h2>
           <div className="community-promises">
-            {PROMISES.map(({ title, body }) => (
-              <div key={title}>
+            {PROMISES.map(({ title, body }, index) => (
+              <article key={title}>
+                <span className="community-promise-number" aria-hidden="true">
+                  {String(index + 1).padStart(2, '0')}
+                </span>
                 <h3>{t(title)}</h3>
                 <p>{t(body)}</p>
-              </div>
+              </article>
             ))}
           </div>
         </section>
 
-        {SECTIONS.map(({ title, body, links }) => (
-          <section key={title}>
-            <h2>{t(title)}</h2>
-            <p>{t(body)}</p>
-            <p className="community-links">
-              {links.map(({ label, href, internal }) =>
-                internal ? (
-                  <Link key={label} to={href}>
-                    {t(label)}
-                  </Link>
-                ) : (
-                  <a key={label} href={href} target="_blank" rel="noreferrer">
-                    {t(label)}
-                  </a>
-                ),
-              )}
-            </p>
-          </section>
-        ))}
+        <section className="community-section community-participate">
+          <div className="community-section-copy">
+            <p className="community-section-label">02 · {t('community.participate.kicker')}</p>
+            <h2>{t('community.participate.title')}</h2>
+            <p>{t('community.participate.body')}</p>
+          </div>
+          <div className="community-paths">
+            {SECTIONS.map(({ title, body, links }, index) => (
+              <article key={title}>
+                <span className="community-path-number" aria-hidden="true">
+                  0{index + 1}
+                </span>
+                <h3>{t(title)}</h3>
+                <p>{t(body)}</p>
+                <div className="community-links">
+                  {links.map(({ label, href, internal }) =>
+                    internal ? (
+                      <Link key={label} to={href}>
+                        {t(label)} <span aria-hidden="true">→</span>
+                      </Link>
+                    ) : (
+                      <a key={label} href={href} target="_blank" rel="noreferrer">
+                        {t(label)} <span aria-hidden="true">↗</span>
+                      </a>
+                    ),
+                  )}
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
 
         {/* On a phone, the build that applies is this page: it installs.
             Its own section, beside the desktop one rather than inside it —
@@ -117,9 +158,12 @@ export default function CommunityPage() {
 
         {/* The desktop builds live here, with the rest of the reading matter:
             the home is the app's first screen and pitches nothing. */}
-        <section>
-          <h2>{t('community.desktop.title')}</h2>
-          <p>{t('community.desktop.body')}</p>
+        <section className="community-section community-desktop">
+          <div className="community-section-copy">
+            <p className="community-section-label">03 · {t('community.desktop.kicker')}</p>
+            <h2>{t('community.desktop.title')}</h2>
+            <p>{t('community.desktop.body')}</p>
+          </div>
           <DownloadCard />
         </section>
 

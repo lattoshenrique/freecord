@@ -1,148 +1,366 @@
-/*
- * Styles for the community page: a document, not a dashboard.
- *
- * Deliberately outside styles.css: a self-contained block carries no
- * overwrite risk while other sessions edit the global sheet. It consumes the
- * global tokens (--glass-*, --ease) and follows the home page's rule — type
- * and space carry the design, no cards.
- */
+/* The open-source page: principles first, then clear ways to participate. */
 
 .community {
   min-height: var(--app-h);
-  /* The page scrolls; the room pages don't. #root is a fixed --app-h box. */
   overflow-y: auto;
 }
 
 .community-inner {
   display: flex;
   flex-direction: column;
-  gap: 2.75rem;
-  /* A hair wider than the sans column was: the same sentence set in a
-     monospaced face runs about a tenth longer, and the measure is what
-     the eye reads, not the millimetres. */
-  max-width: 48rem;
+  gap: clamp(4.5rem, 10vw, 8rem);
+  width: min(100%, 72rem);
   margin: 0 auto;
-  padding: 3rem 1.5rem 5rem;
+  padding: 2rem clamp(1.25rem, 4vw, 3rem) 5rem;
   animation: rise-in 0.5s var(--ease) both;
+}
+
+.community-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.community-brand,
+.community-nav-link {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.88rem;
+  font-weight: 700;
+  transition: color var(--dur-quick) ease;
 }
 
 .community-brand {
   display: inline-flex;
-  align-self: flex-start;
   align-items: center;
-  gap: 0.6rem;
-  color: var(--muted);
-  text-decoration: none;
-  font-weight: 700;
-  font-size: 0.95rem;
   letter-spacing: var(--track-tight);
-  transition: color 0.15s ease;
 }
 
-.community-brand:hover {
+.community-nav-link {
+  padding: 0.55rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.community-brand:hover,
+.community-nav-link:hover {
   color: var(--text);
 }
 
+.community-hero {
+  max-width: 64rem;
+  padding: clamp(2rem, 6vw, 4.5rem) 0 0;
+}
+
+.community-eyebrow,
+.community-section-label {
+  margin: 0 0 1rem;
+  color: var(--accent-text);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+}
+
 .community h1 {
-  margin: 0 0 0.9rem;
-  font-size: clamp(2.1rem, 5vw, 3.1rem);
-  line-height: 1.08;
-  letter-spacing: var(--track-display);
+  max-width: 11ch;
+  margin: 0;
+  font-size: clamp(3rem, 8vw, 6.25rem);
+  line-height: 0.98;
+  letter-spacing: -0.065em;
+  text-wrap: balance;
 }
 
 .community-lead {
-  margin: 0;
+  max-width: 50rem;
+  margin: 1.5rem 0 0;
   color: var(--muted);
-  font-size: 1.05rem;
-  line-height: 1.6;
+  font-size: clamp(1.02rem, 2vw, 1.2rem);
+  line-height: 1.75;
 }
 
-.community h2 {
-  margin: 0 0 0.6rem;
-  font-size: 1.3rem;
+.community-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 2rem;
+}
+
+.community-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+  min-height: 2.9rem;
+  padding: 0.8rem 1.1rem;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  color: var(--text);
+  font-size: 0.88rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition:
+    transform var(--dur-quick) var(--ease),
+    border-color var(--dur-quick) ease,
+    background var(--dur-quick) ease;
+}
+
+.community-button-primary {
+  background: var(--accent);
+  color: white;
+  box-shadow: 0 10px 28px rgba(88, 101, 242, 0.24);
+}
+
+.community-button-secondary {
+  border-color: var(--border);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.community-button:hover {
+  transform: translateY(-2px);
+}
+
+.community-button-primary:hover {
+  background: var(--accent-hover);
+}
+
+.community-button-secondary:hover {
+  border-color: var(--glass-border);
+  background: var(--glass-bg);
+}
+
+.community-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  max-width: 48rem;
+  margin: 3.5rem 0 0;
+  padding: 1.25rem 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.community-facts div {
+  padding-right: 1rem;
+}
+
+.community-facts div + div {
+  padding-left: 1.5rem;
+  border-left: 1px solid var(--border);
+}
+
+.community-facts dt {
+  color: var(--text);
+  font-size: 1.35rem;
+  font-weight: 700;
   letter-spacing: var(--track-display);
 }
 
-.community section > p {
-  margin: 0;
+.community-facts dd {
+  margin: 0.25rem 0 0;
   color: var(--muted);
-  font-size: 0.95rem;
-  line-height: 1.7;
+  font-size: 0.78rem;
+  line-height: 1.45;
 }
 
-/* ---- the four promises ---- */
+.community-section h2 {
+  margin: 0;
+  font-size: clamp(1.8rem, 4vw, 2.8rem);
+  line-height: 1.12;
+  letter-spacing: -0.045em;
+  text-wrap: balance;
+}
+
+.community-section-copy {
+  max-width: 44rem;
+}
+
+.community-section-copy > p:last-child {
+  margin: 1rem 0 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1.75;
+}
 
 .community-promises {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1.5rem 2rem;
-  margin-top: 1.25rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  margin-top: 2rem;
+  padding: 1px;
+  border-radius: 20px;
+  background: var(--border);
+  overflow: hidden;
 }
 
-.community-promises h3 {
-  margin: 0 0 0.35rem;
-  font-size: 1rem;
-  font-weight: 600;
+.community-promises article {
+  min-height: 18rem;
+  padding: 1.5rem;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.035), transparent 58%),
+    var(--panel);
 }
 
-.community-promises p {
+.community-promise-number,
+.community-path-number {
+  display: block;
+  color: var(--accent-text);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.community-promise-number {
+  margin-bottom: 4rem;
+}
+
+.community-promises h3,
+.community-paths h3 {
+  margin: 0 0 0.65rem;
+  font-size: 1.05rem;
+  line-height: 1.35;
+}
+
+.community-promises p,
+.community-paths article > p {
   margin: 0;
   color: var(--muted);
-  font-size: 0.9rem;
-  line-height: 1.65;
+  font-size: 0.86rem;
+  line-height: 1.7;
 }
 
-/* ---- links ---- */
+.community-paths {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.community-paths article {
+  display: flex;
+  flex-direction: column;
+  min-height: 25rem;
+  padding: 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: rgba(20, 23, 31, 0.74);
+}
+
+.community-path-number {
+  width: fit-content;
+  margin-bottom: 4rem;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid rgba(169, 176, 255, 0.28);
+  border-radius: 999px;
+  background: rgba(88, 101, 242, 0.1);
+}
 
 .community-links {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem 1.5rem;
-  margin: 1rem 0 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.7rem;
+  margin-top: auto;
+  padding-top: 2rem;
 }
 
 .community-links a {
   color: var(--text);
-  font-size: 0.95rem;
-  font-weight: 600;
-  text-decoration: none;
-  /* Underline drawn by the border so it sits clear of the descenders. */
-  border-bottom: 1px solid rgba(88, 101, 242, 0.55);
-  padding-bottom: 1px;
-  transition:
-    color 0.15s ease,
-    border-color 0.15s ease;
+  font-size: 0.77rem;
+  font-weight: 700;
+  text-underline-offset: 0.25rem;
+  text-decoration-color: rgba(169, 176, 255, 0.5);
 }
 
 .community-links a:hover {
-  color: var(--accent-hover);
-  border-color: var(--accent-hover);
+  color: var(--accent-text);
 }
 
-.community-footer {
-  margin: 0;
-  padding-top: 2rem;
-  border-top: 1px solid var(--border);
-  color: var(--muted);
-  font-size: 0.85rem;
+.community .install-panel,
+.community .install {
+  border-radius: 20px;
 }
 
-@media (max-width: 640px) {
-  .community-promises {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* The download block was drawn for a wide landing; here it is one column. */
 .community .download {
   grid-template-columns: 1fr;
   gap: 1.75rem;
-  margin-top: 1.25rem;
+  margin-top: 2rem;
   padding: 1.5rem;
 }
 
-/* The section above already says what the card would: no title twice. */
 .community .download-title,
 .community .download-lead {
   display: none;
+}
+
+.community-footer {
+  margin: -2rem 0 0;
+  padding-top: 2rem;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.6;
+}
+
+@media (max-width: 820px) {
+  .community-paths {
+    grid-template-columns: 1fr;
+  }
+
+  .community-paths article {
+    min-height: 0;
+  }
+
+  .community-path-number {
+    margin-bottom: 2.5rem;
+  }
+
+  .community-links {
+    margin-top: 0;
+  }
+}
+
+@media (max-width: 560px) {
+  .community-inner {
+    gap: 4.5rem;
+    padding: 1.25rem 1rem 3rem;
+  }
+
+  .community-hero {
+    padding-top: 1.5rem;
+  }
+
+  .community h1 {
+    font-size: clamp(2.65rem, 14vw, 4rem);
+  }
+
+  .community-facts,
+  .community-promises {
+    grid-template-columns: 1fr;
+  }
+
+  .community-facts div {
+    display: grid;
+    grid-template-columns: 5.5rem 1fr;
+    align-items: baseline;
+    gap: 0.75rem;
+    padding: 0.7rem 0;
+  }
+
+  .community-facts div + div {
+    padding-left: 0;
+    border-top: 1px solid var(--border);
+    border-left: 0;
+  }
+
+  .community-facts dd {
+    margin: 0;
+  }
+
+  .community-promises article {
+    min-height: 0;
+  }
+
+  .community-promise-number {
+    margin-bottom: 2rem;
+  }
 }

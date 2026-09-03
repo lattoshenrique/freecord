@@ -49,9 +49,17 @@ export const zhCN: Catalog = {
   'home.card.hint': '链接就是邀请。整个鉴权层就这么多。',
 
   'how.link': '工作原理',
+  'how.nav.label': '关于 Freecord',
+  'how.eyebrow': '隐私源于设计 · 点对点',
   'how.title': 'Freecord 是怎么工作的',
   'how.lead':
     '一个房间就是一个链接，对话在房间里的浏览器之间直接传输。下面是你按下按钮之后发生的事——以及我们的服务器永远看不到的东西。',
+  'how.fact.account.value': '零',
+  'how.fact.account.label': '账号或个人资料',
+  'how.fact.people.value': '20',
+  'how.fact.people.label': '人一间房',
+  'how.fact.screens.value': '3',
+  'how.fact.screens.label': '个屏幕同时共享',
 
   'how.steps.title': '三个步骤',
   'how.step.create.title': '创建房间',
@@ -66,17 +74,47 @@ export const zhCN: Catalog = {
   'how.mesh.title': '音视频从不经过我们的服务器',
   'how.mesh.body':
     '语音、视频和屏幕通过原生 WebRTC 在浏览器之间直接流动，端到端加密。我们的服务器把浏览器互相引荐，并保存房间里有谁的名单 —— 没有可以偷听的媒体服务器，也没有为它付的账单。还有一件事，而且只在有人开口时才发生：把一个页面粘进「一起看」，服务器会把那个页面打开一次，从它的标记里读出有什么可以播放，回答你，然后什么都不留。那时也没有媒体经过它 —— 视频由每个浏览器自己从它所在的地方获取。对于严格到无法直连的网络，需要 TURN 中继；我们一台都没有，所以那些少见的连接会直接失败，而不是悄悄经过第三方。',
+  'how.diagram.media.badge': '直连路径',
   'how.diagram.media': '语音、视频和屏幕：在浏览器之间直连',
+  'how.diagram.media.legend': '直接传输的内容',
+  'how.diagram.media.voice': '语音',
+  'how.diagram.media.video': '视频',
+  'how.diagram.media.screen': '共享屏幕',
+  'how.diagram.signaling.badge': '最小服务器层',
   'how.diagram.signaling': '经过服务器的只有信令：房间里有谁，以及怎么连上他们',
+  'how.diagram.signaling.legend': '服务器传递的内容',
+  'how.diagram.signaling.presence': '谁在房间里',
+  'how.diagram.signaling.connection': '如何连接',
+  'how.diagram.person.you': '你',
+  'how.diagram.person.lia': 'Lia',
+  'how.diagram.person.rui': 'Rui',
+  'how.diagram.person.maya': 'Maya',
+  'how.diagram.server': '服务器',
+  'how.diagram.prompt': '跟随发光的小点，看看每类信息会经过哪里。',
+  'how.diagram.pause': '暂停动画',
+  'how.diagram.play': '播放动画',
+  'how.diagram.story.kicker': '简单来说',
+  'how.diagram.story.title': '把服务器想成负责介绍大家认识的房主。',
+  'how.diagram.story.ask.title': '你先问房间里有谁',
+  'how.diagram.story.ask.body': '你的浏览器联系 Freecord，告诉它你已到达。',
+  'how.diagram.story.meet.title': '服务器介绍大家认识',
+  'how.diagram.story.meet.body': '它提供浏览器互相找到所需的连接信息。',
+  'how.diagram.story.talk.title': '然后退出谈话',
+  'how.diagram.story.talk.body': '连接建立后，语音、视频和屏幕会直接在房间成员之间传输。',
 
+  'how.details.title': '其他内容会怎样',
+  'how.details.body': '聊天、文件和屏幕共享遵循同一原则：内容不进服务器，限制清楚可见。',
+  'how.chat.eyebrow': '加密 · 临时',
   'how.chat.title': '聊天是封好的，也是临时的',
   'how.chat.body':
     '消息用链接里带来的密钥在你的浏览器里加密，然后像语音一样直接送到其他浏览器；只有在缺少直连路径时服务器才转发一条，而且转发的是它读不懂的文本。文件根本不经过服务器。什么都不保存：房间关闭时，对话也一起消失。',
 
+  'how.screen.eyebrow': '同时共享 3 个屏幕',
   'how.screen.title': '最多同时共享三个屏幕，每个都按树状转发',
   'how.screen.body':
     '服务器最多发放三个屏幕共享名额，共享者一掉线，几秒内就释放名额。屏幕不是由共享者发给所有人：它先发给三个人，每个人再转发给另外三个，所以谁的上行都不会随房间变大而增长。每个共享的屏幕都有自己的一棵树。',
 
+  'how.limits.eyebrow': '20 个席位 · 空置 15 分钟',
   'how.limits.title': '房间遵守的规则',
   'how.limits.body':
     '每个房间二十人。空房间十五分钟后关闭。安静三十五秒的浏览器会失去座位，这样卡死的标签页就没法一直占着。超过二十人，网状连接就不再是诚实的答案：下一步是我们自己的媒体节点，就像屏幕共享现在已经在对等端之间中继一样。',
@@ -87,6 +125,9 @@ export const zhCN: Catalog = {
   'how.run.copy': '复制命令',
   'how.run.copied': '已复制！',
   'how.more.start': '创建房间',
+  'how.cta.eyebrow': '无需安装',
+  'how.cta.title': '最清楚的说明，就是你自己的房间。',
+  'how.cta.body': '几秒钟创建一个，然后把链接发给你信任的人。',
 
   'invite.copy': '邀请',
   'invite.copied': [
@@ -203,6 +244,9 @@ export const zhCN: Catalog = {
   'participation.toolOffTitle': '这一场你没参加',
   'participation.toolOffBody': '房间正在看 {tool}，这里什么都没有加载。',
   'participation.toolJoinOnce': '就这一次，加入 {tool}',
+  'participation.sitOut': '这一场不参加',
+  'participation.comeBack': '加入 {tool}',
+  'participation.sitOutHint': '只影响你这里，房间里其他人照常。',
   'settings.about.title': '关于',
   'settings.close': '关闭设置',
   'settings.sounds.title': '声音',
@@ -287,7 +331,7 @@ export const zhCN: Catalog = {
   'chat.noKey': '你的链接里没有这个房间的密钥，所以发不出去。找邀请你的人要原始链接 —— 密钥跟在 # 后面，永远不会到达服务器。',
   'chat.locked': '已加密 —— 而你的链接里没有密钥',
   'chat.messageLabel': '聊天消息',
-  'chat.placeholder': '消息… 支持 Markdown，输入 / 使用命令',
+  'chat.placeholder': '消息… 支持 Markdown，输入 / 使用命令，输入 @ 提到某人',
   'chat.send': '发送消息',
   'chat.toolbar': '消息格式',
   'chat.unread': { other: '条新消息' },
@@ -303,6 +347,8 @@ export const zhCN: Catalog = {
   'chat.reply': '回复',
   'chat.replyingTo': '正在回复 {name}',
   'chat.cancelReply': '取消回复',
+  'chat.mentionMenu': '房间里的人',
+  'chat.mentionsYou': '提到了你',
   'chat.jumpToLatest': '跳到新消息',
   'chat.copy': '复制消息',
   'chat.copied': '已复制',
@@ -390,10 +436,28 @@ export const zhCN: Catalog = {
   // Community page — English source lives in en-US.ts, owned by its author.
   'community.back':
     '返回首页',
+  'community.nav.label':
+    '关于 Freecord',
+  'community.eyebrow':
+    '开源 · MIT 许可',
   'community.title':
     'Freecord 是开源项目',
   'community.lead':
     '一个和朋友聊天的地方，什么都不向你索取：没有账号，没有下载，中间没有别人。阅读代码，自己部署，或者帮它变得更好。',
+  'community.fact.license.value':
+    'MIT',
+  'community.fact.license.label':
+    '使用、修改、自行托管',
+  'community.fact.stack.value':
+    '100%',
+  'community.fact.stack.label':
+    '协议与源码公开',
+  'community.fact.cost.value':
+    '¥0',
+  'community.fact.cost.label':
+    '必需服务或密钥',
+  'community.promise.kicker':
+    '原则',
   'community.promise.title':
     '我们的承诺',
   'community.promise.guest.title':
@@ -412,6 +476,12 @@ export const zhCN: Catalog = {
     '没有服务商，没有 SDK',
   'community.promise.vendor.body':
     '没有媒体服务商，也没有第三方 SDK。整套协议都在仓库里，全部运行在免费的基础设施上。唯一可能的例外是可选的 TURN —— 一个为封锁直连的网络准备的中继。它转发的是自己无法解密的加密流量，改一行就能换成自建的。本服务目前没有配置任何 TURN。把另一面也说清楚：当「一起看」只能把别人的页面原样放上来时，那个页面会在这里每个人的浏览器里加载，并运行它自己的脚本，对面的站点也就像任何站点那样看得到每个人的连接。设置里的一个开关就能让这些在你这边完全不加载，房间会在没有你的情况下继续看。',
+  'community.participate.kicker':
+    '从这里加入',
+  'community.participate.title':
+    '使用它、理解它、改进它',
+  'community.participate.body':
+    '贡献不要求你精通 WebRTC。按你发现的问题或想学的内容，选择合适的入口。',
   'community.source.title':
     '阅读源码',
   'community.source.body':
@@ -439,6 +509,8 @@ export const zhCN: Catalog = {
     '浏览 issue',
   'community.desktop.title':
     '桌面端也有',
+  'community.desktop.kicker':
+    '同一个产品，覆盖各平台',
   'community.desktop.body':
     'macOS、Windows 和 Linux 的桌面应用包裹着同一个页面，并补上浏览器给不了的东西：原生屏幕选择器和真正的系统媒体权限。',
   'community.footer':
