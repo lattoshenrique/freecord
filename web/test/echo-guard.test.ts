@@ -161,11 +161,12 @@ describe('a capture with a game in it as well as the room', () => {
 });
 
 describe('how long it takes', () => {
-  it('is cancelling inside a couple of seconds', () => {
-    // The floor is the delay search itself: it needs its whole history
-    // filled before the first search, and a second search to confirm.
-    // Nothing after that point is free either, so this is the number to
-    // watch if the search's constants ever move.
+  it('is cancelling inside a second', () => {
+    // The floor is the delay search itself: enough history to compare a
+    // window against the narrowest useful range of lags, then a second
+    // search to confirm the winner. Nothing after that point is free
+    // either, so this is the number to watch if the search's constants
+    // ever move.
     const room = voice(LENGTH, 1);
     const capture = echoOf(room, DELAY, 0.7);
     const guard = new EchoGuard(RATE);
@@ -182,7 +183,38 @@ describe('how long it takes', () => {
       }
     }
     expect(firstUseful).toBeGreaterThan(0);
-    expect(firstUseful / RATE).toBeLessThan(2);
+    // The search runs on the history it has and widens (MIN_LAG_POINTS),
+    // rather than waiting for enough to cover the whole half-second of
+    // range. Every millisecond before this is the room going out inside
+    // the share, so the bound is deliberately tight enough to fail if
+    // that progressive search is ever undone.
+    expect(firstUseful / RATE).toBeLessThan(1.1);
+  });
+
+  it('waits rather than locking onto the near edge of a delay it cannot see yet', () => {
+    // 300 ms is past what the early, narrow search can reach. The trap the
+    // widening search opens is locking onto the best lag INSIDE the early
+    // window — the shoulder of a peak that lies beyond it — because the
+    // switch margin would then defend that wrong answer against the right
+    // one arriving a search later. A winner sitting on the last lag
+    // searched is refused while the span is still growing, so this ends up
+    // on the truth rather than near it.
+    const far = 14_400;
+    const room = voice(LENGTH, 1);
+    const capture = echoOf(room, far, 0.7);
+    const guard = new EchoGuard(RATE);
+    const out = new Float32Array(QUANTUM);
+    for (let start = 0; start + QUANTUM <= LENGTH; start += QUANTUM) {
+      guard.process(
+        [capture.subarray(start, start + QUANTUM)],
+        [room.subarray(start, start + QUANTUM)],
+        [out],
+      );
+    }
+    const stats = guard.stats();
+    expect(stats.delayMs).not.toBeNull();
+    expect(stats.delayMs!).toBeCloseTo((far / RATE) * 1000, 0);
+    expect(stats.erleDb).toBeGreaterThan(20);
   });
 });
 

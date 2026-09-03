@@ -57,6 +57,21 @@ const ENVELOPE_POINTS = 1024;
 const CORRELATION_WINDOW = 256;
 /** How far back the search looks (~0.5 s at 48 kHz). */
 const MAX_LAG_POINTS = 384;
+/**
+ * The narrowest search worth running, and the reason the guard starts
+ * working in half the time it used to.
+ *
+ * A search needs a window of capture plus the lags it looks back over, so
+ * waiting for the FULL half-second of range costs 0.85 s of history before
+ * the first search can run at all — and every one of those milliseconds is
+ * the room going out inside the share, which is the moment anybody
+ * actually notices this feature failing. But a loopback delay is tens of
+ * milliseconds; the far end of that range exists for a slow machine, not
+ * for the common case. So the search runs as soon as the history covers
+ * this much and widens as more arrives, which finds the ordinary delay
+ * early and the unusual one exactly as late as before.
+ */
+const MIN_LAG_POINTS = 64;
 /** Points between searches (~0.17 s at 48 kHz). */
 const SEARCH_EVERY = 128;
 /** Reference kept for the filter to reach back into; power of two. */
@@ -245,7 +260,7 @@ export class DelayFinder {
     this.captureSum = 0;
     this.referenceSum = 0;
     this.sinceSearch += 1;
-    if (this.sinceSearch < SEARCH_EVERY || this.written < MAX_LAG_POINTS + CORRELATION_WINDOW) {
+    if (this.sinceSearch < SEARCH_EVERY || this.written < MIN_LAG_POINTS + CORRELATION_WINDOW) {
       return false;
     }
     this.sinceSearch = 0;
@@ -265,6 +280,9 @@ export class DelayFinder {
   }
 
   private search(): void {
+    // Only as far back as there is history to compare against; the ring
+    // beyond that holds zeros, and correlating against them invents peaks.
+    const span = Math.min(MAX_LAG_POINTS, this.written - CORRELATION_WINDOW);
     // Pearson over the window, per lag: the mean matters, because a
     // loudness envelope never goes negative and its DC would otherwise
     // make every lag look like a good one.
@@ -289,7 +307,7 @@ export class DelayFinder {
     let counted = 0;
     /** How the lag in force is doing, so a challenger can be measured against it. */
     let holding = 0;
-    for (let lag = 0; lag < MAX_LAG_POINTS; lag += 1) {
+    for (let lag = 0; lag < span; lag += 1) {
       let referenceMean = 0;
       for (let i = 0; i < CORRELATION_WINDOW; i += 1) {
         referenceMean += this.at(this.reference, i + lag);
@@ -320,7 +338,14 @@ export class DelayFinder {
     }
 
     const average = counted > 0 ? field / counted : 0;
-    const stands = bestLag >= 0 && best >= MIN_CORRELATION && best >= PEAK_PROMINENCE * average;
+    // A winner sitting on the last lag searched, while the search is still
+    // growing, is not a peak — it is the shoulder of one that lies past
+    // the edge. Believing it would lock the filter onto the near side of a
+    // delay it has not seen yet, and the switch margin would then defend
+    // that wrong answer against the right one arriving a search later.
+    const onTheEdge = span < MAX_LAG_POINTS && bestLag === span - 1;
+    const stands =
+      bestLag >= 0 && !onTheEdge && best >= MIN_CORRELATION && best >= PEAK_PROMINENCE * average;
     if (stands) {
       this.candidateHits = bestLag === this.candidate ? this.candidateHits + 1 : 1;
       this.candidate = bestLag;
