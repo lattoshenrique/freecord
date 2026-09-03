@@ -185,12 +185,14 @@ export function toolText(tool: RegisteredTool, locale: string): ToolTranslate {
 }
 
 /**
- * The same, for a component. Held across renders so the variant a key
- * drew is not redrawn under a reader mid-sentence.
- *
- * The plain function above it is for whoever needs a tool's words outside
- * a render — the chat, saying in the reader's language why a tool refused
- * a command.
+ * The same, for a component, memoized — which saves the two catalog
+ * objects per render and nothing else. What keeps a drawn variant from
+ * changing under a reader is not this hook: `drawn` in i18n/messages.ts
+ * holds the draw by `locale:key` for the life of the page, and the key
+ * is namespaced above, so a fresh catalog cannot redraw anything. The
+ * chat calls the plain function as often as it likes for the same
+ * reason — a tool's words, outside a render, saying why it refused a
+ * command.
  */
 export function useToolText(tool: RegisteredTool): ToolTranslate {
   const { locale } = useI18n();
