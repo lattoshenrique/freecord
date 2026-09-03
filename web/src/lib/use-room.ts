@@ -1811,6 +1811,23 @@ export function useRoomSession(options: JoinOptions) {
           : false,
       });
       pendingScreenRef.current = stream;
+      const track = stream.getVideoTracks()[0];
+      if (track) {
+        // Tells the codec what to preserve: text sharpness or motion fluidity.
+        track.contentHint = preset.contentHint;
+        // Wired BEFORE anything awaits below it. A track that ends while we
+        // are still working — the browser's own "Stop sharing", the OS
+        // revoking the capture — dispatches `ended` once and only to a
+        // handler that already exists. Registering it after an await meant
+        // that stop was never heard: we went on to claim a screen slot,
+        // published dead tracks into it, and nothing was left that could
+        // ever send `screen-stop`, so the slot was held until the peer
+        // left and the sharer's own key did nothing until a reload.
+        track.onended = () => {
+          signalingRef.current?.send({ t: 'screen-stop' });
+          dropLocalScreen();
+        };
+      }
       // Take the room back out of the capture before anybody else hears
       // it. The clean track REPLACES the raw one inside the same stream,
       // so the id already sent to the server still names what viewers
@@ -1830,8 +1847,10 @@ export function useRoomSession(options: JoinOptions) {
         !nativeScreenAudioGuardActive(captured)
       ) {
         const guard = await guardCapture(captured);
-        if (pendingScreenRef.current !== stream) {
-          // Given up on, refused or replaced while the worklet loaded.
+        if (pendingScreenRef.current !== stream || track?.readyState === 'ended') {
+          // Given up on, refused or replaced while the worklet loaded — or
+          // stopped in that window, which `onended` above has handled or is
+          // about to. Either way there is nothing left to publish.
           guard.stop();
           return;
         }
@@ -1840,15 +1859,6 @@ export function useRoomSession(options: JoinOptions) {
           stream.removeTrack(captured);
           stream.addTrack(guard.track);
         }
-      }
-      const track = stream.getVideoTracks()[0];
-      if (track) {
-        // Tells the codec what to preserve: text sharpness or motion fluidity.
-        track.contentHint = preset.contentHint;
-        track.onended = () => {
-          signalingRef.current?.send({ t: 'screen-stop' });
-          dropLocalScreen();
-        };
       }
       // The lock belongs to the server: publish only when screen-started arrives.
       signalingRef.current?.send({
