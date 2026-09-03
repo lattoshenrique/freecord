@@ -10,13 +10,20 @@ describe('parseYouTube', () => {
       'https://youtu.be/dQw4w9WgXcQ',
       'https://www.youtube.com/embed/dQw4w9WgXcQ',
       'https://www.youtube.com/shorts/dQw4w9WgXcQ',
-      'https://www.youtube.com/live/dQw4w9WgXcQ',
       'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ',
       '  dQw4w9WgXcQ  ',
     ];
     for (const link of cases) {
       expect(parseYouTube(link), link).toEqual({ kind: 'video', video: 'dQw4w9WgXcQ' });
     }
+  });
+
+  it('marks an explicit live link so the player starts at its edge', () => {
+    expect(parseYouTube('https://www.youtube.com/live/dQw4w9WgXcQ')).toEqual({
+      kind: 'video',
+      video: 'dQw4w9WgXcQ',
+      live: true,
+    });
   });
 
   it('keeps the moment a share link points at', () => {

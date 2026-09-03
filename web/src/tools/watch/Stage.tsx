@@ -50,7 +50,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ToolViewProps } from '../contract';
 import { isWatchController, watchControllerName } from './control';
-import { CloseGlyph, HandGlyph, SkipGlyph } from './icons';
+import { CloseGlyph, HandGlyph, SkipGlyph, SyncGlyph } from './icons';
 import { twitchClipUrl } from './link';
 import { attachSource, liveEdgeOf, type SourceFailure } from './media';
 import { advance, mayAdvanceFrom, withListIndex } from './queue';
@@ -63,8 +63,14 @@ import {
   type WatchItem,
   type WatchState,
 } from './state';
-import { DRIFT_TOLERANCE_SECONDS, correctionFor, decideSync, liveCorrectionFor } from './sync';
-import { PLAYER_STATE, createPlayer, type YouTubePlayer } from './youtube';
+import {
+  DRIFT_TOLERANCE_SECONDS,
+  correctionFor,
+  decideControllerSync,
+  liveCorrectionFor,
+  type PendingSeekReport,
+} from './sync';
+import { PLAYER_STATE, createPlayer, youtubeLiveEdgeOf, type YouTubePlayer } from './youtube';
 import { mountTwitch, type TwitchPlayer } from './twitch';
 import './stage.css';
 
@@ -120,6 +126,7 @@ function Together(props: ToolViewProps<WatchState> & { state: WatchState }) {
   const { state, setState, t, by, self, peers } = props;
   const item = state.now;
   const [trouble, setTrouble] = useState<Trouble | null>(null);
+  const [resyncRequest, setResyncRequest] = useState(0);
   const canControl = isWatchController(by, self);
   const controllerName = watchControllerName(by, self, peers);
 
@@ -165,9 +172,20 @@ function Together(props: ToolViewProps<WatchState> & { state: WatchState }) {
               : t('controllerChipUnknown')}
           </span>
         )}
-        {canControl && (
+        {(item.kind !== 'source' || canControl) && (
           <span className="watch-keys">
-            {queued > 0 && (
+            {item.kind !== 'source' && (
+              <button
+                type="button"
+                className="watch-key watch-resync"
+                aria-label={t('resync')}
+                title={t('resync')}
+                onClick={() => setResyncRequest((request) => request + 1)}
+              >
+                <SyncGlyph />
+              </button>
+            )}
+            {canControl && queued > 0 && (
               <button
                 type="button"
                 className="watch-key"
@@ -178,22 +196,30 @@ function Together(props: ToolViewProps<WatchState> & { state: WatchState }) {
                 <SkipGlyph />
               </button>
             )}
-            <button
-              type="button"
-              className="watch-key watch-close"
-              aria-label={t('closeForAll')}
-              title={t('closeForAll')}
-              onClick={() => setState(null)}
-            >
-              <CloseGlyph />
-            </button>
+            {canControl && (
+              <button
+                type="button"
+                className="watch-key watch-close"
+                aria-label={t('closeForAll')}
+                title={t('closeForAll')}
+                onClick={() => setState(null)}
+              >
+                <CloseGlyph />
+              </button>
+            )}
           </span>
         )}
       </div>
 
       <div className="watch-frame">
         {hide ? null : item.kind !== 'source' ? (
-          <YouTubeStage {...props} item={item} canControl={canControl} onTrouble={setTrouble} />
+          <YouTubeStage
+            {...props}
+            item={item}
+            canControl={canControl}
+            resyncRequest={resyncRequest}
+            onTrouble={setTrouble}
+          />
         ) : item.play === 'frame' ? (
           <FramedPage url={item.url} title={item.title ?? t('stageLabel')} />
         ) : clipUrl ? (
@@ -299,12 +325,14 @@ function YouTubeStage({
   speakerOn,
   speakerLevel,
   canControl,
+  resyncRequest,
   item,
   onTrouble,
 }: ToolViewProps<WatchState> & {
   state: WatchState;
   item: YouTubeItem;
   canControl: boolean;
+  resyncRequest: number;
   onTrouble: (trouble: Trouble) => void;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -342,6 +370,11 @@ function YouTubeStage({
   const settleDeadlineRef = useRef(Date.now() + SETTLE_TIMEOUT_MS);
   /** The previous sample, against which a jump is a jump. */
   const sampleRef = useRef({ time: state.time, at: Date.now(), playing: state.playing });
+  /** A controller's scrub burst, waiting for the last position. */
+  const pendingSeekRef = useRef<PendingSeekReport | null>(null);
+  /** Runtime detection covers ordinary watch links that happen to be live. */
+  const knownLiveRef = useRef(item.kind === 'video' && item.live === true);
+  knownLiveRef.current ||= item.kind === 'video' && item.live === true;
 
   /**
    * Called for everything WE do to the player: the sampler leaves it
@@ -353,13 +386,52 @@ function YouTubeStage({
     quietUntilRef.current = now + QUIET_MS;
     settlingRef.current = true;
     settleDeadlineRef.current = now + SETTLE_TIMEOUT_MS;
+    pendingSeekRef.current = null;
     // The baseline moves with what we just did, or the correction itself
     // would read as a jump on the next tick.
     sampleRef.current = { time: from.time, at: now, playing: from.playing };
   }
 
+  /** The live edge also teaches us that an ordinary watch URL is live. */
+  function liveEdge(player: YouTubePlayer): number | undefined {
+    const edge = youtubeLiveEdgeOf(player, knownLiveRef.current);
+    if (edge !== undefined) {
+      knownLiveRef.current = true;
+    }
+    return edge;
+  }
+
+  /**
+   * A new broadcast has `time: 0`, but zero means its beginning to YouTube.
+   * Start at the edge and let the controller publish that single canonical
+   * position. A viewer does the same locally while waiting for that update.
+   */
+  function alignNewLive(player: YouTubePlayer): boolean {
+    const room = roomRef.current;
+    const current = room.state.now;
+    if (current.kind !== 'video') {
+      return false;
+    }
+    const edge = liveEdge(player);
+    if (edge === undefined || (current.live === true && room.state.time !== 0)) {
+      return false;
+    }
+    if (Math.abs(player.getCurrentTime() - edge) > DRIFT_TOLERANCE_SECONDS) {
+      player.seekTo(edge, true);
+    }
+    quiet({ time: edge, playing: room.state.playing });
+    if (canControlRef.current) {
+      setStateRef.current({
+        ...room.state,
+        now: { ...current, live: true },
+        time: edge,
+      });
+    }
+    return true;
+  }
+
   /** Brings this player to whatever the room last said. */
-  function applyRoom(): void {
+  function applyRoom(force = false): void {
     const player = playerRef.current;
     const room = roomRef.current;
     const current = room.state.now;
@@ -368,9 +440,11 @@ function YouTubeStage({
       // play — in which case we are on our way out anyway.
       return;
     }
-    const target = positionAt(room.state, room.at);
-    if (loadKeyOf(current) !== loadedRef.current) {
-      loadedRef.current = loadKeyOf(current);
+    const currentKey = loadKeyOf(current);
+    if (currentKey !== loadedRef.current) {
+      loadedRef.current = currentKey;
+      knownLiveRef.current = current.kind === 'video' && current.live === true;
+      const target = positionAt(room.state, room.at);
       quiet({ time: target, playing: room.state.playing });
       if (current.kind === 'video') {
         const load = room.state.playing ? player.loadVideoById : player.cueVideoById;
@@ -386,6 +460,9 @@ function YouTubeStage({
       }
       return;
     }
+    knownLiveRef.current ||= current.kind === 'video' && current.live === true;
+    const edge = liveEdge(player);
+    const target = edge !== undefined && room.state.time === 0 ? edge : positionAt(room.state, room.at);
     if (current.kind === 'list' && player.getPlaylistIndex() !== current.index) {
       // The room is on another of this playlist's videos: a jump inside
       // what is already loaded, never a reload.
@@ -393,7 +470,7 @@ function YouTubeStage({
       player.playVideoAt(current.index);
       return;
     }
-    if (mineRef.current) {
+    if (mineRef.current && !force) {
       // We are the ones who moved it: the player is already there, and a
       // round trip's worth of correction would jump it under our hands.
       return;
@@ -442,6 +519,10 @@ function YouTubeStage({
       playerState = player.getPlayerState();
     } catch {
       return; // the iframe is going away under us
+    }
+
+    if (alignNewLive(player)) {
+      return;
     }
 
     if (!canControlRef.current) {
@@ -500,13 +581,21 @@ function YouTubeStage({
     const reading = { time, at: now, playing };
     sampleRef.current = reading;
     const target = positionAt(room.state, room.at, now);
-    const action = decideSync(
+    const decision = decideControllerSync(
       previous,
       reading,
       { playing: room.state.playing, time: target },
       settlingRef.current,
+      pendingSeekRef.current,
     );
+    pendingSeekRef.current = decision.pending;
+    const { action } = decision;
     if (action.kind === 'wait') {
+      // A manual scrub burst is intentionally left alone until its last
+      // position settles. Retrying the old room target here would undo it.
+      if (pendingSeekRef.current) {
+        return;
+      }
       // Still on our way. If it is taking too long, the load or the seek
       // did not take: ask again rather than wait forever on a player that
       // stopped listening.
@@ -564,6 +653,9 @@ function YouTubeStage({
         if (!speakerRef.current) {
           player.mute();
         }
+        if (alignNewLive(player)) {
+          return;
+        }
         // The room may have moved on while the API was loading.
         applyRoom();
       },
@@ -591,6 +683,15 @@ function YouTubeStage({
   // The room said something.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(applyRoom, [state, at]);
+
+  // A resync is deliberately local: viewers cannot move the room, and the
+  // controller uses it to return to the room's own canonical position.
+  useEffect(() => {
+    if (resyncRequest > 0) {
+      applyRoom(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resyncRequest]);
 
   // Speakers off silences the video too — a room you cannot hear is a
   // room you cannot hear. The level beside it is the same fact at higher

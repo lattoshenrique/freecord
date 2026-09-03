@@ -32,6 +32,8 @@ export interface YouTubePlayer {
   seekTo(seconds: number, allowSeekAhead: boolean): void;
   getCurrentTime(): number;
   getDuration(): number;
+  /** Includes `isLive` in the IFrame API for an active broadcast. */
+  getVideoData?(): { isLive?: boolean };
   getPlayerState(): number;
   loadVideoById(options: { videoId: string; startSeconds?: number }): void;
   cueVideoById(options: { videoId: string; startSeconds?: number }): void;
@@ -48,6 +50,28 @@ export interface YouTubePlayer {
   /** 0 … 100. Their own scale, and the only volume control they expose. */
   setVolume(volume: number): void;
   destroy(): void;
+}
+
+/** The current end of a YouTube broadcast, when this player is live. */
+export function youtubeLiveEdgeOf(
+  player: YouTubePlayer,
+  knownLive = false,
+): number | undefined {
+  let live = knownLive;
+  try {
+    live ||= player.getVideoData?.().isLive === true;
+  } catch {
+    // An older iframe may not expose video data; the link can still tell us.
+  }
+  if (!live) {
+    return undefined;
+  }
+  try {
+    const edge = player.getDuration();
+    return Number.isFinite(edge) && edge >= 0 ? edge : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 interface PlayerOptions {
@@ -124,6 +148,7 @@ export async function createPlayer(
     // The room's own controls are the shared ones; YouTube's are the
     // familiar ones, and every move they make goes out to everybody.
     const common = { playsinline: 1, rel: 0, modestbranding: 1, autoplay: options.autoplay ? 1 : 0 };
+    const startSeconds = Math.floor(options.startSeconds);
     // A playlist is loaded as ITSELF and nothing else: `listType` + `list`
     // alone. Adding a videoId, an index or a start next to them leaves the
     // API with an iframe whose src it never fills in — which is a stage
@@ -134,7 +159,15 @@ export async function createPlayer(
         ? { playerVars: { ...common, listType: 'playlist', list: item.list } }
         : {
             videoId: item.kind === 'video' ? item.video : undefined,
-            playerVars: { ...common, start: Math.floor(options.startSeconds) },
+            // Omitting zero matters: a live embed defaults to its live edge,
+            // while explicitly asking for zero rewinds it to the broadcast's
+            // beginning. A real timestamp is still honoured for ordinary VODs.
+            playerVars: {
+              ...common,
+              ...(item.kind === 'video' && !item.live && startSeconds > 0
+                ? { start: startSeconds }
+                : {}),
+            },
           };
     const player = new api.Player(element, {
       ...config,

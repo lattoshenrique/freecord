@@ -38,6 +38,18 @@ export function SkipGlyph() {
   );
 }
 
+/** Bring this viewer's player back to the room's shared moment. */
+export function SyncGlyph() {
+  return (
+    <svg {...base}>
+      <path d="M20 7v5h-5" />
+      <path d="M4 17v-5h5" />
+      <path d="M6.1 8.4A7 7 0 0 1 18.7 7L20 12" />
+      <path d="M17.9 15.6A7 7 0 0 1 5.3 17L4 12" />
+    </svg>
+  );
+}
+
 /** Put this one on now. */
 export function PlayGlyph() {
   return (

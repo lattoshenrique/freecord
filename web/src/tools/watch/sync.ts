@@ -86,6 +86,20 @@ export type SyncAction =
  */
 export const SEEK_JUMP_SECONDS = 1.5;
 
+/** A scrub burst becomes one room update after the controller lets go. */
+export const SEEK_REPORT_DEBOUNCE_MS = 1500;
+
+export interface PendingSeekReport {
+  time: number;
+  playing: boolean;
+  lastJumpAt: number;
+}
+
+export interface ControllerSyncDecision {
+  action: SyncAction;
+  pending: PendingSeekReport | null;
+}
+
 export function decideSync(
   previous: PlayerSample,
   current: PlayerSample,
@@ -117,6 +131,55 @@ export function decideSync(
     return { kind: 'seek', time: room.time };
   }
   return { kind: 'idle' };
+}
+
+/**
+ * The controller may tap or drag through several positions while finding
+ * the right moment. Viewers need the last position, not every loading state
+ * on the way there. Play/pause remains immediate; position jumps settle into
+ * one report after a quiet window.
+ */
+export function decideControllerSync(
+  previous: PlayerSample,
+  current: PlayerSample,
+  room: { playing: boolean; time: number },
+  settling = false,
+  pending: PendingSeekReport | null = null,
+): ControllerSyncDecision {
+  if (current.playing !== room.playing) {
+    return {
+      action: { kind: 'report', playing: current.playing, time: current.time },
+      pending: null,
+    };
+  }
+
+  const advanced = current.time - previous.time;
+  const wall = previous.playing ? Math.max(0, current.at - previous.at) / 1000 : 0;
+  const jumped = Math.abs(advanced - wall) > SEEK_JUMP_SECONDS;
+
+  if (pending) {
+    const next = {
+      time: current.time,
+      playing: current.playing,
+      lastJumpAt: jumped ? current.at : pending.lastJumpAt,
+    };
+    if (current.at - next.lastJumpAt >= SEEK_REPORT_DEBOUNCE_MS) {
+      return {
+        action: { kind: 'report', playing: next.playing, time: next.time },
+        pending: null,
+      };
+    }
+    return { action: { kind: 'wait' }, pending: next };
+  }
+
+  const action = decideSync(previous, current, room, settling);
+  if (action.kind !== 'report') {
+    return { action, pending: null };
+  }
+  return {
+    action: { kind: 'wait' },
+    pending: { time: current.time, playing: current.playing, lastJumpAt: current.at },
+  };
 }
 
 // ---------------------------------------------------------------------

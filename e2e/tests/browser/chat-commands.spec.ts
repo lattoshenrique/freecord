@@ -1,7 +1,108 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { baseUrl } from '../../helpers/env';
 import { createRoom } from '../../helpers/http';
-import { closeAll, joinMany, type RoomPageHandle } from '../../helpers/pages';
+import { closeAll, joinMany, joinRoomPage, type RoomPageHandle } from '../../helpers/pages';
+
+/** A deterministic live IFrame API: no YouTube network in this regression. */
+async function installLiveYouTube(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    interface Events {
+      onReady(): void;
+      onStateChange(event: { data: number }): void;
+    }
+    interface Config {
+      playerVars: { autoplay?: number; start?: number };
+      events: Events;
+    }
+
+    class FakeLivePlayer {
+      readonly seeks: number[] = [];
+      readonly config: Config;
+      private time = 0;
+      private timeAt = Date.now();
+      private state = 1;
+      private readonly edge = 3_600;
+      private readonly edgeAt = Date.now();
+
+      constructor(_element: HTMLElement, raw: unknown) {
+        this.config = raw as Config;
+        this.state = this.config.playerVars.autoplay ? 1 : 2;
+        harness.instances.push(this);
+        queueMicrotask(() => this.config.events.onReady());
+      }
+
+      private running(value: number, at: number): number {
+        return value + (this.state === 1 ? Math.max(0, Date.now() - at) / 1_000 : 0);
+      }
+
+      getCurrentTime(): number {
+        return this.running(this.time, this.timeAt);
+      }
+
+      getDuration(): number {
+        return this.edge + Math.max(0, Date.now() - this.edgeAt) / 1_000;
+      }
+
+      getVideoData(): { isLive: true } {
+        return { isLive: true };
+      }
+
+      getPlayerState(): number {
+        return this.state;
+      }
+
+      seekTo(seconds: number): void {
+        this.time = seconds;
+        this.timeAt = Date.now();
+        this.seeks.push(seconds);
+      }
+
+      manualSeek(seconds: number): void {
+        this.time = seconds;
+        this.timeAt = Date.now();
+        this.config.events.onStateChange({ data: this.state });
+      }
+
+      playVideo(): void {
+        this.time = this.getCurrentTime();
+        this.timeAt = Date.now();
+        this.state = 1;
+      }
+
+      pauseVideo(): void {
+        this.time = this.getCurrentTime();
+        this.timeAt = Date.now();
+        this.state = 2;
+      }
+
+      loadVideoById(options: { startSeconds?: number }): void {
+        this.seekTo(options.startSeconds ?? 0);
+      }
+
+      cueVideoById(options: { startSeconds?: number }): void {
+        this.seekTo(options.startSeconds ?? 0);
+      }
+
+      loadPlaylist(): void {}
+      cuePlaylist(): void {}
+      getPlaylistIndex(): number { return -1; }
+      getPlaylist(): null { return null; }
+      playVideoAt(): void {}
+      mute(): void {}
+      unMute(): void {}
+      setVolume(): void {}
+      destroy(): void {}
+    }
+
+    const harness = { instances: [] as FakeLivePlayer[] };
+    const target = window as unknown as {
+      YT: { Player: typeof FakeLivePlayer };
+      __youtubeHarness: typeof harness;
+    };
+    target.__youtubeHarness = harness;
+    target.YT = { Player: FakeLivePlayer };
+  });
+}
 
 /**
  * Slash commands: the chat as a second door onto the dock and the chat's
@@ -188,8 +289,8 @@ test.describe('chat commands', () => {
 
     await expect(owner.locator('.watch-frame')).toHaveCount(1);
     await expect(viewer.locator('.watch-frame')).toHaveCount(1);
-    await expect(owner.locator('.watch-keys button')).toHaveCount(1);
-    await expect(viewer.locator('.watch-keys button')).toHaveCount(0);
+    await expect(owner.getByRole('button', { name: 'Close it for everyone' })).toBeVisible();
+    await expect(viewer.getByRole('button', { name: 'Close it for everyone' })).toHaveCount(0);
     await expect(viewer.locator('.watch-controller-chip')).toContainText('viewer-0');
 
     await viewer.locator('button[data-key="T"]').click();
@@ -210,5 +311,99 @@ test.describe('chat commands', () => {
     await ownerBox.press('Enter');
     await expect(owner.locator('.watch-frame')).toHaveCount(0);
     await expect(viewer.locator('.watch-frame')).toHaveCount(0);
+  });
+
+  test('YouTube Live starts at the edge, settles seek bursts once, and can resync locally', async ({
+    browser,
+  }) => {
+    const { slug } = await createRoom('youtube-live-sync');
+    handles = [
+      await joinRoomPage(browser, slug, 'owner', { prepare: installLiveYouTube }),
+      await joinRoomPage(browser, slug, 'viewer', { prepare: installLiveYouTube }),
+    ];
+    const owner = handles[0]!.page;
+    const viewer = handles[1]!.page;
+
+    await owner.locator('button[data-key="C"]').click();
+    const ownerBox = owner.locator('.chat-panel textarea');
+    // A normal watch URL is what YouTube's share button commonly gives for
+    // a live. The runtime player data, not only `/live/`, must recognise it.
+    await ownerBox.fill('/play https://www.youtube.com/watch?v=dQw4w9WgXcQ');
+    await ownerBox.press('Enter');
+
+    for (const page of [owner, viewer]) {
+      await expect(page.getByRole('button', { name: 'Resync with the room' })).toBeVisible();
+      await expect
+        .poll(() =>
+          page.evaluate(() => {
+            const fake = (window as unknown as {
+              __youtubeHarness: { instances: Array<{ seeks: number[] }> };
+            }).__youtubeHarness.instances[0];
+            return fake?.seeks.at(-1) ?? 0;
+          }),
+        )
+        .toBeGreaterThan(3_590);
+    }
+    expect(
+      await owner.evaluate(() => {
+        const fake = (window as unknown as {
+          __youtubeHarness: { instances: Array<{ config: { playerVars: { start?: number } } }> };
+        }).__youtubeHarness.instances[0];
+        return fake?.config.playerVars.start;
+      }),
+    ).toBeUndefined();
+
+    const viewerBaseline = await viewer.evaluate(() =>
+      (window as unknown as { __youtubeHarness: { instances: Array<{ seeks: number[] }> } })
+        .__youtubeHarness.instances[0]!.seeks.length,
+    );
+
+    // Startup quiet plus one stable sampler tick must clear before these
+    // become a person's moves rather than possible loading readings.
+    await owner.waitForTimeout(2_500);
+    await owner.evaluate(() => {
+      const fake = (window as unknown as {
+        __youtubeHarness: { instances: Array<{ manualSeek(seconds: number): void }> };
+      }).__youtubeHarness.instances[0]!;
+      fake.manualSeek(1_000);
+      fake.manualSeek(2_000);
+      fake.manualSeek(3_500);
+    });
+
+    await expect
+      .poll(() =>
+        viewer.evaluate(() =>
+          (window as unknown as { __youtubeHarness: { instances: Array<{ seeks: number[] }> } })
+            .__youtubeHarness.instances[0]!.seeks.length,
+        ),
+      )
+      .toBe(viewerBaseline + 1);
+    // A silence window proves the two intermediate positions did not arrive
+    // later as extra loading states.
+    await viewer.waitForTimeout(1_300);
+    expect(
+      await viewer.evaluate(() =>
+        (window as unknown as { __youtubeHarness: { instances: Array<{ seeks: number[] }> } })
+          .__youtubeHarness.instances[0]!.seeks.length,
+      ),
+    ).toBe(viewerBaseline + 1);
+
+    await viewer.evaluate(() => {
+      const fake = (window as unknown as {
+        __youtubeHarness: { instances: Array<{ manualSeek(seconds: number): void }> };
+      }).__youtubeHarness.instances[0]!;
+      fake.manualSeek(100);
+    });
+    await viewer.getByRole('button', { name: 'Resync with the room' }).click();
+    await expect
+      .poll(() =>
+        viewer.evaluate(() => {
+          const seeks = (window as unknown as {
+            __youtubeHarness: { instances: Array<{ seeks: number[] }> };
+          }).__youtubeHarness.instances[0]!.seeks;
+          return seeks.at(-1) ?? 0;
+        }),
+      )
+      .toBeGreaterThan(3_490);
   });
 });

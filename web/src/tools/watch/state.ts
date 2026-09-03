@@ -45,7 +45,7 @@ export interface TwitchRef {
 /** One thing the room can watch. */
 export type WatchItem =
   /** `start`: where the link said to begin, kept for when its turn comes. */
-  | { kind: 'video'; video: string; start?: number }
+  | { kind: 'video'; video: string; start?: number; live?: boolean }
   | { kind: 'list'; list: string; index: number }
   | {
       kind: 'source';
@@ -84,8 +84,8 @@ const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
  * not an id would be somebody else's URL in an iframe.
  */
 const LIST_ID = /^[A-Za-z0-9_-]{13,42}$/;
-/** No video is a day long; past this it is a client with a bug. */
-const MAX_POSITION_SECONDS = 24 * 60 * 60;
+/** Long-running live channels still need a bounded, finite clock. */
+const MAX_POSITION_SECONDS = 366 * 24 * 60 * 60;
 /** A playlist that claims more than this is not one we will index into. */
 const MAX_LIST_INDEX = 5_000;
 const MAX_URL = 2048;
@@ -226,9 +226,14 @@ export function parseItem(raw: unknown): WatchItem | null {
       typeof start === 'number' && Number.isFinite(start) && start >= 0 && start <= MAX_POSITION_SECONDS
         ? start
         : 0;
-    return from > 0
-      ? { kind: 'video', video: item.video, start: from }
-      : { kind: 'video', video: item.video };
+    const video: Extract<WatchItem, { kind: 'video' }> =
+      from > 0
+        ? { kind: 'video', video: item.video, start: from }
+        : { kind: 'video', video: item.video };
+    if (item.live === true) {
+      video.live = true;
+    }
+    return video;
   }
   if (item.kind === 'list') {
     const index = item.index;
@@ -295,7 +300,7 @@ export function positionAt(state: WatchState, at: number, now: number = Date.now
 
 /** A broadcast: one position, and it is now. */
 export function isLive(item: WatchItem): boolean {
-  return item.kind === 'source' && item.live === true;
+  return item.kind !== 'list' && item.live === true;
 }
 
 /**

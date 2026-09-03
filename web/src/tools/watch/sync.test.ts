@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   DRIFT_TOLERANCE_SECONDS,
   LIVE_EDGE_SECONDS,
+  SEEK_REPORT_DEBOUNCE_MS,
   correctionFor,
+  decideControllerSync,
   decideSync,
   liveCorrectionFor,
   type PlayerSample,
@@ -125,6 +127,57 @@ describe('decideSync', () => {
     });
     expect(decideSync(previous, tick(previous, 30.25), { playing: true, time: 31 })).toEqual({
       kind: 'idle',
+    });
+  });
+});
+
+describe('a controller settling on a position', () => {
+  it('turns a burst of seeks into one final room update', () => {
+    const first = playingAt(30);
+    const jumpOne = tick(first, 100);
+    const one = decideControllerSync(first, jumpOne, { playing: true, time: 31 });
+    expect(one.action).toEqual({ kind: 'wait' });
+    expect(one.pending).toMatchObject({ time: 100, lastJumpAt: jumpOne.at });
+
+    const jumpTwo = tick(jumpOne, 200);
+    const two = decideControllerSync(jumpOne, jumpTwo, { playing: true, time: 32 }, false, one.pending);
+    expect(two.action).toEqual({ kind: 'wait' });
+    expect(two.pending).toMatchObject({ time: 200, lastJumpAt: jumpTwo.at });
+
+    const stillSettling = tick(jumpTwo, 201);
+    const three = decideControllerSync(
+      jumpTwo,
+      stillSettling,
+      { playing: true, time: 33 },
+      false,
+      two.pending,
+    );
+    expect(stillSettling.at - jumpTwo.at).toBeLessThan(SEEK_REPORT_DEBOUNCE_MS);
+    expect(three.action).toEqual({ kind: 'wait' });
+
+    const settled = tick(stillSettling, 202);
+    const four = decideControllerSync(
+      stillSettling,
+      settled,
+      { playing: true, time: 34 },
+      false,
+      three.pending,
+    );
+    expect(four).toEqual({
+      action: { kind: 'report', playing: true, time: 202 },
+      pending: null,
+    });
+  });
+
+  it('does not delay a pause behind a pending seek', () => {
+    const previous = playingAt(100);
+    const pending = { time: 100, playing: true, lastJumpAt: previous.at };
+    const paused = tick(previous, 100, false);
+    expect(
+      decideControllerSync(previous, paused, { playing: true, time: 30 }, false, pending),
+    ).toEqual({
+      action: { kind: 'report', playing: false, time: 100 },
+      pending: null,
     });
   });
 });

@@ -21,6 +21,7 @@ describe('parseItem', () => {
     expect(parseItem(video)).toEqual(video);
     expect(parseItem(list)).toEqual(list);
     expect(parseItem(file)).toEqual(file);
+    expect(parseItem({ ...video, live: true })).toEqual({ ...video, live: true });
   });
 
   it('refuses anything a peer could have made up', () => {
@@ -97,7 +98,7 @@ describe('a queued moment', () => {
     expect(parseItem({ ...video, start: 600 })).toEqual({ ...video, start: 600 });
     expect(parseItem({ ...video, start: -5 })).toEqual(video);
     expect(parseItem({ ...video, start: '600' })).toEqual(video);
-    expect(parseItem({ ...video, start: 25 * 60 * 60 })).toEqual(video);
+    expect(parseItem({ ...video, start: 367 * 24 * 60 * 60 })).toEqual(video);
   });
 });
 
@@ -150,7 +151,7 @@ describe('parseState', () => {
       { ...state, playing: 'yes' },
       { ...state, time: -1 },
       { ...state, time: Number.NaN },
-      { ...state, time: 25 * 60 * 60 },
+      { ...state, time: 367 * 24 * 60 * 60 },
     ]) {
       expect(parseState(raw), JSON.stringify(raw)).toBeNull();
     }
@@ -183,10 +184,12 @@ describe('what the room can agree on', () => {
     expect(hasSharedClock({ ...file, play: 'frame' })).toBe(false);
   });
 
-  it('is always a position on YouTube, which is why it has its own player', () => {
+  it('keeps a position on YouTube, including its rewindable live player', () => {
     expect(hasSharedClock(video)).toBe(true);
     expect(hasSharedClock(list)).toBe(true);
     expect(isLive(video)).toBe(false);
+    expect(hasSharedClock({ ...video, live: true })).toBe(true);
+    expect(isLive({ ...video, live: true })).toBe(true);
   });
 
   it('tells a player the room drives from a rectangle it only points at', () => {

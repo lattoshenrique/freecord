@@ -121,8 +121,13 @@ export function parseYouTube(input: string): WatchItem | null {
   }
   const host = url.hostname.toLowerCase().replace(/^www\./, '').replace(/^m\./, '');
   const start = parseStart(url.searchParams.get('t') ?? url.searchParams.get('start'));
-  const video = (id: string): WatchItem =>
-    start > 0 ? { kind: 'video', video: id, start } : { kind: 'video', video: id };
+  const video = (id: string, live = false): WatchItem => {
+    const item: WatchItem = start > 0 ? { kind: 'video', video: id, start } : { kind: 'video', video: id };
+    if (live) {
+      item.live = true;
+    }
+    return item;
+  };
   if (host === 'youtu.be') {
     const id = url.pathname.slice(1).split('/')[0] ?? '';
     return VIDEO_ID.test(id) ? video(id) : null;
@@ -143,7 +148,7 @@ export function parseYouTube(input: string): WatchItem | null {
   // /embed/<id>, /shorts/<id>, /live/<id>, /v/<id>
   const [, section, id] = url.pathname.split('/');
   return section && id && ['embed', 'shorts', 'live', 'v'].includes(section) && VIDEO_ID.test(id)
-    ? video(id)
+    ? video(id, section === 'live')
     : null;
 }
 
@@ -223,6 +228,9 @@ export function directCandidate(input: string): WatchCandidate | null {
 export function fromLookup(candidate: VideoCandidate, page: string): WatchCandidate {
   const youtube = parseYouTube(candidate.url);
   if (youtube) {
+    if (youtube.kind === 'video' && candidate.live === true) {
+      youtube.live = true;
+    }
     return { item: youtube, found: candidate.found, label: candidate.label, via: candidate.via };
   }
   const item: WatchItem = { kind: 'source', play: candidate.play, url: candidate.url };
