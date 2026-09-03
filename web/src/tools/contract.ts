@@ -21,6 +21,10 @@
  *   self / peers      who is in the room.
  *   speakerOn         the room's speakers are off: a tool that makes
  *                     sound is expected to go quiet.
+ *   speakerLevel      how loudly THIS viewer wants this tool, 0 … 1. The
+ *                     same fact with more resolution, honoured as far as
+ *                     the player allows and no further. Local, like
+ *                     speakerOn: never written into the shared state.
  *   t                 the tool's own strings, in the viewer's language.
  *
  * What a tool does NOT get, on purpose: the WebRTC mesh, the media
