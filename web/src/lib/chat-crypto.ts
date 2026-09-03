@@ -2,7 +2,7 @@
  * End-to-end chat encryption.
  *
  * The room key is a random AES-GCM-256 key that travels in the invite
- * link's fragment (#<key>) — browsers never send the fragment over the
+ * link's fragment (#<key>~<encoded-name>) — browsers never send the fragment over the
  * network, so the server only ever relays sealed envelopes it cannot
  * read. Media needs none of this: WebRTC already encrypts peer-to-peer
  * (DTLS-SRTP).
@@ -68,11 +68,12 @@ export function generateRoomKey(): string | null {
   return toBase64Url(crypto.getRandomValues(new Uint8Array(KEY_BYTES)));
 }
 
-/** Extracts a compact (`#<key>`) or legacy (`#k=<key>`) room key. */
+/** Extracts a compact (`#<key>[~name]`) or legacy (`#k=<key>`) room key. */
 export function roomKeyFromHash(hash: string): string | null {
   const raw = hash.startsWith('#') ? hash.slice(1) : hash;
-  if (ENVELOPE_KEY_SHAPE.test(raw)) {
-    return raw;
+  const compactKey = raw.match(COMPACT_KEY_SHAPE)?.[1];
+  if (compactKey) {
+    return compactKey;
   }
   const params = new URLSearchParams(raw);
   const key = params.get('k');
@@ -81,6 +82,7 @@ export function roomKeyFromHash(hash: string): string | null {
 
 /** 32 bytes of base64url are exactly 43 chars. */
 const ENVELOPE_KEY_SHAPE = /^[A-Za-z0-9_-]{43}$/;
+const COMPACT_KEY_SHAPE = /^([A-Za-z0-9_-]{43})(?:~[A-Za-z0-9_-]+)?$/;
 
 export async function importRoomKey(encoded: string): Promise<CryptoKey | null> {
   const api = subtle();

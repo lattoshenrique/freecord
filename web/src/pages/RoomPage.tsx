@@ -47,6 +47,8 @@ export default function RoomPage() {
   const [phase, setPhase] = useState<Phase>(
     handed ? { kind: 'prejoin', room: handed } : { kind: 'loading' },
   );
+  const canonicalRoomName =
+    phase.kind === 'prejoin' || phase.kind === 'joined' ? phase.room.displayName : undefined;
   // A guest arrives already named: typing is a correction, not a toll gate.
   const [name, setName] = useState(randomNickname);
   // Both off. Joining a call already talking, or already on camera, is how
@@ -106,18 +108,20 @@ export default function RoomPage() {
   // Escape reverts: the blur that follows must not save the draft.
   const discardRef = useRef(false);
 
-  // Canonicalize old `#k=…&n=…` invitations to the shortest lossless form.
+  // Keep the fragment in the compact named form. A room reached through an
+  // older link gains its name as soon as metadata arrives; renaming refreshes
+  // it too. Every share surface can then copy the current URL as-is.
   // `replaceState` keeps the current doorstep and its router state intact.
   useEffect(() => {
     if (!slug) {
       return;
     }
-    const hash = compactInviteHash(window.location.hash);
+    const hash = compactInviteHash(window.location.hash, canonicalRoomName);
     const next = `${window.location.pathname}${window.location.search}${hash}`;
     if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== next) {
       window.history.replaceState(window.history.state, '', next);
     }
-  }, [slug]);
+  }, [canonicalRoomName, slug]);
 
   useEffect(() => {
     if (!slug || handed) {

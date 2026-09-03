@@ -12,7 +12,7 @@ export interface ParsedInvite {
   slug: string;
   /** The link's fragment, carried verbatim so the chat key survives. */
   hash: string;
-  /** Optional preview from an older named link. New links resolve it by slug. */
+  /** Optional preview carried by the invite, decoded entirely on the client. */
   roomName: string | null;
 }
 
@@ -20,7 +20,33 @@ export interface ParsedInvite {
 const SLUG_PATH = /^\/r\/([A-Za-z0-9_-]{8,64})\/?$/;
 /** 32 random bytes are exactly 43 base64url characters. */
 const ROOM_KEY_SHAPE = /^[A-Za-z0-9_-]{43}$/;
+/** `~` cannot occur in base64url, so it separates the key from the name. */
+const COMPACT_FRAGMENT = /^([A-Za-z0-9_-]{43})(?:~([A-Za-z0-9_-]+))?$/;
 const ROOM_NAME_MAX_LENGTH = 60;
+
+function encodeRoomName(roomName: string): string {
+  const bytes = new TextEncoder().encode(roomName);
+  let binary = '';
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function decodeRoomName(encoded: string): string | null {
+  try {
+    const base64 = encoded.replace(/-/g, '+').replace(/_/g, '/');
+    const binary = atob(`${base64}${'='.repeat((4 - (base64.length % 4)) % 4)}`);
+    const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch {
+    return null;
+  }
+}
+
+function normalizedRoomName(roomName: string | null | undefined): string | null {
+  return roomName?.trim().slice(0, ROOM_NAME_MAX_LENGTH) || null;
+}
 
 function toUrl(text: string): URL | null {
   // A pasted invite arrives in three shapes: with the scheme, without it
@@ -49,41 +75,62 @@ export function parseInvite(text: string): ParsedInvite | null {
   if (!url || !slug) {
     return null;
   }
-  const encodedName = new URLSearchParams(url.hash.slice(1)).get('n');
-  const roomName = encodedName?.trim().slice(0, ROOM_NAME_MAX_LENGTH) || null;
+  const rawHash = url.hash.slice(1);
+  const compact = rawHash.match(COMPACT_FRAGMENT);
+  const legacyName = compact ? null : new URLSearchParams(rawHash).get('n');
+  const roomName = normalizedRoomName(
+    compact?.[2] ? decodeRoomName(compact[2]) : legacyName,
+  );
   return { slug, hash: url.hash, roomName };
 }
 
 /**
- * The shortest lossless form of an invitation fragment. A random 256-bit key
- * cannot be compressed, but its parameter name can disappear. Named links
- * from older clients collapse too; unknown parameters survive for forwards
- * compatibility rather than being discarded by a client that predates them.
+ * The compact invitation fragment is `<key>~<base64url UTF-8 name>`. A random
+ * 256-bit key cannot be compressed, but parameter names and percent encoding
+ * can disappear. Carrying the name makes a pasted invitation resolve locally
+ * and immediately, without making the home wait for a metadata request.
+ * Unknown parameters survive for forwards compatibility.
  */
-export function compactInviteHash(hash: string): string {
+export function compactInviteHash(hash: string, roomName?: string | null): string {
   const raw = hash.startsWith('#') ? hash.slice(1) : hash;
-  if (ROOM_KEY_SHAPE.test(raw)) {
-    return `#${raw}`;
+  const compact = raw.match(COMPACT_FRAGMENT);
+  if (compact) {
+    const name = normalizedRoomName(
+      roomName === undefined
+        ? compact[2]
+          ? decodeRoomName(compact[2])
+          : null
+        : roomName,
+    );
+    return `#${compact[1]}${name ? `~${encodeRoomName(name)}` : ''}`;
   }
 
   const params = new URLSearchParams(raw);
   const key = params.get('k');
   const knownParameters = [...params.keys()].every((name) => name === 'k' || name === 'n');
   if (key && ROOM_KEY_SHAPE.test(key) && knownParameters) {
-    return `#${key}`;
+    const name = normalizedRoomName(roomName === undefined ? params.get('n') : roomName);
+    return `#${key}${name ? `~${encodeRoomName(name)}` : ''}`;
   }
 
-  // Even a keyless or future-shaped link no longer needs the old name copy:
-  // the home can resolve the authoritative name from the public room slug.
-  params.delete('n');
+  // A future-shaped fragment stays future-shaped. When a current room name
+  // is available, refresh its legacy field without touching unknown fields.
+  if (roomName !== undefined && raw) {
+    const name = normalizedRoomName(roomName);
+    if (name) {
+      params.set('n', name);
+    } else {
+      params.delete('n');
+    }
+  }
   const encoded = params.toString();
   return encoded ? `#${encoded}` : '';
 }
 
 /** Returns the compact form of a complete invitation URL. */
-export function compactInviteUrl(inviteUrl: string): string {
+export function compactInviteUrl(inviteUrl: string, roomName?: string | null): string {
   const url = new URL(inviteUrl);
-  url.hash = compactInviteHash(url.hash);
+  url.hash = compactInviteHash(url.hash, roomName);
   return url.href;
 }
 

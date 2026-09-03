@@ -15,6 +15,7 @@ import { DownloadButton } from '../components/DownloadCard';
 import LanguagePicker from '../components/LanguagePicker';
 import Brand from '../components/Brand';
 import MeshBackground from '../components/MeshBackground';
+import { CheckIcon } from '../components/icons';
 import { preloadRoomPage } from './room-route';
 import { useI18n } from '../i18n';
 import './home.css';
@@ -105,11 +106,10 @@ export default function HomePage() {
   }, []);
 
   /*
-   * New invitation links spend no characters repeating the room name. Once a
-   * complete link lands in the field, resolve its public metadata by slug and
-   * play the same reveal. Cancelling the result matters when somebody pastes
-   * a link and immediately keeps typing: that older room must not overwrite
-   * what the field has become.
+   * Current invitations carry an encoded room name and resolve on paste with
+   * no round trip. This lookup keeps compact links made by the previous
+   * release useful. Cancelling matters when somebody pastes one and keeps
+   * typing: that older room must not overwrite what the field has become.
    */
   useEffect(() => {
     const visibleInvite = parseInvite(displayName);
@@ -218,7 +218,7 @@ export default function HomePage() {
        * millisecond, which is also what leaves the mark, the name and the
        * button somewhere to fly to rather than a spinner.
        */
-      const hash = compactInviteHash(roomKey ? `#k=${roomKey}` : '');
+      const hash = compactInviteHash(roomKey ? `#${roomKey}` : '', room.displayName);
       heroTransition(() =>
         navigate(`/r/${room.slug}${hash}`, {
           state: { room },
@@ -256,7 +256,7 @@ export default function HomePage() {
               data-named-invite={invite?.roomName ? 'true' : 'false'}
             >
               <span className="start-prompt-sign" aria-hidden="true">
-                &gt;
+                {invite?.roomName ? <CheckIcon /> : '>'}
               </span>
               {/* The typed line, and the two things measured against it. */}
               <span className="start-line">

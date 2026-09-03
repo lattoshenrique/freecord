@@ -77,24 +77,35 @@ describe('compact invite fragments', () => {
     });
   });
 
-  it('removes parameter and name overhead without changing the key', () => {
-    expect(compactInviteHash(`#k=${KEY}&n=Design+sync`)).toBe(`#${KEY}`);
-    expect(parseInvite(`/r/${SLUG}#${KEY}`)).toEqual({
+  it('compacts the key and Unicode room name into a locally decodable fragment', () => {
+    const hash = compactInviteHash(`#k=${KEY}&n=Sala+do+Jo%C3%A3o+%F0%9F%8E%99%EF%B8%8F`);
+    expect(hash).toBe(`#${KEY}~U2FsYSBkbyBKb8OjbyDwn46Z77iP`);
+    expect(parseInvite(`/r/${SLUG}${hash}`)).toEqual({
       slug: SLUG,
-      hash: `#${KEY}`,
-      roomName: null,
+      hash,
+      roomName: 'Sala do João 🎙️',
     });
   });
 
-  it('builds the shorter complete URL used by sharing controls', () => {
+  it('builds the named complete URL used by sharing controls', () => {
     expect(compactInviteUrl(`https://freecord.example/r/${SLUG}#k=${KEY}&n=Design+sync`)).toBe(
-      `https://freecord.example/r/${SLUG}#${KEY}`,
+      `https://freecord.example/r/${SLUG}#${KEY}~RGVzaWduIHN5bmM`,
     );
   });
 
-  it('preserves unknown future parameters while removing obsolete name metadata', () => {
+  it('can add or refresh the room name while preserving the key', () => {
+    expect(compactInviteHash(`#${KEY}`, 'Design sync')).toBe(
+      `#${KEY}~RGVzaWduIHN5bmM`,
+    );
+    expect(compactInviteHash(`#${KEY}~b2xk`, 'New name')).toBe(
+      `#${KEY}~TmV3IG5hbWU`,
+    );
+    expect(compactInviteHash('', 'Keyless room')).toBe('');
+  });
+
+  it('preserves unknown future parameters and their legacy name metadata', () => {
     expect(compactInviteHash(`#k=${KEY}&n=Old+name&future=1`)).toBe(
-      `#k=${KEY}&future=1`,
+      `#k=${KEY}&n=Old+name&future=1`,
     );
   });
 });

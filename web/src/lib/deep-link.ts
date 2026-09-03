@@ -38,8 +38,8 @@ export const APP_SCHEME = 'freecord';
  *
  * `parseInvite` is what decides this is a room link at all — the one place
  * that knows the shape, rather than a second regular expression that could
- * drift from it. The fragment carries the chat key in its compact canonical
- * form, and a room opened without it is a room nobody can read.
+ * drift from it. The fragment carries the chat key and encoded room name in
+ * their compact canonical form; without the key, nobody can read the room.
  */
 export function appLink(pathname: string, hash: string): string | null {
   const invite = parseInvite(`${pathname}${hash}`);

@@ -9,7 +9,7 @@ describe('appLink', () => {
   it('carries the fragment, because it carries the chat key', () => {
     const key = 'a'.repeat(43);
     expect(appLink('/r/abcdefghijkl', `#k=${key}&n=Old+name`)).toBe(
-      `${APP_SCHEME}://r/abcdefghijkl#${key}`,
+      `${APP_SCHEME}://r/abcdefghijkl#${key}~T2xkIG5hbWU`,
     );
   });
 
