@@ -220,11 +220,6 @@ export const enUS = {
   'participation.toolOffTitle': 'You sat this one out',
   'participation.toolOffBody': 'The room is on {tool}. None of it is loading here.',
   'participation.toolJoinOnce': 'Join {tool} this once',
-  'participation.slowTitle': 'Your connection is having a hard time',
-  'participation.slowBody':
-    "Other people's screens are the heaviest thing arriving. Turning them off keeps the voices.",
-  'participation.slowAccept': 'Turn screens off',
-  'participation.slowDismiss': 'Keep them',
   'settings.about.title': 'About',
   'settings.close': 'Close settings',
   'settings.sounds.title': 'Sounds',

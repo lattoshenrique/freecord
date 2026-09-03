@@ -207,11 +207,6 @@ export const ptBR: Catalog = {
   'participation.toolOffTitle': 'Você ficou de fora desta',
   'participation.toolOffBody': 'A sala está em {tool}. Nada disso está carregando aqui.',
   'participation.toolJoinOnce': 'Entrar em {tool} só desta vez',
-  'participation.slowTitle': 'Sua conexão está sofrendo',
-  'participation.slowBody':
-    'As telas dos outros são o mais pesado que chega. Desligar elas preserva as vozes.',
-  'participation.slowAccept': 'Desligar as telas',
-  'participation.slowDismiss': 'Manter',
   'settings.about.title': 'Sobre',
   'settings.close': 'Fechar configurações',
   'settings.sounds.title': 'Sons',

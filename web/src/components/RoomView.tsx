@@ -44,7 +44,6 @@ import ToolsMenu from './ToolsMenu';
 import ToolStage from './ToolStage';
 import { TOOLS, askTools, hasLiveTool, stagedToolOf } from '../tools/registry';
 import { toolText, useToolText, type RegisteredTool } from '../tools/contract';
-import { advanceStrain, initialStrainState } from '../lib/participation';
 import { applySinkId } from '../lib/audio-devices';
 import { setPlayback, type PlayingSource } from '../lib/audio-bus';
 import { mixKey, useAudioMix } from '../lib/audio-mix';
@@ -181,6 +180,33 @@ function LatencyChip({ ms, title }: { ms: number | null; title: string }) {
 
 function formatBitrate(kbps: number): string {
   return kbps >= 1000 ? `${(kbps / 1000).toFixed(1)} Mb/s` : `${kbps} kb/s`;
+}
+
+/**
+ * Loss as a figure somebody can act on: a tenth of a percent matters down
+ * where voice starts breaking up, and nobody needs a decimal at 12%.
+ */
+function formatLoss(rate: number): string {
+  const percent = rate * 100;
+  if (percent === 0) {
+    return '0%';
+  }
+  return percent < 9.95 ? `${percent.toFixed(1)}%` : `${Math.round(percent)}%`;
+}
+
+/**
+ * The middle reading of the links we hold, for a number that is about OUR
+ * network rather than any one pair. Every link is ours, so a single bad
+ * peer leaves the middle alone while a connection going bad on this end
+ * drags all of them and moves it. The lower middle on an even count: with
+ * two links the kinder one is the one we cannot blame on the other side.
+ */
+function middleOf(values: readonly number[]): number | null {
+  if (values.length === 0) {
+    return null;
+  }
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted[Math.floor((sorted.length - 1) / 2)]!;
 }
 
 /**
@@ -1153,18 +1179,6 @@ export default function RoomView({
   // shelf key keeps its light (hasLiveTool, below, sees the whole room) so
   // the way back in is where it always is.
   const stagedTool = toolRefused ? null : liveTool;
-  /**
-   * The offer to stop receiving screens, made once, and only to somebody
-   * watching one crawl in (participation.ts). It is an offer: nothing is
-   * turned off without the person saying so.
-   */
-  const strainRef = useRef(initialStrainState());
-  const [offerScreensOff, setOfferScreensOff] = useState(false);
-  useEffect(() => {
-    if (advanceStrain(strainRef.current, session.screenStats)) {
-      setOfferScreensOff(true);
-    }
-  }, [session.screenStats]);
   const stagedToolId = stagedTool?.tool.id ?? null;
   useEffect(() => {
     if (toolPass !== null && !session.tools.has(toolPass)) {
@@ -1678,11 +1692,23 @@ export default function RoomView({
     // The worst pair: one number that still points at whoever the call drags for.
     hudMetrics.push({ label: 'rtt', value: `${Math.max(...rtts)} ms` });
   }
-  // Our own reading has no peer to measure against — every link is ours. The
-  // middle one is the honest summary: a single bad pair leaves it alone, and a
-  // connection going bad on this end drags all of them, so it climbs.
-  const sortedRtts = [...rtts].sort((a, b) => a - b);
-  const selfRttMs = sortedRtts.length > 0 ? sortedRtts[Math.floor((sortedRtts.length - 1) / 2)] : null;
+  // Our own reading has no peer to measure against (middleOf, above).
+  const selfRttMs = middleOf(rtts);
+  /**
+   * How this person's own network is holding up, said where the numbers
+   * live instead of in a banner over the room: the share of what was sent
+   * to us that never arrived, middled across the links we hold. It stays
+   * on screen at 0% — a reading you can go and check is the point, and one
+   * that only appears when things are bad is the interruption we removed.
+   */
+  const selfLoss = middleOf(
+    [...session.peerLatency.values()]
+      .map((latency) => latency.lossRate)
+      .filter((rate): rate is number => rate !== null),
+  );
+  if (selfLoss !== null) {
+    hudMetrics.push({ label: 'loss', value: formatLoss(selfLoss) });
+  }
   const hudStats = session.screenStats;
   if (hudStats?.kbps != null) {
     hudMetrics.push({
@@ -2160,32 +2186,6 @@ export default function RoomView({
       </main>
 
       <footer className="room-footer" ref={footerRef} aria-label={t('controls.dock')}>
-        {offerScreensOff && session.participation.screens && (
-          <div className="strain-offer" role="status">
-            <p>
-              <strong>{t('participation.slowTitle')}</strong> {t('participation.slowBody')}
-            </p>
-            <div className="strain-actions">
-              <button
-                type="button"
-                className="strain-accept"
-                onClick={() => {
-                  session.updateParticipation({ ...session.participation, screens: false });
-                  setOfferScreensOff(false);
-                }}
-              >
-                {t('participation.slowAccept')}
-              </button>
-              <button
-                type="button"
-                className="strain-dismiss"
-                onClick={() => setOfferScreensOff(false)}
-              >
-                {t('participation.slowDismiss')}
-              </button>
-            </div>
-          </div>
-        )}
         {/* The room's server went away; the mesh did not. Said here
             because the room otherwise looks perfectly normal while
             nothing it sends is reaching anyone. */}

@@ -14,6 +14,18 @@ export interface PeerLatency {
    * Null when the connection reports no inbound audio.
    */
   audioPackets: number | null;
+  /**
+   * Share of what this peer sent us that never arrived, over the last
+   * sampling interval (0–1). Null until two readings, and null again
+   * whenever the interval carried nothing to judge.
+   */
+  lossRate: number | null;
+}
+
+/** Cumulative inbound packet counters, as one report leaves them. */
+export interface PacketCounters {
+  lost: number;
+  received: number;
 }
 
 export interface ScreenStats {
@@ -70,6 +82,49 @@ function candidatePairRtt(report: RTCStatsReport): number | null {
   return rtt;
 }
 
+/**
+ * Every inbound stream in the report, audio and video together: what the
+ * network delivered to us and what it dropped on the way. Both kinds count
+ * because both ride the same link — a downlink under water loses voice
+ * packets and screen packets alike.
+ */
+function inboundPackets(report: RTCStatsReport): PacketCounters | null {
+  let lost = 0;
+  let received = 0;
+  let any = false;
+  for (const stat of report.values() as Iterable<Record<string, unknown>>) {
+    if (stat.type !== 'inbound-rtp') {
+      continue;
+    }
+    const arrived = num(stat.packetsReceived);
+    if (arrived === null) {
+      continue;
+    }
+    any = true;
+    received += arrived;
+    lost += num(stat.packetsLost) ?? 0;
+  }
+  return any ? { lost, received } : null;
+}
+
+/**
+ * Loss over one interval, from two cumulative readings. `packetsLost` may
+ * go DOWN — a packet counted lost and then delivered late is subtracted
+ * back — so a negative delta is no loss at all, not a negative rate.
+ *
+ * A window where nothing was expected has no rate to report: an idle link
+ * and a clean one would otherwise read the same.
+ */
+export function packetLossRate(
+  previous: PacketCounters,
+  current: PacketCounters,
+): number | null {
+  const lost = Math.max(0, current.lost - previous.lost);
+  const received = Math.max(0, current.received - previous.received);
+  const expected = lost + received;
+  return expected > 0 ? lost / expected : null;
+}
+
 /** Sum of packets received over every inbound audio stream in the report. */
 function inboundAudioPackets(report: RTCStatsReport): number | null {
   let total: number | null = null;
@@ -122,6 +177,18 @@ export async function senderReports(
  */
 export class StatsSampler {
   private readonly previous = new Map<string, { bytes: number; at: number }>();
+  private readonly previousPackets = new Map<string, PacketCounters>();
+
+  /** Loss since this key's last reading; remembers the counters for the next one. */
+  private lossRate(key: string, counters: PacketCounters | null): number | null {
+    if (counters === null) {
+      this.previousPackets.delete(key);
+      return null;
+    }
+    const last = this.previousPackets.get(key);
+    this.previousPackets.set(key, counters);
+    return last ? packetLossRate(last, counters) : null;
+  }
 
   private kbps(key: string, bytes: number | null, at: number): number | null {
     if (bytes === null) {
@@ -150,10 +217,14 @@ export class StatsSampler {
               rttMs: candidatePairRtt(report),
               state: pc.connectionState,
               audioPackets: inboundAudioPackets(report),
+              lossRate: this.lossRate(`loss:${peerId}`, inboundPackets(report)),
             },
           ];
         } catch {
-          return [peerId, { rttMs: null, state: pc.connectionState, audioPackets: null }];
+          return [
+            peerId,
+            { rttMs: null, state: pc.connectionState, audioPackets: null, lossRate: null },
+          ];
         }
       }),
     );

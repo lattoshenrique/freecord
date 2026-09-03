@@ -207,11 +207,6 @@ export const esES: Catalog = {
   'participation.toolOffTitle': 'Te quedaste fuera de esta',
   'participation.toolOffBody': 'La sala está en {tool}. Nada de eso se está cargando aquí.',
   'participation.toolJoinOnce': 'Entrar en {tool} solo esta vez',
-  'participation.slowTitle': 'Tu conexión lo está pasando mal',
-  'participation.slowBody':
-    'Las pantallas ajenas son lo más pesado que llega. Apagarlas conserva las voces.',
-  'participation.slowAccept': 'Apagar las pantallas',
-  'participation.slowDismiss': 'Mantenerlas',
   'settings.about.title': 'Acerca de',
   'settings.close': 'Cerrar ajustes',
   'settings.sounds.title': 'Sonidos',
