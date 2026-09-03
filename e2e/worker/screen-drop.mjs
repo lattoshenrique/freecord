@@ -2,7 +2,7 @@
 // scenarios the Node edge cannot stand in for: alarms, detached seats and
 // hibernation-safe storage only exist there. Needs `wrangler dev` running
 // (`.claude/launch.json` has a `worker` entry, or: cd worker && npx wrangler
-// dev --port 8787). Usage: node worker/screen-drop.mjs [acbd]  (default: all)
+// dev --port 8787). Usage: node worker/screen-drop.mjs [acbdefg]  (default: all)
 //
 //   a  the sharer's socket dies: screen-stopped within the lock's grace,
 //      and the next sharer is granted
@@ -13,6 +13,8 @@
 //   b  the sharer goes silent (zombie): released on the zombie clock
 //   d  mute presence: peer-muted broadcast and `muted` in the welcome
 //   e  many screens: three at once, the fourth denied, a stop frees the slot
+//   f  a receiver's poor-link verdict reroutes its branch
+//   g  Watch Together ends when its starter leaves
 //
 // Exit code 1 on any failed expectation.
 import WebSocket from 'ws';
@@ -225,8 +227,88 @@ async function scenarioManyScreens() {
   for (const client of [...clients, late]) client.leave();
 }
 
+async function scenarioPoorLink() {
+  console.log('\n== F: a poor parent link reroutes one screen branch ==');
+  const slug = await createRoom('poor-link');
+  const clients = [];
+  for (let index = 0; index < 8; index += 1) {
+    clients.push(await Client.join(slug, `guest-${index}`));
+  }
+  const sharer = clients[0];
+  sharer.send({ t: 'screen-request', streamId: 's-health', quality: 'balanced' });
+  const before = new Map();
+  for (const client of clients) {
+    before.set(client.welcome.selfId, await client.expect('screen-route'));
+  }
+  const child = clients.find((client) => {
+    const route = before.get(client.welcome.selfId);
+    return route.source === null && route.children.length === 0;
+  });
+  const oldParent = clients.find((client) =>
+    before.get(client.welcome.selfId).children.includes(child.welcome.selfId),
+  );
+  const marks = new Map(clients.map((client) => [client, client.log.length]));
+  child.send({ t: 'peer-link', peerId: oldParent.welcome.selfId, poor: true });
+  const after = new Map();
+  for (const client of clients) {
+    after.set(
+      client.welcome.selfId,
+      await client.expect('screen-route', 8_000, marks.get(client)),
+    );
+  }
+  const newParent = clients.find((client) =>
+    after.get(client.welcome.selfId).children.includes(child.welcome.selfId),
+  );
+  console.log(
+    'branch parent changed:',
+    oldParent.welcome.selfId,
+    '->',
+    newParent.welcome.selfId,
+  );
+  check(newParent.welcome.selfId !== oldParent.welcome.selfId, 'the poor parent link stayed in use');
+  for (const client of clients) client.leave();
+}
+
+async function scenarioWatchOwnerLeaves() {
+  console.log('\n== G: Watch Together ends when its starter leaves ==');
+  const slug = await createRoom('watch-owner-leaves');
+  const a = await Client.join(slug, 'ana');
+  const b = await Client.join(slug, 'bia');
+  a.send({ t: 'tool-state', tool: 'watch', state: { video: 'one' } });
+  await b.expect('tool-state', 8_000, 0, (m) => m.tool === 'watch' && m.state?.video === 'one');
+
+  const mark = b.log.length;
+  a.leave();
+  const stopped = await b.expect(
+    'tool-state',
+    8_000,
+    mark,
+    (m) => m.tool === 'watch' && m.state === null,
+  );
+  check(stopped.by === a.welcome.selfId, 'the cleared watch did not name its departed starter');
+
+  const restartMark = b.log.length;
+  b.send({ t: 'tool-state', tool: 'watch', state: { video: 'two' } });
+  const restarted = await b.expect(
+    'tool-state',
+    8_000,
+    restartMark,
+    (m) => m.tool === 'watch' && m.state?.video === 'two',
+  );
+  check(restarted.by === b.welcome.selfId, 'the remaining participant could not restart watch');
+  b.leave();
+}
+
 const only = process.argv[2];
-const scenarios = { a: scenarioAbruptDrop, c: scenarioQuickRejoin, b: scenarioZombie, d: scenarioMutePresence, e: scenarioManyScreens };
+const scenarios = {
+  a: scenarioAbruptDrop,
+  c: scenarioQuickRejoin,
+  b: scenarioZombie,
+  d: scenarioMutePresence,
+  e: scenarioManyScreens,
+  f: scenarioPoorLink,
+  g: scenarioWatchOwnerLeaves,
+};
 for (const [key, fn] of Object.entries(scenarios)) {
   if (!only || only.includes(key)) {
     try { await fn(); } catch (error) { failures += 1; console.log('FAILED:', error.message); }

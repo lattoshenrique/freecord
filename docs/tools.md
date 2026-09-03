@@ -54,8 +54,10 @@ is, and everybody — the sender included — works from what comes back from
 the server. Nothing is applied locally first, so nobody can drift into a
 private idea of what is going on. The built-in `watch` tool is the deliberate
 exception: its first setter remains its controller until that participant
-turns the tool off. That policy is enforced by both server edges rather than
-trusted from the opaque client state.
+turns the tool off or leaves the room. Leaving also turns Watch Together off
+for everyone, so the room is never left with a controller who no longer
+exists. That policy is enforced by both server edges rather than trusted from
+the opaque client state.
 
 **2. The clock is the server's.** A state is stored with the reading of the
 server's clock that produced it, and reaches you as an **age**. The room

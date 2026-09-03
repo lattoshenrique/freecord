@@ -13,7 +13,8 @@
  * 1. LAST WORD WINS by default. Whoever touches a tool says what its state
  *    is, and everybody — the sender included — plays from what comes back.
  *    The built-in watch tool is the deliberate exception: its first setter
- *    controls it until it is cleared (canControlTool, below).
+ *    controls it until it is cleared or that participant leaves
+ *    (canControlTool and clearToolsOwnedBy, below).
  *
  * 2. THE CLOCK IS OURS. A state is stored with the clock reading that
  *    produced it, and goes out with its AGE in milliseconds instead of a
@@ -70,10 +71,10 @@ export const TOOL_LIMITS = {
 } as const;
 
 /**
- * Built-in tools whose first setter remains their controller until the
- * tool is turned off. This is deliberately a server policy, not a field
- * inside the opaque state: trusting a client-supplied controller id would
- * let any peer appoint themselves.
+ * Built-in tools whose first setter remains their controller until the tool
+ * is turned off or that participant leaves. This is deliberately a server
+ * policy, not a field inside the opaque state: trusting a client-supplied
+ * controller id would let any peer appoint themselves.
  */
 const STARTER_CONTROLLED_TOOLS = new Set(['watch']);
 
@@ -81,6 +82,28 @@ const STARTER_CONTROLLED_TOOLS = new Set(['watch']);
 export function canControlTool(states: ToolStates, tool: string, peerId: string): boolean {
   const current = states[tool];
   return !current || !STARTER_CONTROLLED_TOOLS.has(tool) || current.by === peerId;
+}
+
+/**
+ * Removes starter-controlled tools owned by a participant who left.
+ * Ordinary last-word-wins tools remain room state and are not tied to a peer.
+ */
+export function clearToolsOwnedBy(
+  states: ToolStates,
+  peerId: string,
+): { states: ToolStates; cleared: string[] } {
+  let next = states;
+  const cleared: string[] = [];
+  for (const [tool, entry] of Object.entries(states)) {
+    if (STARTER_CONTROLLED_TOOLS.has(tool) && entry.by === peerId) {
+      if (next === states) {
+        next = { ...states };
+      }
+      delete next[tool];
+      cleared.push(tool);
+    }
+  }
+  return { states: next, cleared };
 }
 
 export function isToolId(value: unknown): value is string {

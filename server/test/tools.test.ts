@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { RoomRegistry } from '../src/app/room-registry.js';
-import { SignalingSession, parseClientMessage } from '../src/app/signaling.js';
-import type { ServerMessage } from '../src/domain/room.js';
+import { SignalingSession, parseClientMessage, sweepStalePeers } from '../src/app/signaling.js';
+import { ROOM_LIMITS, type ServerMessage } from '../src/domain/room.js';
 import {
   TOOL_LIMITS,
   canControlTool,
   clearToolState,
+  clearToolsOwnedBy,
   isStorableState,
   isToolId,
   projectTool,
@@ -20,8 +21,8 @@ function connect(registry: RoomRegistry, slug: string, name: string) {
   return { session, inbox, last: () => inbox[inbox.length - 1] };
 }
 
-function setup() {
-  const registry = new RoomRegistry();
+function setup(now?: () => number) {
+  const registry = new RoomRegistry(now);
   const { slug } = registry.createRoom('Room');
   return { registry, slug };
 }
@@ -89,6 +90,17 @@ describe('the shelf', () => {
     expect(canControlTool(states, 'watch', 'bia')).toBe(false);
     expect(canControlTool({}, 'watch', 'bia')).toBe(true);
     expect(canControlTool(states, 'acme-timer', 'bia')).toBe(true);
+  });
+
+  it('clears a departed participant’s watch without clearing ordinary room tools', () => {
+    let states = setToolState({}, 'watch', entry({ playing: true }))!;
+    states = setToolState(states, 'acme-timer', entry({ left: 90 }))!;
+
+    expect(clearToolsOwnedBy(states, 'ana')).toEqual({
+      states: { 'acme-timer': states['acme-timer'] },
+      cleared: ['watch'],
+    });
+    expect(clearToolsOwnedBy(states, 'bia')).toEqual({ states, cleared: [] });
   });
 });
 
@@ -200,6 +212,51 @@ describe('SignalingSession: tool-state', () => {
 
     ana.session.handleMessage({ t: 'tool-state', tool: 'watch', state: null });
     expect(lastState(bia.inbox, 'watch')).toMatchObject({ state: null, by: ana.session.peerId });
+  });
+
+  it('ends watch when its starter deliberately leaves, freeing it for someone else', () => {
+    const { registry, slug } = setup();
+    const ana = connect(registry, slug, 'Ana');
+    const bia = connect(registry, slug, 'Bia');
+
+    ana.session.handleMessage({ t: 'tool-state', tool: 'watch', state: { video: 'one' } });
+    ana.session.handleMessage({ t: 'leave' });
+
+    expect(lastState(bia.inbox, 'watch')).toEqual({
+      t: 'tool-state',
+      tool: 'watch',
+      state: null,
+      by: ana.session.peerId,
+      age: 0,
+    });
+    bia.session.handleMessage({ t: 'tool-state', tool: 'watch', state: { video: 'two' } });
+    expect(lastState(bia.inbox, 'watch')).toMatchObject({
+      state: { video: 'two' },
+      by: bia.session.peerId,
+    });
+  });
+
+  it('keeps watch during a resumable drop, then ends it if the starter is swept', () => {
+    let clock = 0;
+    const { registry, slug } = setup(() => clock);
+    const ana = connect(registry, slug, 'Ana');
+    const bia = connect(registry, slug, 'Bia');
+    const initial = { video: 'one' };
+
+    ana.session.handleMessage({ t: 'tool-state', tool: 'watch', state: initial });
+    ana.session.close();
+    expect(lastState(bia.inbox, 'watch')).toMatchObject({ state: initial });
+
+    clock = ROOM_LIMITS.peerTimeoutMs + 1;
+    bia.session.handleMessage({ t: 'ping', ts: 1 });
+    sweepStalePeers(registry);
+    expect(lastState(bia.inbox, 'watch')).toEqual({
+      t: 'tool-state',
+      tool: 'watch',
+      state: null,
+      by: ana.session.peerId,
+      age: 0,
+    });
   });
 
   it('whoever joins late is told everything that is on', () => {

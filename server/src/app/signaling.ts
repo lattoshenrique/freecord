@@ -14,6 +14,7 @@ import { computeScreenTree } from '../domain/screen-tree.js';
 import {
   canControlTool,
   clearToolState,
+  clearToolsOwnedBy,
   isStorableState,
   isToolId,
   projectTool,
@@ -27,6 +28,15 @@ function broadcast(room: Room, message: ServerMessage, exceptId?: string): void 
     if (id !== exceptId) {
       peer.channel.send(message);
     }
+  }
+}
+
+/** Ends starter-controlled tools whose controller has actually left the room. */
+function clearDepartedPeerTools(room: Room, peerId: string): void {
+  const cleared = clearToolsOwnedBy(room.tools ?? {}, peerId);
+  room.tools = cleared.states;
+  for (const tool of cleared.cleared) {
+    broadcast(room, { t: 'tool-state', tool, state: null, by: peerId, age: 0 });
   }
 }
 
@@ -415,6 +425,7 @@ export class SignalingSession {
     const room = this.registry.removePeer(this.slug, this.peerId);
     this.channel.close();
     if (room) {
+      clearDepartedPeerTools(room, this.peerId);
       if (hadScreen) {
         broadcast(room, { t: 'screen-stopped', id: this.peerId });
       }
@@ -446,6 +457,7 @@ export function sweepStalePeers(registry: RoomRegistry): number {
     const room = registry.removePeer(slug, peerId);
     channel?.close();
     if (room) {
+      clearDepartedPeerTools(room, peerId);
       if (hadScreen) {
         broadcast(room, { t: 'screen-stopped', id: peerId });
       }

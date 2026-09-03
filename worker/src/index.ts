@@ -26,6 +26,7 @@ import { computeScreenTree } from '../../server/src/domain/screen-tree.js';
 import {
   canControlTool,
   clearToolState,
+  clearToolsOwnedBy,
   projectTool,
   projectTools,
   setToolState,
@@ -784,6 +785,9 @@ export class RoomDurableObject {
       // Nobody is coming back for these signals.
       await this.ctx.storage.delete(expired.map((seat) => pendingKey(seat.peerId)));
       await this.putRelays(relays);
+      await this.clearDepartedPeerTools(
+        new Set(expired.map((seat) => seat.peerId)),
+      );
       for (const seat of expired) {
         this.broadcast({ t: 'peer-left', id: seat.peerId });
       }
@@ -835,6 +839,7 @@ export class RoomDurableObject {
       await this.putSeats(seats);
     }
     const gone = new Set(leaving.map((ws) => this.attachment(ws).peerId));
+    await this.clearDepartedPeerTools(gone, leaving);
     const screens = await this.screens();
     // A leaver's screen is released even on a dropped connection; in every
     // other tree it was at most a relay.
@@ -1121,6 +1126,31 @@ export class RoomDurableObject {
       await this.ctx.storage.delete('tools');
     } else {
       await this.ctx.storage.put('tools', tools);
+    }
+  }
+
+  /** Ends starter-controlled tools whose controller has actually left the room. */
+  private async clearDepartedPeerTools(
+    gone: ReadonlySet<string>,
+    excluded: WebSocket[] = [],
+  ): Promise<void> {
+    let states = await this.tools();
+    const cleared: Array<{ tool: string; by: string }> = [];
+    for (const peerId of gone) {
+      const result = clearToolsOwnedBy(states, peerId);
+      states = result.states;
+      cleared.push(...result.cleared.map((tool) => ({ tool, by: peerId })));
+    }
+    if (cleared.length === 0) {
+      return;
+    }
+    await this.putTools(states);
+    for (const { tool, by } of cleared) {
+      this.broadcast(
+        { t: 'tool-state', tool, state: null, by, age: 0 },
+        undefined,
+        excluded,
+      );
     }
   }
 

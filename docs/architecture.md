@@ -80,11 +80,12 @@ src/
   tool costs zero lines at either edge (`server/src/domain/tools.ts`,
   `docs/tools.md`). Two rules carry the weight: the last word wins by default,
   while a built-in tool may declare a narrow server policy (Watch Together
-  keeps its first setter as controller); and a state is stored with the
-  server's own clock reading and goes out with its AGE, so a tool that keeps
-  time — where a video is, how much of a timer is left — never compares one
-  browser's clock to another's. Because the value is opaque, validating it is
-  the tool's job in every client (`parseState`), not the server's.
+  keeps its first setter as controller and ends when that peer leaves); and a
+  state is stored with the server's own clock reading and goes out with its
+  AGE, so a tool that keeps time — where a video is, how much of a timer is
+  left — never compares one browser's clock to another's. Because the value is
+  opaque, validating it is the tool's job in every client (`parseState`), not
+  the server's.
 - The one tool so far is watching something together
   (`web/src/tools/watch/`) — a YouTube video or playlist, a stream, a
   file, a Twitch channel, or somebody else's page when nothing better is

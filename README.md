@@ -158,7 +158,8 @@ edge intentionally carries no cross-origin middleware.
   a link and it opens for the room — everyone's own player, one shared
   timeline. The participant who starts it controls playback and its queue;
   everyone else follows, and whoever joins late lands where the room already
-  is. One field takes anything: a YouTube link or a video's own address is
+  is. If that participant leaves, Watch Together ends for the room. One field
+  takes anything: a YouTube link or a video's own address is
   read in your browser and plays at once, and any other page is read once by
   the edge, which says what is playable in it so the controller can pick. A
   YouTube video, an episode found in somebody's page and a Twitch VOD can all
