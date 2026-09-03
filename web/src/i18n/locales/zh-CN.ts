@@ -36,6 +36,7 @@ export const zhCN: Catalog = {
   ],
   'home.join': '加入房间',
   'home.joinHint': '这是一个邀请链接 —— 按钮会直接带你进去。',
+  'home.joinNamedHint': '已找到邀请：{room}',
   'home.invalidInvite': '这只是邀请链接的一半。整条粘贴，# 也要 —— 房间密钥就住在 # 后面。',
   'home.community': '社区',
 

@@ -243,6 +243,56 @@
   letter-spacing: var(--track-tight);
 }
 
+/*
+ * A named invitation replaces the pasted URL with something human. This
+ * second copy sweeps across the real text once, like the field resolving the
+ * address into a room; it is decorative because the status line announces
+ * the same result without making a screen reader hear the name twice.
+ */
+.start-room-reveal {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  max-width: 100%;
+  overflow: hidden;
+  color: #c4b5fd;
+  font-family: var(--mono);
+  font-size: 0.98rem;
+  letter-spacing: var(--track-tight);
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+  text-shadow:
+    0 0 10px rgba(139, 92, 246, 0.9),
+    0 0 24px rgba(88, 101, 242, 0.75);
+  animation: start-room-reveal 0.72s var(--ease) both;
+}
+
+@keyframes start-room-reveal {
+  0% {
+    opacity: 0;
+    clip-path: inset(0 100% 0 0);
+    filter: blur(5px);
+    transform: translateY(-50%) translateX(-0.4rem);
+  }
+  35% {
+    opacity: 1;
+    filter: blur(0);
+  }
+  72% {
+    opacity: 0.9;
+    clip-path: inset(0 0 0 0);
+    transform: translateY(-50%) translateX(0);
+  }
+  100% {
+    opacity: 0;
+    clip-path: inset(0 0 0 0);
+    filter: blur(1px);
+    transform: translateY(-50%) translateX(0.2rem);
+  }
+}
+
 @keyframes start-blink {
   0%,
   50% {
@@ -302,6 +352,12 @@
 
 .start-hint {
   color: var(--muted);
+}
+
+.start-center > .start-invite-name {
+  color: #c4b5fd;
+  animation: rise-in 0.32s var(--ease) both;
+  animation-delay: 0s;
 }
 
 .start-error {

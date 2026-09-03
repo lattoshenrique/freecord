@@ -5,7 +5,12 @@ import { createRoom, getStats } from '../api';
 import { APP_BUILD, APP_VERSION } from '../lib/build-info';
 import { generateRoomKey } from '../lib/chat-crypto';
 import { heroTransition } from '../lib/hero-transition';
-import { looksLikeInvite, parseInvite } from '../lib/invite';
+import {
+  inviteHashWithRoomName,
+  looksLikeInvite,
+  parseInvite,
+  type ParsedInvite,
+} from '../lib/invite';
 import { DownloadButton } from '../components/DownloadCard';
 import LanguagePicker from '../components/LanguagePicker';
 import Brand from '../components/Brand';
@@ -37,6 +42,11 @@ export default function HomePage() {
   const inputRef = useRef<HTMLInputElement>(null);
   const mirrorRef = useRef<HTMLSpanElement>(null);
   const [displayName, setDisplayName] = useState('');
+  // A named invite turns into its room name in the field. Keep the parsed
+  // destination separately so replacing the visible URL does not turn the
+  // button back into "create".
+  const [detectedInvite, setDetectedInvite] = useState<ParsedInvite | null>(null);
+  const [inviteReveal, setInviteReveal] = useState(0);
   // Where the block caret sits, in px from the start of the text, and whether
   // it is the caret on duty at all.
   const [caretX, setCaretX] = useState(0);
@@ -130,9 +140,9 @@ export default function HomePage() {
     };
   }, []);
 
-  // Recomputed on every keystroke: the button below reads what the field
-  // holds and offers to join or to create accordingly.
-  const invite = parseInvite(displayName);
+  // The button reads either a visible link or the destination retained while
+  // a named link is shown as its human-readable room name.
+  const invite = detectedInvite ?? parseInvite(displayName);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -174,8 +184,9 @@ export default function HomePage() {
        * millisecond, which is also what leaves the mark, the name and the
        * button somewhere to fly to rather than a spinner.
        */
+      const hash = inviteHashWithRoomName(roomKey ? `#k=${roomKey}` : '', room.displayName);
       heroTransition(() =>
-        navigate(roomKey ? `/r/${room.slug}#k=${roomKey}` : `/r/${room.slug}`, {
+        navigate(`/r/${room.slug}${hash}`, {
           state: { room },
         }),
       );
@@ -208,6 +219,7 @@ export default function HomePage() {
               className="start-prompt"
               data-empty={displayName === '' ? 'true' : 'false'}
               data-block-caret={atEnd ? 'true' : 'false'}
+              data-named-invite={invite?.roomName ? 'true' : 'false'}
             >
               <span className="start-prompt-sign" aria-hidden="true">
                 &gt;
@@ -229,7 +241,16 @@ export default function HomePage() {
                   maxLength={300}
                   placeholder={t('home.roomNamePlaceholder')}
                   onChange={(event) => {
-                    setDisplayName(event.target.value);
+                    const value = event.target.value;
+                    const pastedInvite = parseInvite(value);
+                    if (pastedInvite?.roomName) {
+                      setDetectedInvite(pastedInvite);
+                      setDisplayName(pastedInvite.roomName);
+                      setInviteReveal((reveal) => reveal + 1);
+                    } else {
+                      setDetectedInvite(null);
+                      setDisplayName(value);
+                    }
                     setError(null);
                   }}
                   aria-label={t('home.roomName')}
@@ -243,6 +264,15 @@ export default function HomePage() {
                 <span className="start-mirror" aria-hidden="true" ref={mirrorRef}>
                   {displayName}
                 </span>
+                {invite?.roomName ? (
+                  <span
+                    key={inviteReveal}
+                    className="start-room-reveal"
+                    aria-hidden="true"
+                  >
+                    {invite.roomName}
+                  </span>
+                ) : null}
                 <span className="start-caret" aria-hidden="true" style={{ left: `${caretX}px` }} />
               </span>
             </div>
@@ -256,7 +286,16 @@ export default function HomePage() {
           {error ? (
             <p className="start-error">{error}</p>
           ) : invite ? (
-            <p className="start-hint">{t('home.joinHint')}</p>
+            <p
+              key={invite.roomName ? `named-${inviteReveal}` : 'plain-invite'}
+              className={`start-hint${invite.roomName ? ' start-invite-name' : ''}`}
+              role="status"
+              aria-live="polite"
+            >
+              {invite.roomName
+                ? t('home.joinNamedHint', { room: invite.roomName })
+                : t('home.joinHint')}
+            </p>
           ) : null}
 
           {/* The second thing to do here, drawn as text: the room comes first. */}

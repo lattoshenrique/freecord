@@ -46,6 +46,7 @@ export const enUS = {
   ],
   'home.join': 'Join room',
   'home.joinHint': 'That is an invite link — the button walks you straight in.',
+  'home.joinNamedHint': 'Invite found: {room}',
   'home.invalidInvite':
     'That is half an invite link. Paste the whole thing, hash and all — the room key lives after the #.',
   'home.community': 'Community',

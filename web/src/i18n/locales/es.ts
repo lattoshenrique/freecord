@@ -37,6 +37,7 @@ export const esES: Catalog = {
   ],
   'home.join': 'Entrar a la sala',
   'home.joinHint': 'Eso es un enlace de invitación — el botón te mete directo.',
+  'home.joinNamedHint': 'Invitación encontrada: {room}',
   'home.invalidInvite':
     'Eso es medio enlace de invitación. Pégalo entero, con # incluido — la clave de la sala vive después del #.',
   'home.community': 'Comunidad',

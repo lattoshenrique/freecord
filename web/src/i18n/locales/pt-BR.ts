@@ -37,6 +37,7 @@ export const ptBR: Catalog = {
   ],
   'home.join': 'Entrar na sala',
   'home.joinHint': 'Isso é um link de convite — o botão te leva direto para dentro.',
+  'home.joinNamedHint': 'Convite encontrado: {room}',
   'home.invalidInvite':
     'Isso é meio link de convite. Cola inteiro, com # e tudo — a chave da sala mora depois do #.',
   'home.community': 'Comunidade',

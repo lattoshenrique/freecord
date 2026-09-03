@@ -36,6 +36,7 @@ export const jaJP: Catalog = {
   ],
   'home.join': 'ルームに参加',
   'home.joinHint': 'それは招待リンクです — ボタンを押せばそのまま中へ。',
+  'home.joinNamedHint': '招待を見つけました：{room}',
   'home.invalidInvite': 'それは招待リンクの半分です。# ごと丸ごと貼ってください — ルームの鍵は # のうしろにあります。',
   'home.community': 'コミュニティ',
 
