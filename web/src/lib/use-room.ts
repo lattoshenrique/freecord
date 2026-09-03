@@ -887,19 +887,30 @@ export function useRoomSession(options: JoinOptions) {
           }
           return;
         }
-        case 'peer-joined':
+        case 'peer-joined': {
+          // Presence cue. Not on a diff of the roster — a resume replays
+          // the whole roster in `welcome` and must stay silent — but on
+          // this event actually changing it: a seat announced twice is one
+          // arrival, and only the first is worth a sound.
+          const known = peersRef.current.some((p) => p.id === message.peer.id);
           // The newly arrived peer initiates; here we only record the name.
           setPeers((current) => [...current.filter((p) => p.id !== message.peer.id), message.peer]);
-          // Presence cue. It rides on the event, not on a diff of the roster,
-          // so a resume — which replays the whole roster in `welcome` — stays
-          // silent instead of announcing everyone who was already there.
-          playJoinChime();
+          if (!known) {
+            playJoinChime();
+          }
           return;
-        case 'peer-left':
+        }
+        case 'peer-left': {
           meshRef.current?.removePeer(message.id);
           transfersRef.current?.detach(message.id);
           chatChannelsRef.current?.detach(message.id);
-          playLeaveChime();
+          // Only a seat we still had rings: a server that says the same
+          // goodbye twice — a dead socket swept again — is one departure,
+          // not a chime every sweep for the rest of the call.
+          if (peersRef.current.some((p) => p.id === message.id)) {
+            peersRef.current = peersRef.current.filter((p) => p.id !== message.id);
+            playLeaveChime();
+          }
           setPeers((current) => current.filter((p) => p.id !== message.id));
           // The seat took its camera slot along.
           setCameras((current) => {
@@ -927,6 +938,7 @@ export function useRoomSession(options: JoinOptions) {
             return next;
           });
           return;
+        }
         case 'signal': {
           // Relay-health notes ride the same opaque envelope as SDP/ICE
           // (the server never inspects `data`): peel ours off, let the

@@ -600,6 +600,11 @@ The core tests (`server/test/`) hold for both, and
 `e2e/worker/screen-drop.mjs` (`npm run check:worker --workspace e2e`) drives
 the real Worker under `wrangler dev` through the abrupt drop, the quick
 rejoin, the zombie and the mute presence, with timing budgets.
+`e2e/worker/ghost-sweep.mjs` (`npm run check:ghosts --workspace e2e`, boots its
+own Worker) covers the case only this edge has: a raw socket that joins and
+then answers nothing at all — not a ping, not a close frame — which is what a
+vanished connection looks like from the room. One goodbye per departure, and
+nothing left in the roster the next arrival is handed.
 
 One Worker-only rule, learned the hard way: the Durable Object runs every
 sweep on a single alarm, and a join or a resume must only ever move that
@@ -657,6 +662,18 @@ never extends the worst case):
 2. A room with nobody in it for `emptyTimeoutMs` (15 min) ceases to exist; the
    link starts answering `room_not_found`. Detached seats count as occupancy
    (and toward `maxParticipants`) until they expire.
+
+A close that is *ordered* is not a close that has *happened*. The Worker asks a
+zombie socket to go and marks it `left`, but the runtime keeps listing it in
+`getWebSockets()` until the other side answers the close frame — and a
+connection that vanished never will. So every head count on that edge goes
+through `live()`, which skips what is already marked `left`: the roster a
+`welcome` carries, `participantCount`, the camera slots, the screen tree and
+the sweep itself. Without it the sweep found the same dead socket every 17.5 s
+and announced the same departure again — one leave chime per sweep, for the
+rest of the call — while each fresh join inherited a roster of people who had
+already gone. The Node edge cannot have this: `removePeer` takes the peer out
+of the room's map before closing its channel.
 
 The client runs the same clock in reverse — but silence no longer ends the
 session: with no `pong` in time it forces the transport down and goes through

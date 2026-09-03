@@ -67,7 +67,11 @@ interface PeerAttachment {
   lastSeen: number;
   /** Secret that lets a dropped connection reclaim this seat (same peerId). */
   resumeToken: string;
-  /** Set right before a server-side close: suppresses the resume grace. */
+  /**
+   * Set right before a server-side close: suppresses the resume grace,
+   * and takes the socket out of the room's head count for good (`live`)
+   * — a close that is ordered is not a close that has happened.
+   */
   left?: boolean;
 }
 
@@ -230,7 +234,7 @@ export class RoomDurableObject {
     return Response.json({
       slug: meta.slug,
       displayName: meta.displayName,
-      participantCount: this.ctx.getWebSockets().length + Object.keys(detached).length,
+      participantCount: this.live().length + Object.keys(detached).length,
     });
   }
 
@@ -246,7 +250,7 @@ export class RoomDurableObject {
     const detached = await this.detachedPeers();
     return Response.json({
       ...renamed,
-      participantCount: this.ctx.getWebSockets().length + Object.keys(detached).length,
+      participantCount: this.live().length + Object.keys(detached).length,
     });
   }
 
@@ -263,7 +267,7 @@ export class RoomDurableObject {
     const [client, server] = [pair[0], pair[1]];
 
     const meta = await this.ctx.storage.get<RoomMeta>('meta');
-    const peers = this.ctx.getWebSockets();
+    const peers = this.live();
     const detached = await this.detachedPeers();
     // Detached peers still hold seats: a full room stays full during a grace.
     const taken = peers.length + Object.keys(detached).length;
@@ -348,7 +352,7 @@ export class RoomDurableObject {
     // A seat with a socket still on it is the half-dead case: this side
     // never saw that socket close, and the resume replaces it.
     const stale = seat
-      ? (this.ctx.getWebSockets().find((ws) => this.attachment(ws).resumeToken === token) ?? null)
+      ? (this.live().find((ws) => this.attachment(ws).resumeToken === token) ?? null)
       : null;
     const record = seat && !stale ? seat : null;
 
@@ -394,7 +398,7 @@ export class RoomDurableObject {
     await this.ensureAlarmWithin(SWEEP_INTERVAL_MS);
 
     const screens = await this.screens();
-    const others = this.ctx.getWebSockets().filter((ws) => ws !== server);
+    const others = this.live([server]);
     // Seats still held for a resume — ours is no longer one of them.
     const detached = Object.values(seats).filter((held) => held.disconnectedAt !== undefined);
     this.send(server, {
@@ -436,6 +440,19 @@ export class RoomDurableObject {
       return;
     }
     const attachment = this.attachment(ws);
+    // Told to go, and talking anyway: the close was ordered and never
+    // landed (see `live`). Its seat is vacated and the room has stopped
+    // counting it, so answering would make it a guest only this side can
+    // see. Shut it again instead — the client's resume path knows what
+    // to do with a seat that is gone: come back to the door as somebody new.
+    if (attachment.left) {
+      try {
+        ws.close(1001, 'no sign of life');
+      } catch {
+        // the socket is already gone
+      }
+      return;
+    }
     const { peerId, name } = attachment;
 
     switch (message.t) {
@@ -447,9 +464,7 @@ export class RoomDurableObject {
       }
       case 'signal': {
         const envelope = { t: 'signal', from: peerId, data: message.data } as const;
-        const target = this.ctx
-          .getWebSockets()
-          .find((peer) => this.attachment(peer).peerId === message.to);
+        const target = this.live().find((peer) => this.attachment(peer).peerId === message.to);
         if (target) {
           this.send(target, envelope);
           return;
@@ -525,7 +540,7 @@ export class RoomDurableObject {
         if (!sharer || sharer.id === peerId) {
           return;
         }
-        const peerIds = this.ctx.getWebSockets().map((peer) => this.attachment(peer).peerId);
+        const peerIds = this.live().map((peer) => this.attachment(peer).peerId);
         const tree = computeScreenTree(sharer.id, peerIds);
         if ((tree.get(peerId)?.children.length ?? 0) === 0) {
           return;
@@ -554,7 +569,7 @@ export class RoomDurableObject {
         // (grandfathering). Detached seats still count as participants.
         const cameras = await this.cameras();
         const detached = await this.detachedPeers();
-        const seats = this.ctx.getWebSockets().length + Object.keys(detached).length;
+        const seats = this.live().length + Object.keys(detached).length;
         if (!cameras.includes(peerId) && cameras.length >= cameraSlotsFor(seats)) {
           this.send(ws, { t: 'camera-denied' });
           return;
@@ -632,9 +647,9 @@ export class RoomDurableObject {
     if (attachment.left) {
       return;
     }
-    const replaced = this.ctx
-      .getWebSockets()
-      .some((peer) => peer !== ws && this.attachment(peer).peerId === attachment.peerId);
+    const replaced = this.live([ws]).some(
+      (peer) => this.attachment(peer).peerId === attachment.peerId,
+    );
     if (replaced) {
       return;
     }
@@ -715,9 +730,9 @@ export class RoomDurableObject {
       await this.broadcastScreenRoutes();
     }
 
-    const zombies = this.ctx
-      .getWebSockets()
-      .filter((ws) => now - this.attachment(ws).lastSeen > ROOM_LIMITS.peerTimeoutMs);
+    const zombies = this.live().filter(
+      (ws) => now - this.attachment(ws).lastSeen > ROOM_LIMITS.peerTimeoutMs,
+    );
 
     if (zombies.length > 0) {
       await this.leave(zombies);
@@ -804,7 +819,7 @@ export class RoomDurableObject {
     if (screens.length === 0) {
       return;
     }
-    const sockets = this.remaining(excluded);
+    const sockets = this.live(excluded);
     const relays = await this.relays();
     // Detached seats stay in the tree: their P2P legs may still be flowing,
     // and yanking them would reroute everyone below for a blip that resumes.
@@ -859,7 +874,7 @@ export class RoomDurableObject {
     const now = Date.now();
     // Detached seats count as people: their media may still be flowing.
     const detached = Object.keys(await this.detachedPeers()).length;
-    const state = withPeerCount(before, this.remaining(excluded).length + detached, now);
+    const state = withPeerCount(before, this.live(excluded).length + detached, now);
     if (!countable(state, now)) {
       if (state !== before) {
         await this.ctx.storage.put('company', state);
@@ -885,7 +900,7 @@ export class RoomDurableObject {
     const now = Date.now();
     const detachedCount = Object.keys(await this.detachedPeers()).length;
     // A seat held for a resume still counts as occupancy.
-    if (this.remaining(excluded).length + detachedCount > 0) {
+    if (this.live(excluded).length + detachedCount > 0) {
       await this.ctx.storage.setAlarm(now + SWEEP_INTERVAL_MS);
       return;
     }
@@ -903,8 +918,21 @@ export class RoomDurableObject {
     await this.ctx.storage.setAlarm(emptyAt + ROOM_LIMITS.emptyTimeoutMs);
   }
 
-  private remaining(excluded: WebSocket[]): WebSocket[] {
-    return this.ctx.getWebSockets().filter((ws) => !excluded.includes(ws));
+  /**
+   * The sockets that still count as people in this room.
+   *
+   * A socket the room has already said goodbye to (`left`) is not one of
+   * them, even while the runtime keeps listing it. A connection that
+   * vanished without a FIN — wi-fi gone, lid shut — sits in
+   * `getWebSockets()` long after its close was ordered, waiting for a
+   * close frame nobody is coming back to send; counting it as a person is
+   * what made the same guest leave again on every sweep (a farewell chime
+   * with no end to it) and put ghosts in the roster the next arrival gets.
+   */
+  private live(excluded: WebSocket[] = []): WebSocket[] {
+    return this.ctx
+      .getWebSockets()
+      .filter((ws) => !excluded.includes(ws) && !this.attachment(ws).left);
   }
 
   /**
@@ -924,11 +952,11 @@ export class RoomDurableObject {
     }
     this.adopted = true;
     const seats = await this.seats();
-    const live = new Set(this.ctx.getWebSockets().map((ws) => this.attachment(ws).peerId));
+    const attached = new Set(this.live().map((ws) => this.attachment(ws).peerId));
     const now = Date.now();
     let orphans = false;
     for (const seat of Object.values(seats)) {
-      if (seat.disconnectedAt === undefined && !live.has(seat.peerId)) {
+      if (seat.disconnectedAt === undefined && !attached.has(seat.peerId)) {
         seat.disconnectedAt = now;
         seat.lastSeen = now;
         orphans = true;
@@ -1077,7 +1105,7 @@ export class RoomDurableObject {
   }
 
   private broadcast(message: ServerMessage, exceptId?: string, excluded: WebSocket[] = []): void {
-    for (const ws of this.remaining(excluded)) {
+    for (const ws of this.live(excluded)) {
       if (this.attachment(ws).peerId !== exceptId) {
         this.send(ws, message);
       }

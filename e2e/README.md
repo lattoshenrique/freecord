@@ -44,6 +44,9 @@ npm run test:heavy    --workspace e2e     # 20 headless contexts, full mesh (E2E
 # the Worker, for real: boot `wrangler dev` in worker/ first
 npm run check:worker  --workspace e2e     # dropped sharer, quick rejoin, zombie, mute presence
 
+# the Worker, booting its own: a connection that dies without a FIN
+npm run check:ghosts  --workspace e2e     # one goodbye per departure, and no ghost in the roster
+
 # load
 npm run load:signaling --workspace e2e                       # defaults: 50 rooms x 12 peers
 ROOMS=5 PING_SECONDS=10 npm run load:signaling --workspace e2e   # small smoke
