@@ -170,6 +170,10 @@ export function renderMarkdown(
     const line = lines[i]!;
 
     if (FENCE.test(line)) {
+      // The word after the fence is the language, when there is one — the
+      // composer writes it there for a pasted snippet, and people type it.
+      const info = line.slice(3).trim().toLowerCase();
+      const language = /^[a-z][\w+#-]*$/.test(info) ? info : undefined;
       const code: string[] = [];
       i += 1;
       while (i < lines.length && !FENCE.test(lines[i]!)) {
@@ -177,7 +181,9 @@ export function renderMarkdown(
         i += 1;
       }
       i += 1; // close the fence (or run out of text)
-      blocks.push(<CodeBlock key={`k${key++}`} code={code.join('\n')} labels={codeLabels} />);
+      blocks.push(
+        <CodeBlock key={`k${key++}`} code={code.join('\n')} language={language} labels={codeLabels} />,
+      );
       continue;
     }
 

@@ -11,6 +11,7 @@ import {
   type KeyboardEvent,
 } from 'react';
 import { useI18n, type MessageKey } from '../i18n';
+import { detectCode, loadHighlighter, mightBeCode } from '../lib/code-detect';
 import type { ChatQuote } from '../lib/chat-body';
 import { commandMatches, type ChatCommand } from '../lib/chat-commands';
 import { applyMention, matchPeople, mentionQuery } from '../lib/mentions';
@@ -98,12 +99,22 @@ function nameClipboardFile(file: File): File {
   });
 }
 
-/** A paste too long for one message, turned into the file it really is. */
-function textAsFile(text: string): File {
-  return new File([text], `pasted-${clipboardStamp()}.txt`, {
+/**
+ * A paste too long for one message, turned into the file it really is —
+ * named for what it holds, so a pasted stack trace arrives as `.py` and the
+ * other side's viewer colours it without being told.
+ */
+function textAsFile(text: string, extension: string): File {
+  return new File([text], `pasted-${clipboardStamp()}.${extension}`, {
     type: 'text/plain',
     lastModified: Date.now(),
   });
+}
+
+/** Code inside a fence, with its language named for the viewer. */
+function fenced(text: string, language: string, precededBy: string): string {
+  const lead = precededBy === '' || precededBy.endsWith('\n') ? '' : '\n';
+  return `${lead}\`\`\`${language}\n${text.replace(/\n+$/, '')}\n\`\`\`\n`;
 }
 
 const SHORTCUTS: Record<string, MarkdownAction> = {
@@ -172,10 +183,11 @@ export default function ChatComposer({
   /**
    * Files pasted into the field (a screenshot on the clipboard) go out as
    * transfers. `overflow` marks the one case that was not a file on the
-   * clipboard at all: text too long for a message, wrapped in a .txt so
-   * nothing is lost — the room says so, since the field stays empty.
+   * clipboard at all: text past what a message may carry, wrapped in a file
+   * so nothing is lost — with the language when it was code, since the room
+   * has to say what happened; the field stays empty either way.
    */
-  onPasteFiles?: (files: File[], overflow?: boolean) => void;
+  onPasteFiles?: (files: File[], overflow?: { language: string | null }) => void;
   onCancelQuote?: () => void;
 }) {
   const { t } = useI18n();
@@ -295,6 +307,15 @@ export default function ChatComposer({
     onChange(text);
   }
 
+  // The highlighter is a chunk of its own, fetched the moment the chat opens
+  // so that the first pasted snippet does not wait for a download to find out
+  // what language it is. A room where nobody pastes code never asks for it.
+  useEffect(() => {
+    void loadHighlighter().catch(() => {
+      // No colours, no fence: a paste stays the plain text it was.
+    });
+  }, []);
+
   // Opening the chat is opening the keyboard: the field takes focus at once,
   // and again when a reply is picked, so "Reply" lands the caret ready to type.
   useEffect(() => {
@@ -407,17 +428,48 @@ export default function ChatComposer({
       onPasteFiles(files);
       return;
     }
-    // A paste that does not fit goes as a .txt transfer instead of being
-    // silently cut in half by the field's own maxLength — a log or a long
-    // note pasted into chat is a file, and arrives whole.
+    // Text. Two things can happen to it, and a plain sentence is neither:
+    // a sentence keeps the browser's own paste, with the browser's own undo.
     const text = event.clipboardData.getData('text/plain');
     const area = event.currentTarget;
-    const room = maxLength - (value.length - (area.selectionEnd - area.selectionStart));
-    if (text.length === 0 || text.length <= room) {
+    const start = area.selectionStart;
+    const end = area.selectionEnd;
+    const room = maxLength - (value.length - (end - start));
+    if (text.length === 0 || (text.length <= room && !mightBeCode(text))) {
       return;
     }
+    // From here the field is ours: the browser must not also paste.
     event.preventDefault();
-    onPasteFiles([textAsFile(text)], true);
+    void placePaste(text, start, end, room);
+  }
+
+  /**
+   * Where a pasted block of text ends up.
+   *
+   * Code goes into the field already fenced, with the language written after
+   * the fence — that is what turns it into the coloured, copyable viewer the
+   * message renders (components/CodeBlock.tsx), and nobody had to type three
+   * backticks or know the word "python". What the language actually is comes
+   * from highlight.js reading the text (lib/code-detect.ts), not from us
+   * guessing.
+   *
+   * Anything too long for one message leaves as a file instead of being cut
+   * in half by the field's own maxLength — a stack trace pasted into a chat
+   * is a file, and it arrives whole, named for what it holds.
+   */
+  async function placePaste(text: string, start: number, end: number, room: number): Promise<void> {
+    const detected = await detectCode(text);
+    const block = detected ? fenced(text, detected.language, value.slice(0, start)) : text;
+    if (block.length <= room) {
+      const caret = start + block.length;
+      pendingSelection.current = { start: caret, end: caret };
+      setCaret(caret);
+      onChange(value.slice(0, start) + block + value.slice(end));
+      return;
+    }
+    onPasteFiles?.([textAsFile(text, detected?.extension ?? 'txt')], {
+      language: detected?.label ?? null,
+    });
   }
 
   /**

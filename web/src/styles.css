@@ -2442,6 +2442,110 @@ select:focus-visible,
 }
 
 /*
+ * The language, named in the corner of its own block — the answer to "what
+ * did they just paste", read without parsing the code itself. Quiet on
+ * purpose: it sits above the first line, not in it.
+ */
+.chat-code-lang {
+  position: absolute;
+  top: 0.55rem;
+  right: 2.35rem;
+  font-size: 0.62rem;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+/* A code file's preview, in the same viewer a fenced message uses. */
+.chat-file-code {
+  margin-top: 0.5rem;
+}
+
+.chat-file-code pre {
+  margin: 0;
+  max-height: 16rem;
+}
+
+/*
+ * Colours for highlight.js.
+ *
+ * Written here rather than pulled from one of its stock themes: those carry
+ * their own background and their own idea of contrast, and this palette is
+ * the room's — the same accent, the same muted grey, the same surfaces as
+ * everything else in the panel. Only the classes hljs actually emits for the
+ * languages we register are listed; anything else inherits the code colour
+ * and reads as plain text, which is the correct outcome for an unknown token.
+ */
+.hljs-comment,
+.hljs-quote {
+  color: #6b7280;
+  font-style: italic;
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-doctag,
+.hljs-name {
+  color: #c4b5fd;
+}
+
+.hljs-string,
+.hljs-regexp,
+.hljs-addition,
+.hljs-attribute,
+.hljs-meta .hljs-string {
+  color: #86efac;
+}
+
+.hljs-number,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-link {
+  color: #fbbf24;
+}
+
+.hljs-title,
+.hljs-section,
+.hljs-title.function_,
+.hljs-title.class_ {
+  color: #7dd3fc;
+}
+
+.hljs-attr,
+.hljs-variable,
+.hljs-template-variable,
+.hljs-selector-attr,
+.hljs-selector-pseudo {
+  color: #f0abfc;
+}
+
+.hljs-built_in,
+.hljs-class .hljs-title,
+.hljs-type {
+  color: #5eead4;
+}
+
+.hljs-meta,
+.hljs-selector-id,
+.hljs-selector-class {
+  color: #93a4c8;
+}
+
+.hljs-deletion {
+  color: var(--danger);
+}
+
+.hljs-emphasis {
+  font-style: italic;
+}
+
+.hljs-strong {
+  font-weight: 600;
+}
+
+/*
  * A message while a search is running: shown as it was typed, so a hit inside
  * a link or a code fence is visible too. The line breaks are the author's, so
  * they have to survive the markdown not being rendered.

@@ -137,17 +137,24 @@ export const ROOM_LIMITS = {
   displayNameMaxLength: 60,
   guestNameMaxLength: 40,
   /**
-   * Plaintext budget, enforced by the composer and re-clamped here. Long
-   * enough for a pasted stack trace or a paragraph of notes; past it the
-   * composer sends the paste as a .txt transfer instead of cutting it.
+   * Plaintext budget, enforced by the composer and re-clamped here. Sized
+   * for the thing people actually paste into a room: a function, a stack
+   * trace, a config file — those stay messages, and a pasted snippet is
+   * shown as a code block rather than shipped off as an attachment. Past
+   * even this the composer sends the paste as a file, named for its
+   * language, and the bubble renders it in the same code viewer.
+   *
+   * It is a memory number as much as a wire one: every client holds
+   * MAX_CHAT_MESSAGES (200) of these, so the ceiling is the room's worst
+   * case per person, not just the edge's per message.
    */
-  chatMessageMaxLength: 2000,
+  chatMessageMaxLength: 4000,
   /**
-   * Wire cap for a sealed chat envelope. 2000 UTF-16 chars are at most
-   * ~6000 bytes of UTF-8; +16 (GCM tag) and base64url is ~8022 chars,
-   * +21 of framing ("e2e:<iv>.") ≈ 8043 — 11000 leaves headroom.
+   * Wire cap for a sealed chat envelope. 4000 UTF-16 chars are at most
+   * ~12000 bytes of UTF-8; +16 (GCM tag) and base64url is ~16022 chars,
+   * +21 of framing ("e2e:<iv>.") ≈ 16043 — 20000 leaves headroom.
    */
-  chatEnvelopeMaxLength: 11000,
+  chatEnvelopeMaxLength: 20000,
   /**
    * Signals held for a detached peer (see enqueueSignal). Items bound the
    * memory per seat; bytes keep the Worker's copy under a Durable Object

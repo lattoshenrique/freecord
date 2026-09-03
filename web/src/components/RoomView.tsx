@@ -1113,8 +1113,17 @@ export default function RoomView({
     );
   }
 
-  function sendFiles(files: File[], overflow = false): void {
-    setFileNote(overflow ? t('file.pastedText') : null);
+  function sendFiles(files: File[], overflow?: { language: string | null }): void {
+    // A paste the field could not hold left as a file: say so, and say what
+    // it was — a bubble appearing where a message was expected needs a line
+    // of explanation, and "as Python" is the whole explanation.
+    setFileNote(
+      overflow
+        ? overflow.language
+          ? t('file.pastedCode', { language: overflow.language })
+          : t('file.pastedText')
+        : null,
+    );
     for (const file of files) {
       if (file.size > MAX_FILE_BYTES) {
         setFileNote(t('file.tooLarge', { max: formatBytes(MAX_FILE_BYTES, locale) }));
@@ -2320,7 +2329,7 @@ export default function RoomView({
               // the field never held it (ChatComposer.tsx).
               onSend={(picked) => runLine(picked ?? draft)}
               onAttach={() => fileInputRef.current?.click()}
-              onPasteFiles={(files, overflow) => sendFiles(files, overflow)}
+              onPasteFiles={sendFiles}
               onCancelQuote={() => setReplyTo(null)}
             />
           </aside>

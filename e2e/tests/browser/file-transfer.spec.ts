@@ -305,12 +305,34 @@ test.describe('peer-to-peer file transfer', () => {
     await expect(area).toHaveValue('y'.repeat(1_200));
     await area.fill('');
 
+    // Code is read for what it is: fenced in the field with its language
+    // named, and sent as the coloured block the viewer draws — never cut,
+    // never shipped off as a nameless attachment.
+    const snippet =
+      'def sweep(peers, now):\n' +
+      '    stale = [p for p in peers if now - p.last_seen > 35]\n' +
+      '    for peer in stale:\n' +
+      '        peers.remove(peer)\n' +
+      '    return len(stale)';
+    await paste(snippet);
+    await expect(area).toHaveValue(new RegExp('^```python\\n' + 'def sweep'));
+    await area.press('Enter');
+
+    const block = alice.page.locator('.chat-code[data-language="python"]').last();
+    await expect(block).toContainText('def sweep(peers, now):');
+    await expect(block.locator('.chat-code-lang')).toHaveText('Python');
+    // Coloured by highlight.js, which only ever emits its own spans.
+    await expect.poll(() => block.locator('code.hljs span').count()).toBeGreaterThan(0);
+    await expect(bob.page.locator('.chat-code[data-language="python"]').last()).toContainText(
+      'peers.remove(peer)',
+    );
+
     // Past it: the field stays empty and the paste leaves as a file, whole.
     await paste('x'.repeat(5_000));
     const sent = alice.page.locator('.chat-file');
     await expect(sent).toContainText(/pasted-\d{8}-\d{6}\.txt/);
     await expect(area).toHaveValue('');
-    await expect(alice.page.locator('.chat-file-note')).toContainText('text file');
+    await expect(alice.page.locator('.chat-file-note')).toContainText('as a file');
 
     const offered = bob.page.locator('.chat-file');
     await expect(offered).toContainText(/pasted-\d{8}-\d{6}\.txt/, { timeout: 20_000 });

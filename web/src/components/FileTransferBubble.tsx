@@ -1,9 +1,19 @@
 import { useEffect, useState } from 'react';
 import { useI18n } from '../i18n';
 import { formatBytes, isImageTransfer, type FileTransfer } from '../lib/file-transfer';
+import { languageOfFileName } from '../lib/code-detect';
+import CodeBlock from './CodeBlock';
 import ImageLightbox from './ImageLightbox';
 import { DownloadIcon, FileIcon } from './icons';
 import './file-preview.css';
+
+/**
+ * How much of a code file is shown in the bubble. Enough to recognise what
+ * arrived and to copy the top of it; the whole thing is one click away in
+ * the file itself, and a chat panel is not a text editor.
+ */
+const PREVIEW_LINES = 40;
+const PREVIEW_BYTES = 16 * 1024;
 
 /**
  * One file in the chat timeline: an offer to accept or decline, a progress
@@ -104,6 +114,38 @@ export default function FileTransferBubble({
   // An image previews inline as soon as its bytes are here: from the start
   // for the sender, on completion for the receiver. Click for the real size.
   const preview = href && isImageTransfer(transfer) ? href : null;
+
+  // A code file previews the same way, in the same viewer a fenced message
+  // uses — which is the point: a snippet too long to be a message should not
+  // arrive as a nameless attachment nobody opens. The language comes off the
+  // extension the sender's paste chose (lib/code-detect.ts).
+  const codeLanguage = languageOfFileName(transfer.name);
+  const [code, setCode] = useState<string | null>(null);
+  useEffect(() => {
+    const blob = transfer.blob;
+    if (!blob || !codeLanguage) {
+      setCode(null);
+      return;
+    }
+    let alive = true;
+    void blob
+      .slice(0, PREVIEW_BYTES)
+      .text()
+      .then((text) => {
+        if (!alive) {
+          return;
+        }
+        const lines = text.split('\n');
+        const head = lines.slice(0, PREVIEW_LINES).join('\n');
+        setCode(lines.length > PREVIEW_LINES || blob.size > PREVIEW_BYTES ? `${head}\n…` : head);
+      })
+      .catch(() => {
+        // The bytes are on disk either way; the bubble simply shows no preview.
+      });
+    return () => {
+      alive = false;
+    };
+  }, [transfer.blob, codeLanguage]);
   const batchStatus = settled ? (done === total ? 'done' : transfer.status) : active ? 'active' : 'pending';
 
   return (
@@ -144,6 +186,15 @@ export default function FileTransferBubble({
         >
           <img src={preview} alt={transfer.name} loading="lazy" />
         </button>
+      )}
+      {code && (
+        <div className="chat-file-code">
+          <CodeBlock
+            code={code}
+            language={codeLanguage ?? undefined}
+            labels={{ copy: t('chat.copyCode'), copied: t('chat.copied') }}
+          />
+        </div>
       )}
       {preview && previewOpen && (
         <ImageLightbox src={preview} name={transfer.name} onClose={() => setPreviewOpen(false)} />

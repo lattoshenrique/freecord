@@ -49,7 +49,7 @@ describe('renderMarkdown', () => {
     expect(html('- um\n- dois')).toBe('<ul><li>um</li><li>dois</li></ul>');
     expect(html('1. um\n2. dois')).toBe('<ol><li>um</li><li>dois</li></ol>');
     expect(html('> citado')).toBe('<blockquote><p>citado</p></blockquote>');
-    expect(html('```\nconst a = 1;\n```')).toBe('<pre><code>const a = 1;</code></pre>');
+    expect(html('```\nconst a = 1;\n```')).toBe('<pre><code class="hljs">const a = 1;</code></pre>');
   });
 
   it('quebra de linha simples vira <br>, como todo chat', () => {

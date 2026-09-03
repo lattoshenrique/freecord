@@ -97,6 +97,20 @@ function mechanicalScore(text: string): number {
   return score;
 }
 
+/**
+ * The cheap half of `detectCode`, answered on the spot: could this paste
+ * possibly be code? The composer asks before it decides to take a paste over
+ * from the browser at all — a plain sentence keeps the browser's own paste,
+ * with its own undo history, and never waits for a parser it does not need.
+ */
+export function mightBeCode(raw: string): boolean {
+  const text = raw.trim();
+  if (text.length < MIN_LENGTH) {
+    return false;
+  }
+  return (/^[[{]/.test(text) && /[\]}]$/.test(text)) || mechanicalScore(text) >= 2;
+}
+
 let parser: Promise<typeof import('./highlight')> | null = null;
 
 /**
