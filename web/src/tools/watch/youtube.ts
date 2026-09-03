@@ -79,6 +79,13 @@ interface PlayerOptions {
   item: WatchItem;
   startSeconds: number;
   autoplay: boolean;
+  /**
+   * Whether this viewer drives the room. A viewer who does not gets a
+   * player with no chrome at all: their clicks were already refused, and
+   * a scrub bar that will not scrub is an offer the room has to take
+   * back one press later.
+   */
+  controls: boolean;
   onReady: (player: YouTubePlayer) => void;
   onStateChange: (state: number) => void;
   onError: () => void;
@@ -146,8 +153,18 @@ export async function createPlayer(
   return new Promise<YouTubePlayer>((resolve) => {
     const { item } = options;
     // The room's own controls are the shared ones; YouTube's are the
-    // familiar ones, and every move they make goes out to everybody.
-    const common = { playsinline: 1, rel: 0, modestbranding: 1, autoplay: options.autoplay ? 1 : 0 };
+    // familiar ones, and every move the controller makes there goes out
+    // to everybody. Everybody else gets the picture and nothing to press,
+    // keyboard included: `inert` stops a click, not a key pressed at a
+    // player that already has focus.
+    const common = {
+      playsinline: 1,
+      rel: 0,
+      modestbranding: 1,
+      autoplay: options.autoplay ? 1 : 0,
+      controls: options.controls ? 1 : 0,
+      disablekb: options.controls ? 0 : 1,
+    };
     const startSeconds = Math.floor(options.startSeconds);
     // A playlist is loaded as ITSELF and nothing else: `listType` + `list`
     // alone. Adding a videoId, an index or a start next to them leaves the

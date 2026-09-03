@@ -11,7 +11,7 @@ async function installLiveYouTube(page: Page): Promise<void> {
       onStateChange(event: { data: number }): void;
     }
     interface Config {
-      playerVars: { autoplay?: number; start?: number };
+      playerVars: { autoplay?: number; start?: number; controls?: number };
       events: Events;
     }
 
@@ -293,6 +293,11 @@ test.describe('chat commands', () => {
     await expect(viewer.getByRole('button', { name: 'Close it for everyone' })).toHaveCount(0);
     await expect(viewer.locator('.watch-controller-chip')).toContainText('viewer-0');
 
+    // Read-only means nothing to press, not a bar that answers nobody: the
+    // player's own controls belong to whoever the room is following.
+    await expect(owner.locator('.watch-media')).toHaveJSProperty('controls', true);
+    await expect(viewer.locator('.watch-media')).toHaveJSProperty('controls', false);
+
     await viewer.locator('button[data-key="T"]').click();
     await expect(viewer.locator('.watch-controller-note')).toContainText('viewer-0');
     await expect(viewer.locator('.tools-menu .tool-field')).toHaveCount(0);
@@ -352,6 +357,21 @@ test.describe('chat commands', () => {
         return fake?.config.playerVars.start;
       }),
     ).toBeUndefined();
+
+    // YouTube settles its chrome when the player is built, so this is the
+    // one thing the stage cannot correct afterwards: the viewer's player
+    // is asked for a picture and nothing to press.
+    const chromeOf = (page: Page) =>
+      page.evaluate(() => {
+        const fake = (window as unknown as {
+          __youtubeHarness: {
+            instances: Array<{ config: { playerVars: { controls?: number; disablekb?: number } } }>;
+          };
+        }).__youtubeHarness.instances[0];
+        return fake?.config.playerVars;
+      });
+    expect(await chromeOf(owner)).toMatchObject({ controls: 1, disablekb: 0 });
+    expect(await chromeOf(viewer)).toMatchObject({ controls: 0, disablekb: 1 });
 
     const viewerBaseline = await viewer.evaluate(() =>
       (window as unknown as { __youtubeHarness: { instances: Array<{ seeks: number[] }> } })

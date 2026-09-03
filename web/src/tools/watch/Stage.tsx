@@ -643,6 +643,7 @@ function YouTubeStage({
       item: room.state.now,
       startSeconds: positionAt(room.state, room.at),
       autoplay: room.state.playing,
+      controls: canControl,
       onReady: (player) => {
         if (cancelled) {
           player.destroy();
@@ -677,8 +678,13 @@ function YouTubeStage({
     };
     // Mounted once per stage: a change of which video is on is applied to
     // the player that is already here, never by building a second one.
+    // Whether it was built with chrome is the one thing that cannot be
+    // applied afterwards, so that — and only that — builds a second one,
+    // which `onReady` puts straight back where the room is. The room's
+    // controller does not change while a watch is on; this client can
+    // still learn who it is a beat after the state arrives.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [canControl]);
 
   // The room said something.
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -980,6 +986,7 @@ function TwitchSource({
       channel: item.twitch?.channel,
       video: item.twitch?.video ?? item.twitch?.clip,
       autoplay: room.state.playing,
+      controls: canControl,
       muted: !speakerRef.current,
       startSeconds: positionAt(room.state, room.at),
       onReady: (player) => {
@@ -1009,8 +1016,11 @@ function TwitchSource({
       playerRef.current = null;
       mount.remove();
     };
+    // Rebuilt when the room changes channel, and when this client learns
+    // it is the one driving: an embed's controls are settled when it is
+    // built (see the YouTube mount above).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [item.url]);
+  }, [item.url, canControl]);
 
   useEffect(() => {
     const player = playerRef.current;

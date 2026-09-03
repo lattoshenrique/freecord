@@ -93,6 +93,12 @@ export interface TwitchMountOptions {
   autoplay: boolean;
   muted: boolean;
   startSeconds: number;
+  /**
+   * Whether this viewer drives the room. A viewer who does not is shown
+   * the picture and nothing to press — their clicks are refused anyway,
+   * and their embed should not keep offering.
+   */
+  controls: boolean;
   onReady: (player: TwitchPlayer) => void;
   onPlayPause: () => void;
 }
@@ -118,6 +124,10 @@ export async function mountTwitch(
     time: options.video && options.startSeconds > 0 ? seekString(options.startSeconds) : undefined,
     autoplay: options.autoplay,
     muted: options.muted,
+    // Their player's own bar, for whoever the room is following. It is
+    // the embed asking politely rather than the guarantee — that stays
+    // `inert` on the element around this one (Stage).
+    controls: options.controls,
     // The room is the chat; theirs would be a second conversation in the
     // corner of a call.
     layout: 'video',
