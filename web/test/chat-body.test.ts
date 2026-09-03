@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   CHAT_BODY_MAX,
+  QUOTE_EXCERPT_MAX,
   bodyBudget,
   decodeChatBody,
   encodeChatBody,
@@ -48,5 +49,18 @@ describe('chat-body', () => {
     expect(excerptOf('- `code` item')).toBe('code item');
     expect(excerptOf('a'.repeat(200))).toHaveLength(140);
     expect(excerptOf('a'.repeat(200)).endsWith('…')).toBe(true);
+  });
+
+  it('clamps what a peer sends, since only the sender\'s composer enforced it', () => {
+    // A modified client can put anything inside a sealed envelope: the edge
+    // may only accept or drop the whole envelope, never trim the text in it.
+    const huge = 'x'.repeat(CHAT_BODY_MAX * 4);
+    expect(decodeChatBody(huge).text).toHaveLength(CHAT_BODY_MAX);
+
+    const wire = JSON.stringify({ q: { n: 'a'.repeat(200), t: 'b'.repeat(900) }, m: huge });
+    const decoded = decodeChatBody(wire);
+    expect(decoded.text).toHaveLength(CHAT_BODY_MAX);
+    expect(decoded.quote?.name).toHaveLength(64);
+    expect(decoded.quote?.text).toHaveLength(QUOTE_EXCERPT_MAX);
   });
 });
