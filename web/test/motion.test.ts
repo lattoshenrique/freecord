@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { invertBox, invertTransform, visualBox } from '../src/lib/motion';
+import { invertBox, invertTransform, sweepDeparted, visualBox } from '../src/lib/motion';
 
 const box = (x: number, y: number, width: number, height: number) => ({ x, y, width, height });
 
@@ -49,5 +49,39 @@ describe('visualBox', () => {
     expect(seen.y).toBe(0);
     expect(seen.width).toBeCloseTo(220);
     expect(seen.height).toBeCloseTo(123.2);
+  });
+});
+
+const ghost = (id: string, at: number) => ({ item: { id }, at });
+
+describe('sweepDeparted', () => {
+  it('keeps whoever is still inside their fade, and says when to look again', () => {
+    const swept = sweepDeparted([ghost('a', 0), ghost('b', 100)], 150, 220);
+    expect(swept.kept.map((g) => g.item.id)).toEqual(['a', 'b']);
+    expect(swept.nextIn).toBe(70);
+  });
+
+  it('drops the ones whose time is up and waits on the next', () => {
+    const swept = sweepDeparted([ghost('a', 0), ghost('b', 100)], 260, 220);
+    expect(swept.kept.map((g) => g.item.id)).toEqual(['b']);
+    expect(swept.nextIn).toBe(60);
+  });
+
+  it('says nothing is left to wait for once the row has let go', () => {
+    expect(sweepDeparted([ghost('a', 0)], 220, 220)).toEqual({ kept: [], nextIn: null });
+    expect(sweepDeparted([], 0, 220)).toEqual({ kept: [], nextIn: null });
+  });
+
+  /*
+   * The one that mattered: a look that lands a hair early drops nobody, and
+   * has to come back anyway. Without the second look the room stood there
+   * holding a face who had left — and, since the wedge was the oldest ghost,
+   * everyone who left after them.
+   */
+  it('asks for another look when it lands early, however early', () => {
+    const early = sweepDeparted([ghost('a', 0)], 219.6, 220);
+    expect(early.kept).toHaveLength(1);
+    expect(early.nextIn).toBeCloseTo(0.4);
+    expect(sweepDeparted([ghost('a', 0)], 0, 220).nextIn).toBe(220);
   });
 });

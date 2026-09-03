@@ -50,6 +50,21 @@ function unwatched(): boolean {
   return typeof document !== 'undefined' && document.hidden;
 }
 
+/**
+ * Milliseconds that only go forward.
+ *
+ * A fade is a stretch of time, not a moment on the calendar, and the wall
+ * clock is allowed to step — an NTP correction of a few milliseconds is
+ * enough. Measured with `Date.now`, a correction backwards makes a face who
+ * left look like they left later than they did, and the timer that came to
+ * collect them finds them still inside their fade and leaves them standing.
+ */
+function clock(): number {
+  return typeof performance !== 'undefined' && typeof performance.now === 'function'
+    ? performance.now()
+    : Date.now();
+}
+
 /** Whether this device (or this person) asked for less movement. */
 export function reducedMotion(): boolean {
   return (
@@ -84,6 +99,24 @@ export function usePresence(open: boolean, ms: number = MOTION.panel): { mounted
 }
 
 /**
+ * Who is still inside their fade at `now`, and how long until the next one
+ * is due out — `null` when the row is done letting go.
+ *
+ * The wait is measured from what is left, never from what was just dropped:
+ * a look that lands early is simply a look that found nobody to drop, and it
+ * still says when to come back.
+ */
+export function sweepDeparted<T>(
+  ghosts: readonly { item: T; at: number }[],
+  now: number,
+  ms: number,
+): { kept: { item: T; at: number }[]; nextIn: number | null } {
+  const kept = ghosts.filter((ghost) => now - ghost.at < ms);
+  const oldest = kept.length > 0 ? Math.min(...kept.map((ghost) => ghost.at)) : null;
+  return { kept, nextIn: oldest === null ? null : Math.max(0, oldest + ms - now) };
+}
+
+/**
  * A list that lets go slowly: whatever disappears from `items` is kept, in
  * the place it held, with `leaving: true`, until its animation is over.
  *
@@ -109,9 +142,15 @@ export function useDeparting<T extends { id: string }>(
 
   if (previous.current !== items) {
     const live = new Set(items.map((item) => item.id));
-    const gone = reducedMotion() ? [] : previous.current.filter((item) => !live.has(item.id));
+    // Nobody left the room slowly on a page that is not being drawn: the
+    // fade would freeze on its first frame — the whole tile, at full
+    // opacity, exactly as if they were still here — and thaw only when the
+    // window comes back, if it thaws at all. A face who leaves while the
+    // window is buried is simply gone by the time it is looked at again.
+    const still = reducedMotion() || unwatched();
+    const gone = still ? [] : previous.current.filter((item) => !live.has(item.id));
     previous.current = items;
-    const at = Date.now();
+    const at = clock();
     ghosts.current = [
       // Anyone who came back is alive again, and anyone leaving again starts
       // their fade from now: never two entries for one id.
@@ -125,16 +164,25 @@ export function useDeparting<T extends { id: string }>(
     if (oldest === null) {
       return;
     }
-    const timer = setTimeout(
-      () => {
-        const kept = ghosts.current.filter((g) => Date.now() - g.at < ms);
-        if (kept.length !== ghosts.current.length) {
-          ghosts.current = kept;
-          expire((n) => n + 1);
-        }
-      },
-      Math.max(0, oldest + ms - Date.now()),
-    );
+    let timer: ReturnType<typeof setTimeout>;
+    // Every look books the next one itself, instead of trusting a render to
+    // come and arrange it. A timer is allowed back a hair early, and one
+    // that finds everybody still inside their fade changes nothing — and
+    // nothing is what re-arms this effect, whose only reason to run again is
+    // an oldest ghost that just stopped being the oldest. That was the room
+    // keeping a face who had left: on screen, at full opacity, for good —
+    // and, since the wedge is the oldest ghost, every face who left after.
+    const sweep = () => {
+      const { kept, nextIn } = sweepDeparted(ghosts.current, clock(), ms);
+      if (kept.length !== ghosts.current.length) {
+        ghosts.current = kept;
+        expire((n) => n + 1);
+      }
+      if (nextIn !== null) {
+        timer = setTimeout(sweep, Math.max(nextIn, 1));
+      }
+    };
+    timer = setTimeout(sweep, Math.max(0, oldest + ms - clock()));
     return () => clearTimeout(timer);
   }, [oldest, ms]);
 
@@ -262,6 +310,16 @@ export function useFlip<T extends HTMLElement = HTMLElement>(
       const before = origin.current.get(child);
       const inFlight = running.current.get(child);
       if (!before || quiet) {
+        // Nowhere to move from, or nobody watching. A tile caught mid-move
+        // by the room going quiet is put down where it belongs rather than
+        // left holding its transform: an animation on a document that has
+        // stopped being drawn keeps the frame it froze on, and there is no
+        // saying when — or whether — it thaws.
+        if (quiet) {
+          inFlight?.cancel();
+          running.current.delete(child);
+          target.current.delete(child);
+        }
         origin.current.set(child, after);
         continue;
       }
@@ -294,16 +352,33 @@ export function useFlip<T extends HTMLElement = HTMLElement>(
       );
       running.current.set(child, animation);
       target.current.set(child, after);
+      const arrive = () => {
+        if (running.current.get(child) === animation) {
+          running.current.delete(child);
+          target.current.delete(child);
+          // It stands where it was sent: that is the origin from now on.
+          origin.current.set(child, layoutBox(child));
+        }
+      };
+      // A move that never ends is worse than one that never happened: the
+      // tile stands at its inverted first frame — the old size, in the old
+      // place, over the tiles that took its room — for as long as the page
+      // is open. It takes a timeline that stopped advancing, which a buried
+      // window is enough for, and `finished` then never comes. So every move
+      // is given a deadline; past it the transform is dropped and the tile
+      // is simply where the layout put it. Late is not wrong here: the wait
+      // is several times the animation, and a cancel that lands after the
+      // arrival it was insuring against changes nothing.
+      const deadline = setTimeout(() => {
+        if (running.current.get(child) === animation) {
+          animation.cancel();
+          arrive();
+        }
+      }, ms * 3);
       animation.finished
-        .then(() => {
-          if (running.current.get(child) === animation) {
-            running.current.delete(child);
-            target.current.delete(child);
-            // It stands where it was sent: that is the origin from now on.
-            origin.current.set(child, layoutBox(child));
-          }
-        })
-        .catch(() => undefined);
+        .then(arrive)
+        .catch(() => undefined)
+        .finally(() => clearTimeout(deadline));
     }
   });
 
