@@ -33,39 +33,21 @@
   padding-bottom: 3rem;
 }
 
+/*
+ * Nothing here plays an entrance. The mark has one of its own — peers join,
+ * the edges close (logo.css) — and it is the only thing on this screen that
+ * arrives rather than simply being there.
+ *
+ * The rest used to rise in on a stagger, the last of it a second and a half
+ * after load. That is a long time to withhold a page whose whole job is one
+ * field: the field, the button, the download offer, the count and the footer
+ * are all on screen in the first frame, and the mark animates alone.
+ *
+ * What is left elsewhere in this file answers something the visitor did —
+ * a pasted invitation resolving into a room name — not the page loading.
+ */
 .start-center > * {
-  animation: rise-in 0.5s var(--ease) both;
   margin: 0;
-}
-
-/*
- * The mark plays its own entrance (logo.css) — peers join, edges close — and
- * the words around it wait for the edges. The field and the button do not:
- * they are what the page is for, so they are on screen from the first frame,
- * whatever the mark is doing.
- */
-.start-center > .start-brand {
-  animation: fade-in 0.4s var(--ease) both;
-}
-
-.start-center > .start-form {
-  animation: none;
-}
-
-/* The hint line under the field: it has something to say, so it waits. */
-.start-center > *:nth-child(3),
-.start-center > *:nth-child(4) {
-  animation-delay: 1.65s;
-}
-
-/*
- * The download offer is not one of those. It is an *option*, and an option
- * that fades in a second and a half late is one the eye has already finished
- * with the page to find — so it holds the third or fourth slot without
- * inheriting the wait. On screen with the field, like the field.
- */
-.start-center > .download-button {
-  animation: none;
 }
 
 /*
@@ -412,10 +394,14 @@
   color: var(--muted);
 }
 
+/*
+ * Not an entrance: this fires when a pasted link resolves into a name, on a
+ * React key that remounts the line each time. It is the answer to something
+ * the visitor did, so it stays.
+ */
 .start-center > .start-invite-name {
   color: #c4b5fd;
   animation: rise-in 0.32s var(--ease) both;
-  animation-delay: 0s;
 }
 
 .start-error {
@@ -425,8 +411,8 @@
 /*
  * The count of rooms that happened: the quietest thing on the screen, a line
  * above the footer's own line. Tabular figures so it does not jitter when it
- * grows, and it arrives on the footer's clock — it is one of those, not a
- * fifth thing under the button.
+ * grows. It is quiet because of where it sits and how it is set, not because
+ * it was made to arrive late.
  */
 .start-count {
   margin: 0 0 0.75rem;
@@ -435,7 +421,6 @@
   font-size: 0.78rem;
   opacity: 0.75;
   font-variant-numeric: tabular-nums;
-  animation: fade-in 0.6s var(--ease) both;
 }
 
 /*
@@ -475,7 +460,6 @@
   align-items: center;
   justify-content: center;
   gap: 0.35rem 1.25rem;
-  animation: fade-in 0.6s var(--ease) 1.9s both;
 }
 
 .start-foot a {

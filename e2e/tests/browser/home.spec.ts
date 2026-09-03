@@ -51,3 +51,45 @@ test.describe('home download button', () => {
     await expect(page.locator(BUTTON)).toHaveAttribute('href', '/community');
   });
 });
+
+/**
+ * The home does not play itself in. The brand keeps its entrance — the mark
+ * arrives, walks left and writes the name (Brand.tsx, logo.css) — and it is
+ * the only thing on the screen that arrives at all. Everything else is there
+ * in the first frame: the field, the button, the download offer, the count,
+ * the footer.
+ */
+test.describe('home entrance', () => {
+  test('nothing but the brand animates on load', async ({ page }) => {
+    await page.goto(`${baseUrl()}/`);
+    await expect(page.locator('.start-form')).toBeVisible();
+
+    // Finite CSS animations only: `getAnimations` also hands back transitions
+    // and the caret's endless blink, and neither is an entrance.
+    const entrances = await page.evaluate(() =>
+      [
+        ...document.querySelectorAll<HTMLElement>(
+          '.start-center, .start-center *, .start-count, .start-foot, .start-foot *',
+        ),
+      ]
+        .filter((node) => !node.closest('.brand'))
+        .flatMap((node) =>
+          node
+            .getAnimations()
+            .filter((one): one is CSSAnimation => 'animationName' in one)
+            .filter((one) => one.effect?.getTiming().iterations !== Infinity)
+            .map((one) => `${node.className}: ${one.animationName}`),
+        ),
+    );
+    expect(entrances).toEqual([]);
+
+    // And the brand still has its own — the exception is the point.
+    const mark = await page.evaluate(
+      () =>
+        [...document.querySelectorAll('.brand *')].filter((node) =>
+          node.getAnimations().some((one) => 'animationName' in one),
+        ).length,
+    );
+    expect(mark).toBeGreaterThan(0);
+  });
+});
