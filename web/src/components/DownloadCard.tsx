@@ -2,7 +2,13 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getDownloads, type DesktopAsset, type DesktopCatalog } from '../api';
 import { useI18n, type MessageKey, type Translate } from '../i18n';
-import { detectPlatform, isDesktopApp, type PlatformGuess } from '../lib/platform';
+import {
+  detectPlatform,
+  guessOs,
+  isDesktopApp,
+  type DetectedOs,
+  type PlatformGuess,
+} from '../lib/platform';
 import { InstallButton } from './InstallPrompt';
 import './download.css';
 
@@ -86,7 +92,19 @@ export function useDesktopDownload(): {
 }
 
 /**
- * The visitor's OS on its own, without waiting for the download catalog.
+ * Which system this is, answered during the first render.
+ *
+ * No promise, no fetch: `guessOs` only reads the user agent, so a caller can
+ * draw with it in the same frame as everything around it.
+ */
+export function useDetectedOs(): DetectedOs {
+  const [os] = useState<DetectedOs>(guessOs);
+  return os;
+}
+
+/**
+ * The visitor's OS *and architecture*, without waiting for the download
+ * catalog.
  *
  * The install offer must not depend on `/api/downloads`: a phone is being
  * offered the page it is already looking at, and a catalog that is slow, or
@@ -112,30 +130,44 @@ export function usePlatformGuess(): PlatformGuess | null {
 
 /**
  * One button for the home: the visitor's own build, or — on a phone — the
- * offer to install this page as an app. Hidden in the same three honest
- * cases as the card.
+ * offer to install this page as an app.
+ *
+ * It draws on the **first paint**, like the field and the button above it: the
+ * OS is a synchronous answer (`guessOs`), so there is nothing to wait for
+ * before saying "Download for macOS". What the catalog adds later is only the
+ * href — until it arrives the button points at /community, where every build
+ * is listed, so a click in the first moments still lands somewhere true.
+ *
+ * The two honest exits stay: inside the desktop app there is nothing to
+ * download, and a phone gets the install offer instead.
  */
 export function DownloadButton() {
   const { t } = useI18n();
-  const guess = usePlatformGuess();
+  const os = useDetectedOs();
   const download = useDesktopDownload();
 
-  // A phone cannot run the Electron build, and pointing it at a list of
-  // installers it has no use for was always the weakest line on this page.
-  if (guess?.os === 'mobile') {
-    return <InstallButton />;
-  }
-  if (!download) {
+  if (isDesktopApp()) {
     return null;
   }
-  const { pick } = download;
-  return pick ? (
-    <a className="download-button" href={pick.url}>
-      {t('download.cta', { os: OS_LABEL[pick.os] })}
-    </a>
-  ) : (
+  // A phone cannot run the Electron build, and pointing it at a list of
+  // installers it has no use for was always the weakest line on this page.
+  if (os === 'mobile') {
+    return <InstallButton />;
+  }
+  const pick = download?.pick ?? null;
+  if (pick) {
+    return (
+      <a className="download-button" href={pick.url}>
+        {t('download.cta', { os: OS_LABEL[pick.os] })}
+      </a>
+    );
+  }
+  // No build for this system — or an OS we could not name. Once the catalog
+  // has answered and holds nothing for them, the label stops promising one.
+  const named = os === 'mac' || os === 'windows' || os === 'linux';
+  return (
     <Link className="download-button" to="/community">
-      {t('home.footer.downloads')}
+      {named && !download ? t('download.cta', { os: OS_LABEL[os] }) : t('home.footer.downloads')}
     </Link>
   );
 }

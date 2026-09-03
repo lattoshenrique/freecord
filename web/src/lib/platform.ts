@@ -66,6 +66,18 @@ function osOf(probe: PlatformProbe): DetectedOs {
   return 'unknown';
 }
 
+/**
+ * The OS alone, answered synchronously.
+ *
+ * `detectPlatform` has to wait for the architecture hint, and on the home that
+ * wait is visible: the download offer would pop in a frame or two after the
+ * field it sits under. The OS is the only part the first paint needs — which
+ * of the two Mac binaries to hand over can arrive later, with the catalog.
+ */
+export function guessOs(probe: PlatformProbe = browserProbe()): DetectedOs {
+  return osOf(probe);
+}
+
 /** Reads the current browser's WebGL renderer (null if no context opens). */
 export function webglRenderer(): string | null {
   try {

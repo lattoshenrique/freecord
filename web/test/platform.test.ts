@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { detectPlatform, macArchFromRenderer, type PlatformProbe } from '../src/lib/platform';
+import {
+  detectPlatform,
+  guessOs,
+  macArchFromRenderer,
+  type PlatformProbe,
+} from '../src/lib/platform';
 
 const CHROME_MAC =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36';
@@ -95,5 +100,42 @@ describe('macArchFromRenderer', () => {
   it('GPU de terceiro ganha do prefixo Apple', () => {
     expect(macArchFromRenderer('Apple GPU (Intel HD Graphics 630)')).toBe('x64');
     expect(macArchFromRenderer('Apple GPU')).toBe('arm64');
+  });
+});
+
+describe('guessOs', () => {
+  it('responde na hora o mesmo sistema que detectPlatform', async () => {
+    const cases = [
+      probe({}),
+      probe({ userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }),
+      probe({ userAgent: 'Mozilla/5.0 (X11; Linux x86_64)' }),
+      probe({ userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Safari/605.1' }),
+      probe({ userAgent: 'Mozilla/5.0 (PlayStation 5)' }),
+    ];
+    for (const one of cases) {
+      expect(guessOs(one)).toBe((await detectPlatform(one)).os);
+    }
+  });
+
+  it('não toca no WebGL nem no Client Hints: o botão desenha no primeiro quadro', () => {
+    let touched = false;
+    const guess = guessOs(
+      probe({
+        renderer: () => {
+          touched = true;
+          return 'Apple M3';
+        },
+        uaData: {
+          platform: 'macOS',
+          mobile: false,
+          getHighEntropyValues: () => {
+            touched = true;
+            return Promise.resolve({ architecture: 'arm' });
+          },
+        },
+      }),
+    );
+    expect(guess).toBe('mac');
+    expect(touched).toBe(false);
   });
 });
