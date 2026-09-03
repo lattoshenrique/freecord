@@ -8,11 +8,12 @@
  * per tool id, hands it to whoever joins, and echoes every change to the
  * room. A new tool costs zero lines here.
  *
- * Two properties are the whole contract:
+ * Two properties are the core contract:
  *
- * 1. LAST WORD WINS. There is no host and no lock. Whoever touches a tool
- *    says what its state is, and everybody — the sender included — plays
- *    from what comes back. Nobody can drift into a private idea of it.
+ * 1. LAST WORD WINS by default. Whoever touches a tool says what its state
+ *    is, and everybody — the sender included — plays from what comes back.
+ *    The built-in watch tool is the deliberate exception: its first setter
+ *    controls it until it is cleared (canControlTool, below).
  *
  * 2. THE CLOCK IS OURS. A state is stored with the clock reading that
  *    produced it, and goes out with its AGE in milliseconds instead of a
@@ -67,6 +68,20 @@ export const TOOL_LIMITS = {
   /** How many tools a room may have on at once. */
   maxTools: 8,
 } as const;
+
+/**
+ * Built-in tools whose first setter remains their controller until the
+ * tool is turned off. This is deliberately a server policy, not a field
+ * inside the opaque state: trusting a client-supplied controller id would
+ * let any peer appoint themselves.
+ */
+const STARTER_CONTROLLED_TOOLS = new Set(['watch']);
+
+/** Whether `peerId` may change or clear this tool's current state. */
+export function canControlTool(states: ToolStates, tool: string, peerId: string): boolean {
+  const current = states[tool];
+  return !current || !STARTER_CONTROLLED_TOOLS.has(tool) || current.by === peerId;
+}
 
 export function isToolId(value: unknown): value is string {
   return typeof value === 'string' && TOOL_LIMITS.idPattern.test(value);

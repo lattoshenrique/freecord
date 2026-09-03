@@ -30,6 +30,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { ApiError, lookupSources } from '../../api';
 import { videoPicker } from '../../lib/desktop';
 import type { ToolShelfProps } from '../contract';
+import { isWatchController, watchControllerName } from './control';
 import { ClockGlyph, CloseGlyph, HandGlyph, ListGlyph, PlayGlyph, SourceGlyph } from './icons';
 import { directCandidate, fromLookup, hostOf, type WatchCandidate } from './link';
 import { parsePicked } from './picked';
@@ -62,6 +63,9 @@ export default function Shelf({
   dismiss,
   draft,
   t,
+  by,
+  self,
+  peers,
 }: ToolShelfProps<WatchState>) {
   // A link the chat could not place on its own arrives here already
   // typed (`/play <a page>`): the field starts on it, and the person
@@ -87,6 +91,17 @@ export default function Shelf({
       attemptRef.current += 1;
     };
   }, []);
+
+  const canControl = !state || isWatchController(by, self);
+  const controllerName = watchControllerName(by, self, peers);
+
+  if (state && !canControl) {
+    return (
+      <p className="tool-note watch-controller-note" role="status">
+        {controllerName ? t('controlledBy', { name: controllerName }) : t('controlledByUnknown')}
+      </p>
+    );
+  }
 
   /**
    * What was typed, read the moment it becomes something we recognise. A

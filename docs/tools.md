@@ -49,10 +49,13 @@ Both views are handed the same props:
 
 ## The two rules that make it work
 
-**1. Last word wins.** There is no host and no lock. Whoever touches a tool
-says what its state is, and everybody — the sender included — works from
-what comes back from the server. Nothing is applied locally first, so
-nobody can drift into a private idea of what is going on.
+**1. Last word wins by default.** Whoever touches a tool says what its state
+is, and everybody — the sender included — works from what comes back from
+the server. Nothing is applied locally first, so nobody can drift into a
+private idea of what is going on. The built-in `watch` tool is the deliberate
+exception: its first setter remains its controller until that participant
+turns the tool off. That policy is enforced by both server edges rather than
+trusted from the opaque client state.
 
 **2. The clock is the server's.** A state is stored with the reading of the
 server's clock that produced it, and reaches you as an **age**. The room
@@ -108,13 +111,11 @@ peer to peer over the existing file channel rather than through here.
 ## Two people doing the same thing at once
 
 Last word wins is only safe if the moves are shaped for it. The `watch`
-tool's queue (`web/src/tools/watch/queue.ts`) is the worked example:
-when a video ends, every player in the room reaches the end within a
-second of each other and every one of them tries to advance. That is fine
-— advancing past the item that is on lands on the same next item whoever
-does it — but a straggler that arrives late must not drag the room back
-to the film it already left, so it checks first that what IT was playing
-is still what the room has on.
+tool's queue (`web/src/tools/watch/queue.ts`) is the worked example even
+though that tool has one controller: when a video ends, only the controller's
+player advances the queue, and a late end event must not drag the room back
+to the film it already left. It checks first that what it was playing is
+still what the room has on.
 
 Write your moves as functions of the state you were handed, make them
 land in the same place when repeated, and refuse them when the state has

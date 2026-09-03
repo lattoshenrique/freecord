@@ -11,7 +11,8 @@
  * What a tool gets from the room (ToolViewProps):
  *
  *   state / setState  one shared value, opaque to the server, echoed to
- *                     everyone. Last word wins; nobody is the host.
+ *                     everyone. Last word wins unless the app gives a
+ *                     built-in tool a server-enforced controller.
  *   at                when that value was set, on THIS machine's clock,
  *                     already corrected for how long it spent in flight.
  *                     A tool that keeps time counts from here and never

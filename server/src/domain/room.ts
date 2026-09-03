@@ -339,10 +339,10 @@ export type ClientMessage =
    */
   | { t: 'mute'; on: boolean }
   /**
-   * Whoever touches a tool says what its state is, for everybody; `state`
-   * null turns it off for the room. There is no host and no lock — the
-   * shelf belongs to the room and the last word wins. The server never
-   * looks inside `state` (domain/tools.ts).
+   * Whoever is allowed to touch a tool says what its state is, for
+   * everybody; `state` null turns it off for the room. Most tools are
+   * last-word-wins; the built-in watch tool is starter-controlled. The
+   * server never looks inside `state` (domain/tools.ts).
    */
   | { t: 'tool-state'; tool: string; state: unknown }
   /**

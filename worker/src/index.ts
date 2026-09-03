@@ -24,6 +24,7 @@ import {
 } from '../../server/src/domain/room-stats.js';
 import { computeScreenTree } from '../../server/src/domain/screen-tree.js';
 import {
+  canControlTool,
   clearToolState,
   projectTool,
   projectTools,
@@ -488,11 +489,17 @@ export class RoomDurableObject {
         return;
       }
       case 'tool-state': {
-        // No lock and no host: the shelf belongs to the room, and whoever
-        // touches a tool last says what it is doing. `state: null` turns
-        // it off for everybody. Mirror of the Node edge.
         const now = Date.now();
         const states = await this.tools();
+        if (!canControlTool(states, message.tool, peerId)) {
+          // Mirror of the Node edge: restore an older or modified client
+          // to the controller's canonical state.
+          const current = projectTool(message.tool, states[message.tool], now);
+          if (current) {
+            this.send(ws, { t: 'tool-state', ...current });
+          }
+          return;
+        }
         if (message.state === null) {
           await this.putTools(clearToolState(states, message.tool));
           this.broadcast({ t: 'tool-state', tool: message.tool, state: null, by: peerId, age: 0 });

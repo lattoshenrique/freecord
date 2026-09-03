@@ -174,4 +174,41 @@ test.describe('chat commands', () => {
     );
     await expect(page.locator('.watch-frame')).toHaveCount(0);
   });
+
+  test('only the participant who starts Watch together can control it', async ({ browser }) => {
+    const { slug } = await createRoom('watch-controller');
+    handles = await joinMany(browser, slug, 2, 'viewer');
+    const owner = handles[0]!.page;
+    const viewer = handles[1]!.page;
+
+    await owner.locator('button[data-key="C"]').click();
+    const ownerBox = owner.locator('.chat-panel textarea');
+    await ownerBox.fill(`/play ${baseUrl()}/controlled.mp4`);
+    await ownerBox.press('Enter');
+
+    await expect(owner.locator('.watch-frame')).toHaveCount(1);
+    await expect(viewer.locator('.watch-frame')).toHaveCount(1);
+    await expect(owner.locator('.watch-keys button')).toHaveCount(1);
+    await expect(viewer.locator('.watch-keys button')).toHaveCount(0);
+    await expect(viewer.locator('.watch-controller-chip')).toContainText('viewer-0');
+
+    await viewer.locator('button[data-key="T"]').click();
+    await expect(viewer.locator('.watch-controller-note')).toContainText('viewer-0');
+    await expect(viewer.locator('.tools-menu .tool-field')).toHaveCount(0);
+    await viewer.keyboard.press('Escape');
+
+    // The UI is read-only, and the server is the final boundary: even a
+    // slash command that bypasses the stage controls cannot close it.
+    await viewer.locator('button[data-key="C"]').click();
+    const viewerBox = viewer.locator('.chat-panel textarea');
+    await viewerBox.fill('/stop');
+    await viewerBox.press('Enter');
+    await expect(viewer.locator('.watch-frame')).toHaveCount(1);
+    await expect(owner.locator('.watch-frame')).toHaveCount(1);
+
+    await ownerBox.fill('/stop');
+    await ownerBox.press('Enter');
+    await expect(owner.locator('.watch-frame')).toHaveCount(0);
+    await expect(viewer.locator('.watch-frame')).toHaveCount(0);
+  });
 });

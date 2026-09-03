@@ -4,6 +4,7 @@ import { SignalingSession, parseClientMessage } from '../src/app/signaling.js';
 import type { ServerMessage } from '../src/domain/room.js';
 import {
   TOOL_LIMITS,
+  canControlTool,
   clearToolState,
   isStorableState,
   isToolId,
@@ -81,6 +82,14 @@ describe('the shelf', () => {
     expect(clearToolState(states, 'youtube')).toEqual({});
     expect(clearToolState(states, 'absent')).toBe(states);
   });
+
+  it('keeps the first watch setter as its controller until it is cleared', () => {
+    const states = setToolState({}, 'watch', entry({ playing: true }))!;
+    expect(canControlTool(states, 'watch', 'ana')).toBe(true);
+    expect(canControlTool(states, 'watch', 'bia')).toBe(false);
+    expect(canControlTool({}, 'watch', 'bia')).toBe(true);
+    expect(canControlTool(states, 'acme-timer', 'bia')).toBe(true);
+  });
 });
 
 describe('projection', () => {
@@ -149,18 +158,48 @@ describe('SignalingSession: tool-state', () => {
     }
   });
 
-  it('anyone may touch it: the last word wins', () => {
+  it('keeps last-word-wins behavior for ordinary tools', () => {
     const { registry, slug } = setup();
     const ana = connect(registry, slug, 'Ana');
     const bia = connect(registry, slug, 'Bia');
 
-    ana.session.handleMessage({ t: 'tool-state', tool: 'youtube', state: { playing: true } });
-    bia.session.handleMessage({ t: 'tool-state', tool: 'youtube', state: { playing: false } });
+    ana.session.handleMessage({ t: 'tool-state', tool: 'acme-timer', state: { playing: true } });
+    bia.session.handleMessage({ t: 'tool-state', tool: 'acme-timer', state: { playing: false } });
 
-    expect(lastState(ana.inbox, 'youtube')).toMatchObject({
+    expect(lastState(ana.inbox, 'acme-timer')).toMatchObject({
       state: { playing: false },
       by: bia.session.peerId,
     });
+  });
+
+  it('lets only the participant who started watch update or close it', () => {
+    const { registry, slug } = setup();
+    const ana = connect(registry, slug, 'Ana');
+    const bia = connect(registry, slug, 'Bia');
+    const initial = { video: 'one', playing: true };
+
+    ana.session.handleMessage({ t: 'tool-state', tool: 'watch', state: initial });
+    const anaMessages = ana.inbox.length;
+
+    bia.session.handleMessage({
+      t: 'tool-state',
+      tool: 'watch',
+      state: { video: 'two', playing: false },
+    });
+    expect(ana.inbox).toHaveLength(anaMessages);
+    expect(lastState(bia.inbox, 'watch')).toMatchObject({
+      state: initial,
+      by: ana.session.peerId,
+    });
+
+    bia.session.handleMessage({ t: 'tool-state', tool: 'watch', state: null });
+    expect(lastState(bia.inbox, 'watch')).toMatchObject({
+      state: initial,
+      by: ana.session.peerId,
+    });
+
+    ana.session.handleMessage({ t: 'tool-state', tool: 'watch', state: null });
+    expect(lastState(bia.inbox, 'watch')).toMatchObject({ state: null, by: ana.session.peerId });
   });
 
   it('whoever joins late is told everything that is on', () => {

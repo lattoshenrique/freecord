@@ -1,16 +1,12 @@
 /**
  * The queue: what the room lined up, and the rules for moving through it.
  *
- * Pure functions over the shared state, on purpose. Every one of these is
- * a thing several people can do at the same moment — two peers whose
- * videos end within a second of each other, one adding while another
- * skips — and the room settles it the way it settles everything else:
- * last word wins (docs/tools.md). What keeps that from thrashing is that
- * these moves are IDEMPOTENT in the way that matters. Advancing past the
- * item that is on lands on the same next item no matter who does it, and
- * `advance` is only ever called by a player whose own item is still the
- * one the room has on — so a straggler that ends late cannot drag the
- * room back to the film it already left.
+ * Pure functions over the shared state, on purpose. The participant who
+ * starts Watch Together controls these moves, while every other player is
+ * read-only. They are still idempotent in the way that matters: `advance`
+ * is only called by a controller whose own item is still the one the room
+ * has on, so a late end event cannot drag the room back to the film it
+ * already left.
  *
  * The queue takes anything the tool can watch. A YouTube video, an
  * episode found in somebody's page and a Twitch VOD line up in the same
@@ -117,10 +113,9 @@ export function advance(state: WatchState): WatchState {
 
 /**
  * Whether this player may report that its item finished: only if what it
- * was playing is still what the room has on. Two peers reaching the end
- * together both pass; the second's message is the same advance as the
- * first's. A peer that reaches the end LATE — a buffering straggler —
- * finds the room already moved on, and says nothing.
+ * was playing is still what the room has on. A late end event after the
+ * controller already moved the room on finds a different item and says
+ * nothing.
  */
 export function mayAdvanceFrom(state: WatchState, finished: WatchItem): boolean {
   return sameItem(state.now, finished);

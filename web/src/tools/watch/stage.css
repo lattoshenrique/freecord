@@ -72,6 +72,20 @@
   white-space: nowrap;
 }
 
+.watch-controller-chip {
+  max-width: min(15rem, 42vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Vendor iframes have controls of their own. `inert` removes keyboard
+   access; this also blocks a pointer on browsers that do not yet apply
+   inert across an iframe boundary. */
+.watch-youtube[inert],
+.watch-twitch[inert] {
+  pointer-events: none;
+}
+
 .watch-keys {
   display: inline-flex;
   flex: none;

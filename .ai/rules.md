@@ -151,10 +151,11 @@ and its installers are built by GitHub Actions on a `desktop-v*` tag.
 - The room link is the credential: unguessable random slug, no accounts.
   Anyone in the room can rename it (`PATCH /api/rooms/:slug`, both edges).
 - The tool shelf in the dock is **room state, not a private window**: a
-  video someone opens plays for everybody, anyone controls it, and closing
-  it closes it for the room — the same shape as a screen share. Tools are
-  a **plugin contract** (`docs/tools.md`): the edges carry one opaque JSON
-  value per tool id (`domain/tools.ts`), so a new tool is a folder under
+  video someone opens plays for everybody, but only the person who starts
+  Watch Together controls it until they close it for the room — the same
+  ownership shape as a screen share. Other tools remain last-word-wins.
+  Tools are a **plugin contract** (`docs/tools.md`): the edges carry one
+  opaque JSON value per tool id (`domain/tools.ts`), so a new tool is a folder under
   `web/src/tools/` plus a line in its registry, and never a protocol
   change. Because the server cannot validate a state it does not
   understand, every tool checks its own on arrival (`parseState`) — that

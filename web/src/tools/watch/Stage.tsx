@@ -49,6 +49,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import type { ToolViewProps } from '../contract';
+import { isWatchController, watchControllerName } from './control';
 import { CloseGlyph, HandGlyph, SkipGlyph } from './icons';
 import { twitchClipUrl } from './link';
 import { attachSource, liveEdgeOf, type SourceFailure } from './media';
@@ -116,9 +117,11 @@ export default function Stage(props: ToolViewProps<WatchState>) {
 }
 
 function Together(props: ToolViewProps<WatchState> & { state: WatchState }) {
-  const { state, setState, t } = props;
+  const { state, setState, t, by, self, peers } = props;
   const item = state.now;
   const [trouble, setTrouble] = useState<Trouble | null>(null);
+  const canControl = isWatchController(by, self);
+  const controllerName = watchControllerName(by, self, peers);
 
   // Trouble belongs to what caused it. Without this, one dead link turns
   // the stage into an error message that outlives it — the room puts on
@@ -155,33 +158,42 @@ function Together(props: ToolViewProps<WatchState> & { state: WatchState }) {
             {t('ownClock')}
           </span>
         )}
-        <span className="watch-keys">
-          {queued > 0 && (
+        {!canControl && (
+          <span className="watch-chip watch-controller-chip">
+            {controllerName
+              ? t('controllerChip', { name: controllerName })
+              : t('controllerChipUnknown')}
+          </span>
+        )}
+        {canControl && (
+          <span className="watch-keys">
+            {queued > 0 && (
+              <button
+                type="button"
+                className="watch-key"
+                aria-label={t('skip')}
+                title={t('skip')}
+                onClick={() => setState(advance(state))}
+              >
+                <SkipGlyph />
+              </button>
+            )}
             <button
               type="button"
-              className="watch-key"
-              aria-label={t('skip')}
-              title={t('skip')}
-              onClick={() => setState(advance(state))}
+              className="watch-key watch-close"
+              aria-label={t('closeForAll')}
+              title={t('closeForAll')}
+              onClick={() => setState(null)}
             >
-              <SkipGlyph />
+              <CloseGlyph />
             </button>
-          )}
-          <button
-            type="button"
-            className="watch-key watch-close"
-            aria-label={t('closeForAll')}
-            title={t('closeForAll')}
-            onClick={() => setState(null)}
-          >
-            <CloseGlyph />
-          </button>
-        </span>
+          </span>
+        )}
       </div>
 
       <div className="watch-frame">
         {hide ? null : item.kind !== 'source' ? (
-          <YouTubeStage {...props} item={item} onTrouble={setTrouble} />
+          <YouTubeStage {...props} item={item} canControl={canControl} onTrouble={setTrouble} />
         ) : item.play === 'frame' ? (
           <FramedPage url={item.url} title={item.title ?? t('stageLabel')} />
         ) : clipUrl ? (
@@ -189,9 +201,9 @@ function Together(props: ToolViewProps<WatchState> & { state: WatchState }) {
              not take one, so it gets the frame their site gives out. */
           <FramedPage url={clipUrl} title={item.title ?? t('stageLabel')} />
         ) : item.play === 'twitch' ? (
-          <TwitchSource {...props} item={item} onTrouble={setTrouble} />
+          <TwitchSource {...props} item={item} canControl={canControl} onTrouble={setTrouble} />
         ) : (
-          <MediaSource {...props} item={item} onTrouble={setTrouble} />
+          <MediaSource {...props} item={item} canControl={canControl} onTrouble={setTrouble} />
         )}
         {(trouble || !framable) && (
           <div className="watch-trouble" role="status">
@@ -205,7 +217,7 @@ function Together(props: ToolViewProps<WatchState> & { state: WatchState }) {
               >
                 {t(item.kind === 'source' ? 'openOriginal' : 'openOnYouTube')}
               </a>
-              {queued > 0 && (
+              {canControl && queued > 0 && (
                 <button type="button" className="tool-open" onClick={() => setState(advance(state))}>
                   {t('skip')}
                 </button>
@@ -286,11 +298,13 @@ function YouTubeStage({
   setState,
   speakerOn,
   speakerLevel,
+  canControl,
   item,
   onTrouble,
 }: ToolViewProps<WatchState> & {
   state: WatchState;
   item: YouTubeItem;
+  canControl: boolean;
   onTrouble: (trouble: Trouble) => void;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -308,6 +322,8 @@ function YouTubeStage({
   levelRef.current = speakerLevel;
   const mineRef = useRef(mine);
   mineRef.current = mine;
+  const canControlRef = useRef(canControl);
+  canControlRef.current = canControl;
   const troubleRef = useRef(onTrouble);
   troubleRef.current = onTrouble;
 
@@ -426,6 +442,14 @@ function YouTubeStage({
       playerState = player.getPlayerState();
     } catch {
       return; // the iframe is going away under us
+    }
+
+    if (!canControlRef.current) {
+      // A viewer's player follows the controller. Even an older iframe
+      // that still exposes its chrome is corrected locally and never
+      // reports the viewer's hand as room state.
+      applyRoom();
+      return;
     }
 
     // A playlist walked to its next video on its own: the room follows
@@ -584,7 +608,7 @@ function YouTubeStage({
     }
   }, [speakerOn, speakerLevel]);
 
-  return <div className="watch-youtube" ref={hostRef} />;
+  return <div className="watch-youtube" ref={hostRef} inert={!canControl || undefined} />;
 }
 
 function MediaSource({
@@ -594,11 +618,13 @@ function MediaSource({
   setState,
   speakerOn,
   speakerLevel,
+  canControl,
   item,
   onTrouble,
 }: ToolViewProps<WatchState> & {
   state: WatchState;
   item: SourceItem;
+  canControl: boolean;
   onTrouble: (trouble: Trouble) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -649,7 +675,7 @@ function MediaSource({
   /** Anything a person does to the player is news for the room. */
   function report(): void {
     const video = videoRef.current;
-    if (!video || Date.now() < quietUntil.current) {
+    if (!canControl || !video || Date.now() < quietUntil.current) {
       return;
     }
     const room = roomRef.current.state;
@@ -668,6 +694,9 @@ function MediaSource({
    * says nothing (queue.ts).
    */
   function ended(): void {
+    if (!canControl) {
+      return;
+    }
     const room = roomRef.current.state;
     if (mayAdvanceFrom(room, attachedRef.current)) {
       setStateRef.current(advance(room));
@@ -792,7 +821,7 @@ function MediaSource({
     <video
       ref={videoRef}
       className="watch-media"
-      controls
+      controls={canControl}
       playsInline
       onPlay={report}
       onPause={report}
@@ -809,11 +838,13 @@ function TwitchSource({
   setState,
   speakerOn,
   speakerLevel,
+  canControl,
   item,
   onTrouble,
 }: ToolViewProps<WatchState> & {
   state: WatchState;
   item: SourceItem;
+  canControl: boolean;
   onTrouble: (trouble: Trouble) => void;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -860,7 +891,7 @@ function TwitchSource({
       },
       onPlayPause: () => {
         const player = playerRef.current;
-        if (!player || Date.now() < quietUntil.current) {
+        if (!canControl || !player || Date.now() < quietUntil.current) {
           return;
         }
         const current = roomRef.current.state;
@@ -904,5 +935,5 @@ function TwitchSource({
     playerRef.current?.setVolume(speakerLevel);
   }, [speakerOn, speakerLevel]);
 
-  return <div className="watch-twitch" ref={hostRef} />;
+  return <div className="watch-twitch" ref={hostRef} inert={!canControl || undefined} />;
 }

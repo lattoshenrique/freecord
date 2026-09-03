@@ -17,6 +17,10 @@
  * for free — a custom widget would have had to earn both back.
  */
 
+.watch-controller-note {
+  margin: 0;
+}
+
 .watch-options {
   display: flex;
   flex-direction: column;

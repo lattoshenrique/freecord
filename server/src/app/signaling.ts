@@ -12,6 +12,7 @@ import {
 } from '../domain/room.js';
 import { computeScreenTree } from '../domain/screen-tree.js';
 import {
+  canControlTool,
   clearToolState,
   isStorableState,
   isToolId,
@@ -205,11 +206,18 @@ export class SignalingSession {
         return;
       }
       case 'tool-state': {
-        // No lock and no host: the shelf belongs to the room, and whoever
-        // touches a tool last says what it is doing. `state: null` turns
-        // it off for everybody.
         const now = Date.now();
         const states = room.tools ?? {};
+        if (!canControlTool(states, message.tool, this.peerId)) {
+          // A starter-controlled tool keeps its first setter. Send the
+          // canonical state back so an older client also undoes whatever
+          // its local player let a viewer try.
+          const current = projectTool(message.tool, states[message.tool], now);
+          if (current) {
+            this.channel.send({ t: 'tool-state', ...current });
+          }
+          return;
+        }
         if (message.state === null) {
           room.tools = clearToolState(states, message.tool);
           broadcast(room, { t: 'tool-state', tool: message.tool, state: null, by: this.peerId, age: 0 });
