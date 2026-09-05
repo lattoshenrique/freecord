@@ -11,5 +11,5 @@
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true
   },
-  "include": ["helpers", "setup", "tests", "playwright.config.ts"]
+  "include": ["helpers", "setup", "tests", "research", "playwright.config.ts"]
 }

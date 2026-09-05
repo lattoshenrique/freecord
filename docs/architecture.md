@@ -2,6 +2,11 @@
 
 ## The picture
 
+**Architectural invariant:** P2P-first, P2P-always, P2P-endgame. The control
+plane may coordinate participants and routes; media remains on the network
+formed by participants. Scaling work targets a bounded-degree overlay with
+separate logical source routes. See the [measured audio research](research/p2p-audio.md).
+
 ```
 browser A ◄──── WebRTC P2P (voice/video/screen, chat + files on data channels) ────► browser B
      │                                                                                │
@@ -265,19 +270,19 @@ shares at once, each share has a tree of its own:
   under 6 s, and `mesh.ts`'s perfect negotiation absorbs the burst of
   renegotiation.
 
-The price a relay pays used to be fixed: it **decoded and re-encoded** for its
-children, spending a full encoder cycle of latency per hop and a generation of
-quality each time. That price is now the *fallback*, not the rule. Where the
-browser supports WebRTC Encoded Transforms, the relay forwards the received
-**encoded frames byte-for-byte** (`relay/`, the `@freecord/encoded-relay`
-workspace — a standalone, dependency-free package other projects can lift
-out): the relay's own encoder keeps running only as a cadence donor, crushed
-to 100 kbps and a quarter of the resolution, and its output bytes are replaced
-in the sender transform with the upstream frames. A hop then costs ~nothing in
-latency and nothing in quality — depth stops mattering.
+Track forwarding decodes and re-encodes for downstream children. The
+`@freecord/encoded-relay` workspace attempts to preserve upstream encoded video
+payloads by substituting them into downstream donor frames. The decoder and
+donor encoders still run; donors use 100 kbps and a quarter of the resolution.
+This implementation is not evidence of zero codec work or negligible hop
+latency. Actual receiver output, byte preservation, copies, and per-hop delay
+must be measured. The [audio experiments](research/p2p-audio.md) specifically
+separate successful transform writes from successful remote decoding; their
+audio results do not establish video compatibility.
 
-Passthrough is promoted per child, and only when it is provably safe: the
-upstream's *active* codec must match the child's, and frames must be flowing.
+Substitution is promoted per child when the upstream's active codec matches
+the child's and transform counters report flowing frames. These checks are
+necessary but do not independently prove remote decoded output.
 Anything less demotes that child to the re-encode path — a viewer whose screen
 stalls says so through the opaque `signal` envelope (a versioned `relay` note
 the server relays without reading, so old clients interop untouched), and a
@@ -326,8 +331,9 @@ ladder decides *how much* is sacrificed, per track. CPU pressure moves only
 the camera's ladder (at half factor its encode is also halved in
 resolution — a starved encoder is a hot one); the screen's
 `degradationPreference` already owns that axis choice, and a second hand on
-the same wheel oscillates. Relays do not adapt: passthrough forwarding
-costs ~nothing, and the re-encode fallback is the exception, not the rule.
+the same wheel oscillates. Relays do not currently participate in this
+adaptation loop. Measuring their aggregate codec and forwarding cost, and
+introducing a peer-wide upload budget, remain explicit research work.
 
 The policy is deliberately pure (plain data in, plain data out, unit-tested
 without a browser) and applied inside the two encoding funnels
@@ -550,18 +556,16 @@ to move the Electron shell itself, which changes rarely.
    per-room → shard by slug. On Cloudflare that is one Durable Object per slug
    (`worker/`); on a Node cluster it would be sticky routing or Redis pub/sub.
    The UI does not change.
-4. **Bigger rooms / millions of visits**: the relay tree pushed this frontier
-   out once (the sharer no longer uploads N−1 copies), and encoded passthrough
-   plus camera rationing pushed it again (20 seats with audio and screen at
-   full quality — voice at ~1 Mbps of Opus per peer is the last N−1 cost
-   worth paying). What remains is structural: the audio/camera mesh still
-   costs N−1 uplinks per participant. The next step is **our own media node**
-   — either an SFU (e.g. on top of Pion/werift, or from scratch on libwebrtc)
-   behind the SAME signaling protocol, or its distributed cousin: a native
-   sidecar in the desktop app that does for every stream what
-   `@freecord/encoded-relay` already does for the screen, making each
-   installed app a packet relay for its room. That frontier is already drawn:
-   `mesh.ts` is the only file that knows the topology is P2P.
+4. **Larger participant-owned networks**: audio/camera connectivity still
+   creates N−1 relations per participant. The research target is a persistent
+   sparse P2P overlay, with independent acyclic routes for each logical source,
+   bounded aggregate relay load, and measured recovery. The control plane can
+   coordinate that graph but never receives room media. A constant connection
+   degree does not remove the cost of decoding every audible source or the
+   S(N−1) useful deliveries for S simultaneous speakers. The current 20-seat
+   admission limit remains until browser, acoustic, security and failover
+   gates pass. Graph and isolated transport results are recorded separately
+   in [the research report](research/p2p-audio.md); they do not raise room limits.
 
 ## Proving it: the e2e workspace
 

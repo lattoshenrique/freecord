@@ -99,15 +99,12 @@ export interface Room {
 
 export const ROOM_LIMITS = {
   /**
-   * P2P mesh: every peer keeps a connection to every other. 20 holds
-   * because the variable cost adapts with size: cameras split a fixed
-   * uplink budget and are slot-limited past 6 people (cameraSlotsFor),
-   * the screen rides the forwarding tree (depth 3 at fanout 3, cheap
-   * with encoded passthrough), and voice is the only stream still paid
-   * N−1 times — ~1 Mbps of Opus at 19 copies. What remains is the
-   * connection and encoder count per peer — at 20 still within what a
-   * desktop browser sustains; past it the honest answer is a media node
-   * (docs/architecture.md, "The scaling path").
+   * Current admission limit, not a physical P2P ceiling. Audio/camera still
+   * use N-1 connections while screen video uses participant relay trees.
+   * Raising this requires browser/media evidence for bounded connectivity,
+   * aggregate relay budgets and recovery, not just graph simulations.
+   * The next architecture remains a participant-owned P2P media network
+   * (docs/research/p2p-audio.md). Camera admission protections stay in place.
    */
   maxParticipants: 20,
   /** An empty room expires after this (ms) — enough time for the link to circulate. */

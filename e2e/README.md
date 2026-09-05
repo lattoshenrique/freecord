@@ -14,9 +14,20 @@ tests/protocol/       protocol-level E2E — raw `ws`, no browser, fast and dete
 tests/browser/        Playwright + Chromium with fake media
 load/                 plain-Node load drivers (no framework)
 worker/               the Cloudflare edge probed for real, against `wrangler dev`
+research/             isolated P2P audio hops, bounded overlays, and multi-source transport probes
 ```
 
 ## Prerequisites
+
+The [P2P audio research report](../docs/research/p2p-audio.md) documents
+`research:audio`, `research:topology`, and `research:sparse`. These run only
+against their own loopback harnesses, do not share `.server.json`, and never
+alter product room limits. A candidate failing an experiment is recorded as a
+failure, not converted to a passing product test.
+The heavy mesh test also accepts `E2E_HEAVY_BROWSERS` to split seats across
+browser instances while preserving every assertion. This remains a demanding
+local experiment; its completed audio/connection baseline is emitted only when
+the checks pass.
 
 ```sh
 npm install                       # repo root (installs this workspace too)
