@@ -136,6 +136,12 @@ remains supporting transport evidence, not this admission gate.
 - A Worker screen-lifetime run was invalidated by rebuilding watched web assets
   during `wrangler dev`; the reload closed its sockets. Run that gate after the
   final build, without a concurrent rebuild.
+- The production two-browser smoke exposed a missing reciprocal WebSocket close
+  frame: interruption was announced, but the browser stayed `CLOSING` and did not
+  begin automatic resume within 15 seconds. A new local Worker regression also
+  failed before the fix. The close handler now explicitly completes the handshake
+  after detaching the seat, as required by the deployment's pre-April-2026
+  [Cloudflare compatibility date](https://developers.cloudflare.com/durable-objects/api/base/).
 
 The room HUD uses authenticated sequence-span loss, arrival jitter and scheduled
 playout delay while sparse audio is active. Loss is cumulative since that source
@@ -150,9 +156,10 @@ Final release gates on this implementation:
 | Server unit tests | 196 passed |
 | Web unit tests | 489 passed |
 | Encoded relay unit tests | 25 passed |
-| Fresh-build Node protocol + browser E2E | 75 passed, 1 opt-in native heavy control skipped |
+| Initial fresh-build Node protocol + browser E2E | 75 passed, 1 opt-in native heavy control skipped |
+| Post-handshake-fix Node protocol + browser E2E | 74 passed, 1 failed (intermittent tile animation), 1 opt-in native heavy control skipped |
 | Production build | Passed |
-| Local Worker restart/resume | 16 checks passed, including route/key persistence and route-before-held-signal ordering |
+| Local Worker restart/resume | 17 checks passed, including close-handshake completion, route/key persistence and route-before-held-signal ordering |
 | Local Worker screen/presence/ownership lifecycle | All seven scenarios passed; dropped screen released at 10 s, zombie at 35 s |
 
 The fresh browser suite includes the default eleven-seat activation rejection,
@@ -162,3 +169,14 @@ participant, music fallback and timestamped chat events. Worklet capture also
 uses a tested eight-buffer credit bound so a stalled main thread cannot accumulate
 unbounded PCM messages. The twenty-person sparse stress result remains failed;
 it is deliberately excluded from the automatic production envelope.
+
+The post-handshake-fix full suite exposed an intermittent `speaking.spec.ts`
+failure: two tiles replayed `rise-in` during the mute observation window. An
+isolated unchanged-test cohort also returned two passes and one failure.
+Temporary animation tracing observed both existing tiles restarting as their
+first latency readings appeared; it did not establish the rendering root cause.
+The diagnostic instrumentation was removed. This visual finding remains open;
+the Worker-only handshake correction cannot affect the Node edge used by that
+test. All eight sparse-audio scenarios and the chat event scenario passed in
+the post-fix full suite. Its red result is retained, not replaced by isolated
+passing runs or a weaker animation assertion.

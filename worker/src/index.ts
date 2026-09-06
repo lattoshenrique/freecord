@@ -702,7 +702,14 @@ export class RoomDurableObject {
   }
 
   async webSocketClose(ws: WebSocket): Promise<void> {
-    await this.detach(ws);
+    try {
+      await this.detach(ws);
+    } finally {
+      // Our compatibility date predates automatic close replies. Without
+      // this frame the browser stays CLOSING and cannot start its resume.
+      // Complete the handshake even if persisting the detached seat fails.
+      ws.close(1000, 'signaling connection closed');
+    }
   }
 
   async webSocketError(ws: WebSocket): Promise<void> {

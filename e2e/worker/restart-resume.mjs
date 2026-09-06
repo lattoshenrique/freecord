@@ -197,6 +197,11 @@ const run = async () => {
     check((await ana2.expect('audio-commit')).generation === audioPlan.generation, 'audio commit generation survives Worker restart');
     bia2.close();
     await ana2.expectWhere(m => m.t === 'peer-connection' && m.id === bia.first.selfId && !m.connected, 'connection interruption');
+    // Real browsers start automatic resume from onclose. A server-side
+    // interruption alone does not prove the close handshake finished.
+    const closeDeadline = Date.now() + 2_000;
+    while (!bia2.closed && Date.now() < closeDeadline) await delay(20);
+    check(bia2.closed, 'Worker completes the close handshake before the browser resume deadline');
     const bia3 = await Client.resume(slug, bia.first.resumeToken, 'bia');
     await ana2.expectWhere(m => m.t === 'peer-connection' && m.id === bia.first.selfId && m.connected, 'connection restoration');
     check(ana2.log.filter(m => m.t === 'peer-connection' && m.id === bia.first.selfId && !m.connected).length === 1,
