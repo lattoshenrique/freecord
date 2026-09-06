@@ -130,3 +130,24 @@ npm run test:heavy --workspace e2e
 npm run load:signaling --workspace e2e          # 50 rooms x 12, 60 s RTT soak
 npm run load:ramp --workspace e2e               # 2 min churn, RSS bounded
 ```
+
+### Product sparse audio activation
+
+The regular browser suite covers automatic sparse activation, ten actual room
+participants (degree <= 8, native audio senders off, every source heard), native
+fallback, signature/replay rejection and timestamped room events. The larger
+product check keeps the current admission limit and can split browser processes:
+
+```sh
+E2E_BUILD_WEB=1 VITE_SPARSE_AUDIO_RESEARCH_20=1 E2E_SPARSE_PEERS=20 E2E_SPARSE_BROWSERS=4 npm test --workspace e2e -- --project=browser sparse-audio.spec.ts --grep 'actual room'
+```
+
+Run it on the local ephemeral edge. This uses the real room UI and synthetic
+Chromium microphones. It is distinct from `research:sparse`, and neither proves
+WAN acoustic quality. The native `full-room.spec.ts` control disables AudioEncoder
+so its N−1 RTP assertions remain an independent baseline. See
+[activation boundaries and evidence](../docs/research/audio-activation.md).
+
+The restart/resume Worker probe also verifies persisted audio generation/public
+keys and interruption/restoration events. Do not rebuild assets while Worker
+lifetime checks run: `wrangler dev` reloads and closes sockets on asset changes.

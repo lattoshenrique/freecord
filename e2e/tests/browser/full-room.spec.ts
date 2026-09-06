@@ -46,6 +46,8 @@ test.describe('full room @heavy', () => {
     for (let i = 0; i < MAX; i++) {
       handles.push(await joinRoomPage(browsers[i % browsers.length], slug, `guest-${i}`, {
         prepare: async page => { await page.addInitScript(() => {
+          // Preserve this native RTP baseline independently of sparse activation.
+          Object.defineProperty(window, 'AudioEncoder', { value: undefined });
           const state = window as unknown as { researchConnections: RTCPeerConnection[] };
           state.researchConnections = [];
           window.RTCPeerConnection = new Proxy(window.RTCPeerConnection, {

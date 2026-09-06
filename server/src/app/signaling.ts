@@ -22,6 +22,15 @@ import {
   setToolState,
 } from '../domain/tools.js';
 import type { RoomRegistry } from './room-registry.js';
+import { advanceAudioNetwork, parseAudioEvent, type AudioEvent } from '../domain/audio-network.js';
+
+function updateAudioNetwork(room: Room, actor?: string, event?: AudioEvent): void {
+  const result = advanceAudioNetwork(room.audioNetwork, [...room.peers.keys()], actor, event);
+  room.audioNetwork = result.state;
+  for (const update of result.updates) for (const [id, peer] of room.peers) {
+    if (Object.hasOwn(result.state.capabilities, id)) peer.channel.send(update);
+  }
+}
 
 function broadcast(room: Room, message: ServerMessage, exceptId?: string): void {
   for (const [id, peer] of room.peers) {
@@ -126,6 +135,7 @@ export class SignalingSession {
     const session = new SignalingSession(registry, slug, peerId, name, channel);
     session.sendWelcome(room, ice);
     broadcast(room, { t: 'peer-joined', peer: { id: peerId, name } }, peerId);
+    updateAudioNetwork(room);
     // Screen share in progress: the newcomer needs a route, and the tree changes.
     broadcastScreenRoutes(room);
     return session;
@@ -147,12 +157,20 @@ export class SignalingSession {
     channel: PeerChannel,
     ice: IceServerConfig[] = [],
   ): SignalingSession | null {
+    const wasDetached = [...(registry.getRoomSafe(slug)?.peers.values() ?? [])]
+      .some(peer => peer.resumeToken === token && peer.disconnectedAt !== null);
     const resumed = registry.resumePeer(slug, token, channel);
     if (!resumed) {
       return null;
     }
     const session = new SignalingSession(registry, slug, resumed.peerId, resumed.name, channel);
     session.sendWelcome(resumed.room, ice);
+    if (wasDetached) broadcast(resumed.room, { t: 'peer-connection', id: resumed.peerId, connected: true }, resumed.peerId);
+    const audio = resumed.room.audioNetwork;
+    if (audio && Object.hasOwn(audio.capabilities, resumed.peerId)) {
+      channel.send({ t: 'audio-plan', plan: audio.plan });
+      if (audio.committed) channel.send({ t: 'audio-commit', generation: audio.plan.generation });
+    }
     for (const held of resumed.pending) {
       channel.send(held);
     }
@@ -190,6 +208,10 @@ export class SignalingSession {
     }
 
     switch (message.t) {
+      case 'audio-capability':
+      case 'audio-ready':
+        updateAudioNetwork(room, this.peerId, message);
+        return;
       case 'ping': {
         // Proof of life + latency measure: the client times the echo.
         this.registry.touchPeer(this.slug, this.peerId);
@@ -406,6 +428,9 @@ export class SignalingSession {
     // socket already replaced by a resume must not free the fresh seat's
     // slot (same guard as detachPeer).
     const room = this.registry.getRoomSafe(this.slug);
+    const peer = room?.peers.get(this.peerId);
+    const changed = peer?.channel === this.channel && peer.disconnectedAt === null;
+    if (room && changed) broadcast(room, { t: 'peer-connection', id: this.peerId, connected: false }, this.peerId);
     if (
       room &&
       room.peers.get(this.peerId)?.channel === this.channel &&
@@ -430,6 +455,7 @@ export class SignalingSession {
         broadcast(room, { t: 'screen-stopped', id: this.peerId });
       }
       broadcast(room, { t: 'peer-left', id: this.peerId });
+      updateAudioNetwork(room);
       // A relay or a leaf left: the screen tree changes shape.
       broadcastScreenRoutes(room);
     }
@@ -462,6 +488,7 @@ export function sweepStalePeers(registry: RoomRegistry): number {
         broadcast(room, { t: 'screen-stopped', id: peerId });
       }
       broadcast(room, { t: 'peer-left', id: peerId });
+      updateAudioNetwork(room);
       broadcastScreenRoutes(room);
     }
   }
@@ -484,6 +511,9 @@ export function parseClientMessage(raw: unknown): ClientMessage | null {
   }
   const message = value as Record<string, unknown>;
   switch (message.t) {
+    case 'audio-capability':
+    case 'audio-ready':
+      return parseAudioEvent(message);
     case 'signal':
       return typeof message.to === 'string' && 'data' in message
         ? { t: 'signal', to: message.to, data: message.data }

@@ -94,7 +94,7 @@ export interface TransferChannel {
   send(data: string | ArrayBuffer): void;
   addEventListener(type: 'message', listener: (event: MessageEvent) => void): void;
   addEventListener(type: 'open' | 'close' | 'error' | 'bufferedamountlow', listener: () => void): void;
-  removeEventListener(type: 'bufferedamountlow', listener: () => void): void;
+  removeEventListener(type: 'open' | 'bufferedamountlow', listener: () => void): void;
 }
 
 export function transferKey(peerId: string, direction: TransferDirection, id: number): string {
@@ -182,6 +182,7 @@ interface PeerLink {
  * mesh; a fresh mesh (a new seat) gets a fresh instance.
  */
 export class FileTransfers {
+  private readonly opening = new Map<string, { peerId: string; cleanup: () => void }>();
   private readonly links = new Map<string, PeerLink>();
   private readonly transfers = new Map<string, FileTransfer>();
   private readonly listeners = new Set<() => void>();
@@ -237,6 +238,7 @@ export class FileTransfers {
 
   /** The peer is gone: whatever was in flight with them has failed. */
   detach(peerId: string): void {
+    for (const entry of this.opening.values()) if (entry.peerId === peerId) entry.cleanup();
     const link = this.links.get(peerId);
     if (!link) {
       return;
@@ -263,7 +265,7 @@ export class FileTransfers {
    * Offers a file to one peer. Returns the transfer key, or null if refused
    * locally. `batch` groups the offers of one file to many peers.
    */
-  offer(peerId: string, file: File, batch?: string): string | null {
+  offer(peerId: string, file: File, batch?: string, waitForOpen = false): string | null {
     const link = this.links.get(peerId);
     if (this.closed || !link || file.size > MAX_FILE_BYTES) {
       return null;
@@ -287,7 +289,26 @@ export class FileTransfers {
       blob: isImageTransfer({ mime: file.type }) ? file : null,
     });
     link.outgoing.set(id, file);
-    if (!this.sendControl(link, { k: 'offer', id, name, size: file.size, mime: file.type })) {
+    const publish = () => this.sendControl(link, { k: 'offer', id, name, size: file.size, mime: file.type });
+    if (waitForOpen && link.channel.readyState === 'connecting') {
+      // The offer is visible immediately. The temporary direct connection may
+      // still be negotiating; cancellation or timeout must not send it later.
+      const cleanup = () => {
+        clearTimeout(timeout); link.channel.removeEventListener('open', opened); this.opening.delete(key);
+      };
+      const opened = () => {
+        cleanup();
+        const transfer = this.transfers.get(key);
+        if (this.links.get(peerId) !== link || transfer?.status !== 'pending') return;
+        if (!publish()) { link.outgoing.delete(id); transfer.status = 'failed'; this.notify(); }
+      };
+      const timeout = setTimeout(() => {
+        cleanup();
+        const transfer = this.transfers.get(key);
+        if (transfer?.status === 'pending') { transfer.status = 'failed'; link.outgoing.delete(id); this.notify(); }
+      }, 10000);
+      this.opening.set(key, { peerId, cleanup }); link.channel.addEventListener('open', opened);
+    } else if (!publish()) {
       link.outgoing.delete(id);
       this.transfers.get(key)!.status = 'failed';
     }
@@ -353,6 +374,7 @@ export class FileTransfers {
 
   close(): void {
     this.closed = true;
+    for (const entry of this.opening.values()) entry.cleanup();
     for (const peerId of [...this.links.keys()]) {
       this.detach(peerId);
     }

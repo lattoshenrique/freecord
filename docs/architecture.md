@@ -5,7 +5,8 @@
 **Architectural invariant:** P2P-first, P2P-always, P2P-endgame. The control
 plane may coordinate participants and routes; media remains on the network
 formed by participants. Scaling work targets a bounded-degree overlay with
-separate logical source routes. See the [measured audio research](research/p2p-audio.md).
+separate logical source routes. See the [measured audio research](research/p2p-audio.md) and
+[runtime activation and its validation limits](research/audio-activation.md).
 
 ```
 browser A ◄──── WebRTC P2P (voice/video/screen, chat + files on data channels) ────► browser B
@@ -15,8 +16,10 @@ browser A ◄──── WebRTC P2P (voice/video/screen, chat + files on data c
                                screen and camera slots, chat fallback)
 ```
 
-**Fully self-owned.** Media flows straight between browsers in a P2P mesh (each
-peer keeps one `RTCPeerConnection` with every other). The server never touches
+**Fully self-owned.** Media flows between participants. Compatible audio-only
+rooms of up to ten participants converge to a degree-eight overlay, with separate
+per-source Opus routes. Native fallback and existing video legs can retain more
+connections; see the activation document for the exact envelope. The server never touches
 media: it owns room state, carries signaling envelopes, and — on request,
 once per paste, and only for a link the browser could not read itself —
 fetches the one page handed to the watch tool and reads its markup for what
@@ -28,12 +31,10 @@ is playable (`app/source-lookup.ts`), keeping nothing from it. Consequences:
   deliberate exception is an optional TURN credential (see "TURN" below): a
   relay for peers that cannot connect directly, carrying encrypted bytes it
   cannot read. Unset, everything still works on public STUN.
-- The honest limit of a mesh: with video, **each participant's upload** is the
-  bottleneck (N−1 copies of every stream). `maxParticipants: 20` is that limit
-  priced honestly: audio and screen are the product's quality promise and do
-  not scale with room size (audio is cheap — ~1 Mbps of Opus at 19 copies;
-  the screen rides the relay tree), while the camera is the variable that
-  adapts — server-granted camera slots shrink as the room grows (≤6 people:
+- `maxParticipants: 20` remains the current admission envelope, not a physical
+  P2P limit. Native voice fallback still sends N−1 copies; sparse audio caps
+  connections and source fanout but aggregate all-source delivery still costs
+  N(N−1) packet traversals. Screen uses relay trees, while camera adapts — server-granted camera slots shrink as the room grows (≤6 people:
   everyone; 7–9: four cameras; 10–16: three; 17–20: two), and each camera's
   bitrate is a fixed uplink budget divided by the peer count, recomputed on
   every join and leave. The last camera step is what keeps the split
@@ -131,12 +132,18 @@ What is in the bundle today, and the reasoning to apply to the next one:
 ## Client (web/src/lib)
 
 - `protocol.ts` — mirror of the server's message types.
+- `sparse-audio.ts` — capability detection, authenticated encoded routing,
+  per-source decoding/playout and native fallback; `audio-network.ts` in the
+  shared domain coordinates route generations in both edges.
+- `room-events.ts` — deduplicated, local event timestamps for the chat timeline.
+  `peer-connection` describes signaling connectivity, not a media delivery proof.
 - `signaling.ts` — WebSocket client with **automatic resume**: a dropped
   transport reconnects with backoff and presents the `resumeToken` from
   `welcome`, reclaiming the same peerId (see "How a room dies"). It keeps
   knocking for five minutes, and a seat that was swept meanwhile is not the
   end of the room: it comes back through the door as a newcomer.
-- `mesh.ts` — one `RTCPeerConnection` per peer, with **perfect negotiation**
+- `mesh.ts` — the native connection manager, with bounded neighbor selection
+  when sparse audio commits and **perfect negotiation**
   (the MDN pattern): renegotiations (turning the camera on, sharing a screen
   mid-call) work from both sides without glare. Whoever joins initiates the
   offer toward whoever was already there. A 2 s **watchdog** covers what

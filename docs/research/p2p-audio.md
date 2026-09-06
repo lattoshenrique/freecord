@@ -1,5 +1,8 @@
 # P2P audio research: bounded connectivity and forwarding costs
 
+Runtime integration now has its own [activation record](audio-activation.md).
+The measurements below describe the original isolated experiments.
+
 This release publishes executable experiments and their measured decisions.
 It does not enable sparse media in product rooms or raise the 20-seat limit.
 The media plane remains participant-owned; the coordinator never carries audio.

@@ -1435,6 +1435,23 @@ select:focus-visible,
  * The day a run of messages belongs to. A rule through the middle, the date
  * sitting in it — the room can outlive a night, and 14:02 has to say which.
  */
+.chat-event {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+  margin: 0.15rem 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.chat-event time {
+  flex-shrink: 0;
+  font-family: var(--mono);
+  font-size: 0.65rem;
+}
+
 .chat-day {
   display: flex;
   align-items: center;

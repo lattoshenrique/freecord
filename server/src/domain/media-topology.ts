@@ -1,6 +1,6 @@
 /**
- * Research-only connectivity and routing primitives. Room signaling does not
- * activate them yet: graph feasibility is not a browser/media capacity proof.
+ * Shared connectivity and routing primitives used by audio activation and
+ * research benchmarks. Graph feasibility is not a browser/media capacity proof.
  * No browser APIs, media bytes, device profiles, or persisted telemetry.
  */
 export interface ConnectivityTopology {

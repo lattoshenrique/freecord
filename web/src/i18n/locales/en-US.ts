@@ -357,6 +357,13 @@ export const enUS = {
   'tools.full': 'The room is already carrying as many tools as it can.',
 
   'chat.title': 'Room chat',
+  'chat.event.joined': '{name} joined the room.',
+  'chat.event.left': '{name} left the room.',
+  'chat.event.connectionLost': '{name} lost the room connection. Audio may continue.',
+  'chat.event.connectionRestored': '{name} reconnected to the room.',
+  'chat.event.screenStarted': '{name} started sharing a screen.',
+  'chat.event.screenStopped': '{name} stopped sharing a screen.',
+  'chat.event.voiceFallback': 'The audio connection was adjusted for {name}.',
   'chat.empty': [
     'No messages yet. Blip bop — say hi 👋',
     'Empty log. Someone has to write the first line 👋',

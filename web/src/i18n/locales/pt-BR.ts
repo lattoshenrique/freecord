@@ -339,6 +339,13 @@ export const ptBR: Catalog = {
   'tools.full': 'A sala já está com todas as ferramentas que cabem.',
 
   'chat.title': 'Chat da sala',
+  'chat.event.joined': '{name} entrou na sala.',
+  'chat.event.left': '{name} saiu da sala.',
+  'chat.event.connectionLost': '{name} perdeu a conexão com a sala. O áudio pode continuar.',
+  'chat.event.connectionRestored': '{name} se reconectou à sala.',
+  'chat.event.screenStarted': '{name} começou a compartilhar a tela.',
+  'chat.event.screenStopped': '{name} parou de compartilhar a tela.',
+  'chat.event.voiceFallback': 'A conexão de áudio de {name} foi ajustada.',
   'chat.empty': [
     'Nenhuma mensagem ainda. Blip bop — manda um oi 👋',
     'Log vazio. Alguém tem que escrever a primeira linha 👋',

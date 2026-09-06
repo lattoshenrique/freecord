@@ -5,6 +5,7 @@
  */
 
 import type { ToolProjection, ToolStates } from './tools.js';
+import type { AudioEvent, AudioNetworkState, AudioUpdate } from './audio-network.js';
 
 export interface PeerInfo {
   id: string;
@@ -68,6 +69,7 @@ export interface ScreenShare {
 }
 
 export interface Room {
+  audioNetwork?: AudioNetworkState;
   slug: string;
   displayName: string;
   peers: Map<string, Peer>;
@@ -261,7 +263,7 @@ export class RoomFullError extends Error {
 }
 
 /** Server → client messages. Mirrored in web/src/lib/protocol.ts. */
-export type ServerMessage =
+export type ServerMessage = AudioUpdate
   | {
       t: 'welcome';
       selfId: string;
@@ -288,6 +290,8 @@ export type ServerMessage =
     }
   | { t: 'peer-joined'; peer: PeerInfo }
   | { t: 'peer-left'; id: string }
+  /** Signaling presence only: the participant-owned media may still be flowing. */
+  | { t: 'peer-connection'; id: string; connected: boolean }
   | { t: 'signal'; from: string; data: unknown }
   | { t: 'chat'; from: PeerInfo; text: string; ts: number }
   | { t: 'screen-started'; id: string; streamId: string }
@@ -331,7 +335,7 @@ export type ServerMessage =
   | { t: 'error'; code: 'room_not_found' | 'room_full' | 'invalid_name' | 'resume_invalid' };
 
 /** Client → server messages. Mirrored in web/src/lib/protocol.ts. */
-export type ClientMessage =
+export type ClientMessage = AudioEvent
   | { t: 'signal'; to: string; data: unknown }
   | { t: 'chat'; text: string }
   /** Receiver-side verdict for one directed WebRTC path (parent → self). */

@@ -4,6 +4,7 @@
  */
 
 import type { ScreenQualityId } from './screen-quality';
+import type { AudioEvent, AudioUpdate } from '../../../server/src/domain/audio-network';
 
 export interface PeerInfo {
   id: string;
@@ -55,7 +56,7 @@ export interface IceServerConfig {
   credential?: string;
 }
 
-export type ServerMessage =
+export type ServerMessage = AudioUpdate
   | {
       t: 'welcome';
       selfId: string;
@@ -78,6 +79,8 @@ export type ServerMessage =
     }
   | { t: 'peer-joined'; peer: PeerInfo }
   | { t: 'peer-left'; id: string }
+  /** Signaling presence only; a socket outage does not prove an audio outage. */
+  | { t: 'peer-connection'; id: string; connected: boolean }
   | { t: 'signal'; from: string; data: unknown }
   | { t: 'chat'; from: PeerInfo; text: string; ts: number }
   | { t: 'screen-started'; id: string; streamId: string }
@@ -116,7 +119,7 @@ export type ServerMessage =
   | { t: 'pong'; ts: number }
   | { t: 'error'; code: 'room_not_found' | 'room_full' | 'invalid_name' | 'resume_invalid' };
 
-export type ClientMessage =
+export type ClientMessage = AudioEvent
   | { t: 'signal'; to: string; data: unknown }
   | { t: 'chat'; text: string }
   /** Receiver-side verdict for one directed WebRTC path (peerId → self). */

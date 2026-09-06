@@ -57,6 +57,7 @@ describe('allowHiFiOpus', () => {
     );
     // The video payload keeps its fmtp untouched.
     expect(out).toContain('a=fmtp:96 max-fr=30');
+    expect(out).toContain('usedtx=1');
   });
 
   it('replaces existing values instead of stacking duplicates', () => {

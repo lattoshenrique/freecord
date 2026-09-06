@@ -322,6 +322,13 @@ export const zhCN: Catalog = {
   'tools.full': '房间已经开着能开的所有工具了。',
 
   'chat.title': '房间聊天',
+  'chat.event.joined': '{name} 加入了房间。',
+  'chat.event.left': '{name} 离开了房间。',
+  'chat.event.connectionLost': '{name} 与房间的连接已断开，音频可能仍在继续。',
+  'chat.event.connectionRestored': '{name} 已重新连接到房间。',
+  'chat.event.screenStarted': '{name} 开始共享屏幕。',
+  'chat.event.screenStopped': '{name} 停止了屏幕共享。',
+  'chat.event.voiceFallback': '已调整 {name} 的音频连接。',
   'chat.empty': [
     '还没有消息。哔啵 —— 打个招呼吧 👋',
     '日志是空的。总得有人写第一行 👋',

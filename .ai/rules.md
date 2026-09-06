@@ -13,8 +13,10 @@ exist because we already paid for breaking them.
 
 Guest-first rooms: anyone creates a room, shares the link, friends join with no
 signup — voice, video, text chat, peer-to-peer files and screen sharing (up to
-three screens at once). Media, chat and files are native WebRTC in a P2P mesh;
-the server only owns room state, presence and signaling. No media vendor, no
+three screens at once). Media stays on participant WebRTC connections. Compatible
+voice rooms converge to a sparse Opus/DataChannel overlay; native RTP remains the
+fallback and serves the stereo music profile. The server owns room state,
+presence, signaling and route coordination, never media. No media vendor, no
 third-party SDK, no external credentials.
 
 Open source under the [MIT license](../LICENSE).
@@ -129,9 +131,14 @@ and its installers are built by GitHub Actions on a `desktop-v*` tag.
 
 ## Product rules that live in code
 
-- Room dies alone: 15 min empty. Max **20 participants** — a P2P mesh limit
-  priced honestly (each peer uploads N−1 copies): audio and screen keep full
-  quality at any size, while **camera slots** shrink as the room grows (≤6:
+- Room dies alone: 15 min empty. Max **20 participants** remains the admission
+  envelope; do not raise it using only graph/same-host transport results. In
+  compatible audio-only rooms of up to ten participants, sparse activation
+  converges to degree <= 8 with
+  every logical source retained. Bootstrap/native fallback and existing video
+  legs may have more connections. Stereo music retains native RTP. See
+  `docs/research/audio-activation.md` for gates and limitations. **Camera slots**
+  shrink as the room grows (≤6:
   everyone; 7–9: four; 10–16: three; 17–20: two, server-granted) and camera
   bitrate splits a fixed uplink budget across peers.
 - Screen share: **up to three at once** (`ROOM_LIMITS.maxScreens`), slots

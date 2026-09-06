@@ -101,6 +101,23 @@ describe('chunk framing', () => {
 });
 
 describe('FileTransfers', () => {
+  it('holds a visible offer until its temporary direct channel opens', async () => {
+    const [a, b] = pair(); a.readyState = 'connecting';
+    const sender = new FileTransfers(), receiver = new FileTransfers();
+    sender.attach('b', a); receiver.attach('a', b);
+    const key = sender.offer('b', makeFile(10), undefined, true)!;
+    expect(sender.get(key)!.status).toBe('pending'); expect(a.sent).toHaveLength(0);
+    a.readyState = 'open'; a.emit('open'); await settle(2);
+    expect(receiver.list()).toHaveLength(1); expect(a.sent).toHaveLength(1);
+    sender.close(); receiver.close();
+  });
+  it('does not publish a cancelled offer when the late channel opens', () => {
+    const [a] = pair(); a.readyState = 'connecting';
+    const sender = new FileTransfers(); sender.attach('b', a);
+    const key = sender.offer('b', makeFile(10), undefined, true)!;
+    sender.cancel(key); a.readyState = 'open'; a.emit('open');
+    expect(a.sent).toHaveLength(0); expect(sender.get(key)!.status).toBe('cancelled'); sender.close();
+  });
   it('offers, accepts and delivers a file in order across many chunks', async () => {
     const [a, b] = pair();
     const alice = new FileTransfers();

@@ -28,6 +28,9 @@ interface PeerState {
    * collision.
    */
   queue: Promise<void>;
+  pendingCandidates: RTCIceCandidateInit[];
+  initialOffer: boolean;
+  voiceSender: RTCRtpSender | null;
   streams: Map<string, MediaStream>;
   /**
    * Since when signalingState has been off 'stable' — the clock behind
@@ -47,6 +50,7 @@ interface PeerState {
   files: RTCDataChannel;
   /** The `chat` data channel (see chat-channel.ts); closed with the peer. */
   chat: RTCDataChannel;
+  audio: RTCDataChannel;
 }
 
 interface SignalPayload {
@@ -171,6 +175,13 @@ export class Mesh {
   private closed = false;
   /** The health pass (see heal); armed by the first peer, stopped by close. */
   private watchdog: ReturnType<typeof setInterval> | null = null;
+  private connectivity: Set<string> | null = null;
+  private mediaPeers = new Set<string>();
+  private voiceTrack: MediaStreamTrack | null = null;
+  private voiceRtp = true;
+  private logicalAudio = new Map<string, { stream: MediaStream; original: string | null }>();
+  onAudioChannel: ((peerId: string, channel: RTCDataChannel) => void) | null = null;
+  onVoiceTrack: ((track: MediaStreamTrack) => void) | null = null;
   /**
    * Hands each peer's `files` data channel to whoever moves files over it
    * (file-transfer.ts). Set right after construction, before the first
@@ -217,7 +228,51 @@ export class Mesh {
 
   /** A peer's remote streams, in arrival order. */
   getPeerStreams(peerId: string): MediaStream[] {
-    return [...(this.peers.get(peerId)?.streams.values() ?? [])];
+    const streams = [...(this.peers.get(peerId)?.streams.values() ?? [])];
+    const logical = this.logicalAudio.get(peerId);
+    if (!logical) return streams;
+    const native = streams.find(stream => stream.id === logical.original);
+    const video = native?.getVideoTracks() ?? [];
+    // The existing tile/mixer consumes one participant stream. Preserve that
+    // contract when its voice is routed separately from its direct camera.
+    for (const track of logical.stream.getVideoTracks()) if (!video.includes(track)) logical.stream.removeTrack(track);
+    for (const track of video) if (!logical.stream.getTracks().includes(track)) logical.stream.addTrack(track);
+    return [logical.stream, ...streams.filter(stream => stream.id !== logical.original)];
+  }
+
+  setLogicalAudio(streams: Map<string, { stream: MediaStream; original: string | null }>): void {
+    this.logicalAudio = streams;
+    this.notify();
+  }
+
+  setVoiceTrack(track: MediaStreamTrack): void { this.voiceTrack = track; }
+
+  /** Keep the native sender available during preparation; prune only on commit. */
+  setVoiceRtp(enabled: boolean): void {
+    this.voiceRtp = enabled;
+    const track = this.voiceTrack, local = track && this.localTracks.get(track);
+    if (!track || !local) return;
+    // Keep the negotiated m-line and remote stream identity warm. removeTrack
+    // would renegotiate every edge on every activation/fallback, creating
+    // unnecessary glare and candidate gathering during membership churn.
+    for (const [id, state] of this.peers) {
+      if (state.voiceSender) void state.voiceSender.replaceTrack(enabled ? track : null).catch(() => {});
+      else if (enabled) this.addSender(id, state.pc, track, local);
+    }
+  }
+
+  setConnectivity(neighbors: string[] | null): void {
+    this.connectivity = neighbors === null ? null : new Set(neighbors);
+    this.syncConnectivity();
+  }
+
+  /** Camera/screen keep their current direct/tree legs above the audio substrate. */
+  setMediaPeers(peers: string[]): void { this.mediaPeers = new Set(peers); this.syncConnectivity(); }
+
+  private syncConnectivity(): void {
+    if (!this.connectivity) return;
+    for (const id of new Set([...this.connectivity, ...this.mediaPeers])) this.ensurePeer(id, this.selfId < id);
+    for (const id of this.peers.keys()) if (!this.connectivity.has(id) && !this.mediaPeers.has(id)) this.removePeer(id);
   }
 
   peerIds(): string[] {
@@ -226,6 +281,23 @@ export class Mesh {
 
   getPeerConnection(peerId: string): RTCPeerConnection | null {
     return this.peers.get(peerId)?.pc ?? null;
+  }
+
+  getAudioChannel(peerId: string): RTCDataChannel | null { return this.peers.get(peerId)?.audio ?? null; }
+  getFileChannel(peerId: string): RTCDataChannel | null { return this.peers.get(peerId)?.files ?? null; }
+
+  async nativeVoicePackets(peerId: string, streamId: string): Promise<number | null> {
+    const state = this.peers.get(peerId);
+    const tracks = state?.streams.get(streamId)?.getAudioTracks().map(track => track.id);
+    if (!state || !tracks?.length) return null;
+    const stats = await state.pc.getStats();
+    let packets: number | null = null;
+    stats.forEach(stat => {
+      if (stat.type === 'inbound-rtp' && stat.kind === 'audio' && tracks.includes(stat.trackIdentifier)) {
+        packets = (packets ?? 0) + (stat.packetsReceived ?? 0);
+      }
+    });
+    return packets;
   }
 
   addLocalTrack(
@@ -262,6 +334,10 @@ export class Mesh {
     local: LocalTrack,
   ): void {
     const sender = pc.addTrack(track, local.stream);
+    if (track === this.voiceTrack) {
+      this.peers.get(peerId)!.voiceSender = sender;
+      if (!this.voiceRtp) void sender.replaceTrack(null).catch(() => {});
+    }
     if (local.codecs) {
       const transceiver = pc.getTransceivers().find((t) => t.sender === sender);
       try {
@@ -421,6 +497,7 @@ export class Mesh {
     }
     this.localTracks.delete(oldTrack);
     this.localTracks.set(newTrack, local);
+    if (this.voiceTrack === oldTrack) { this.voiceTrack = newTrack; this.onVoiceTrack?.(newTrack); }
     const overrides = this.encodingOverrides.get(oldTrack);
     if (overrides) {
       this.encodingOverrides.delete(oldTrack);
@@ -452,7 +529,7 @@ export class Mesh {
     }
   }
 
-  ensurePeer(peerId: string): void {
+  ensurePeer(peerId: string, initialOffer = true): void {
     if (this.closed || this.peers.has(peerId)) {
       return;
     }
@@ -467,12 +544,16 @@ export class Mesh {
       id: CHAT_CHANNEL_ID,
       ordered: true,
     });
+    const audio = pc.createDataChannel('audio-v1', { negotiated: true, id: 2, ordered: false, maxRetransmits: 0 });
     const state: PeerState = {
       pc,
       polite: this.selfId < peerId,
       makingOffer: false,
       ignoreOffer: false,
       queue: Promise.resolve(),
+      pendingCandidates: [],
+      initialOffer,
+      voiceSender: null,
       streams: new Map(),
       unstableSince: null,
       iceDownSince: null,
@@ -480,10 +561,12 @@ export class Mesh {
       lastIceRestartAt: null,
       files,
       chat,
+      audio,
     };
     this.peers.set(peerId, state);
     this.onDataChannel?.(peerId, files);
     this.onChatChannel?.(peerId, chat);
+    this.onAudioChannel?.(peerId, audio);
     this.watchdog ??= setInterval(() => this.healAll(false), WATCHDOG_INTERVAL_MS);
 
     for (const [track, local] of this.localTracks) {
@@ -498,18 +581,20 @@ export class Mesh {
       pc.addTransceiver('video', { direction: 'recvonly' });
     }
 
-    pc.onnegotiationneeded = async () => {
-      try {
-        state.makingOffer = true;
-        await pc.setLocalDescription();
-        if (pc.localDescription) {
-          this.sendSignal(peerId, { description: pc.localDescription.toJSON() });
-        }
-      } catch {
-        // connection closed mid-negotiation
-      } finally {
-        state.makingOffer = false;
-      }
+    pc.onnegotiationneeded = () => {
+      // Route activation can change senders while an offer is being applied.
+      // Serialize our offer with incoming SDP: two overlapping implicit
+      // setLocalDescription calls can otherwise answer the same offer twice.
+      state.queue = state.queue.then(async () => {
+        if (pc.signalingState !== 'stable' || this.closed || !state.initialOffer && !pc.localDescription) return;
+        try {
+          state.makingOffer = true;
+          await pc.setLocalDescription();
+          if (pc.localDescription) this.sendSignal(peerId, { description: pc.localDescription.toJSON() });
+        } catch {
+          // connection closed mid-negotiation
+        } finally { state.makingOffer = false; }
+      });
     };
 
     pc.onicecandidate = (event) => {
@@ -567,7 +652,8 @@ export class Mesh {
   }
 
   handleSignal(peerId: string, data: unknown): void {
-    this.ensurePeer(peerId);
+    if (this.connectivity && !this.connectivity.has(peerId) && !this.mediaPeers.has(peerId)) return;
+    this.ensurePeer(peerId, false);
     const state = this.peers.get(peerId);
     if (!state) {
       return;
@@ -589,6 +675,12 @@ export class Mesh {
           return;
         }
         await pc.setRemoteDescription(description);
+        // Trickle ICE may overtake an SDP envelope (including during glare).
+        // Keep a bounded queue until SRD; old ICE generations are rejected by
+        // the browser without discarding the candidate for the winning offer.
+        for (const candidate of state.pendingCandidates.splice(0)) {
+          try { await pc.addIceCandidate(candidate); } catch { /* superseded ICE generation */ }
+        }
         if (description.type === 'offer') {
           await pc.setLocalDescription();
           if (pc.localDescription) {
@@ -596,6 +688,10 @@ export class Mesh {
           }
         }
       } else if (payload.candidate) {
+        if (!pc.remoteDescription) {
+          if (state.pendingCandidates.length < 64) state.pendingCandidates.push(payload.candidate);
+          return;
+        }
         try {
           await pc.addIceCandidate(payload.candidate);
         } catch (error) {
@@ -603,6 +699,9 @@ export class Mesh {
             throw error;
           }
         }
+      }
+      if (pc.iceConnectionState === 'new' && pc.localDescription && pc.remoteDescription) {
+        state.iceDownSince ??= Date.now();
       }
     } catch {
       // signaling from a peer that already dropped: local state is cleaned on peer-left
@@ -649,13 +748,17 @@ export class Mesh {
       }
     }
     const ice = pc.iceConnectionState;
-    if (ice !== 'disconnected' && ice !== 'failed') {
+    // Chromium can finish SDP after glare yet stay in `new` with candidate
+    // gathering stalled. It never emits `failed`, so the old watchdog could
+    // not recover this state. Restart the same PC, with bounded backoff.
+    const stalledNew = ice === 'new' && pc.localDescription !== null && pc.remoteDescription !== null;
+    if (ice !== 'disconnected' && ice !== 'failed' && !stalledNew) {
       return;
     }
     const since = state.iceDownSince ?? now;
     state.iceDownSince = since;
     const wait =
-      ICE_DISCONNECTED_GRACE_MS * 2 ** Math.min(state.iceRestarts, ICE_RESTART_MAX_BACKOFF);
+      (stalledNew ? 2000 : ICE_DISCONNECTED_GRACE_MS) * 2 ** Math.min(state.iceRestarts, ICE_RESTART_MAX_BACKOFF);
     if (force || now - (state.lastIceRestartAt ?? since) >= wait) {
       this.restartPeerIce(state);
     }
@@ -722,6 +825,7 @@ export class Mesh {
     if (state) {
       state.files.close();
       state.chat.close();
+      state.audio.close();
       state.pc.close();
       this.peers.delete(peerId);
       for (const overrides of this.encodingOverrides.values()) {
@@ -740,9 +844,11 @@ export class Mesh {
     for (const state of this.peers.values()) {
       state.files.close();
       state.chat.close();
+      state.audio.close();
       state.pc.close();
     }
     this.peers.clear();
+    this.logicalAudio.clear();
     this.notify();
   }
 }

@@ -339,6 +339,13 @@ export const esES: Catalog = {
   'tools.full': 'La sala ya lleva todas las herramientas que caben.',
 
   'chat.title': 'Chat de la sala',
+  'chat.event.joined': '{name} entró en la sala.',
+  'chat.event.left': '{name} salió de la sala.',
+  'chat.event.connectionLost': '{name} perdió la conexión con la sala. El audio puede continuar.',
+  'chat.event.connectionRestored': '{name} se reconectó a la sala.',
+  'chat.event.screenStarted': '{name} empezó a compartir pantalla.',
+  'chat.event.screenStopped': '{name} dejó de compartir pantalla.',
+  'chat.event.voiceFallback': 'Se ajustó la conexión de audio de {name}.',
   'chat.empty': [
     'Aún no hay mensajes. Bip bop — saluda 👋',
     'Log vacío. Alguien tiene que escribir la primera línea 👋',

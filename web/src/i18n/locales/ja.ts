@@ -323,6 +323,13 @@ export const jaJP: Catalog = {
   'tools.full': 'この部屋で開けるツールはもう上限です。',
 
   'chat.title': 'ルームチャット',
+  'chat.event.joined': '{name} がルームに参加しました。',
+  'chat.event.left': '{name} がルームから退出しました。',
+  'chat.event.connectionLost': '{name} のルームへの接続が切れました。音声は続いている場合があります。',
+  'chat.event.connectionRestored': '{name} がルームに再接続しました。',
+  'chat.event.screenStarted': '{name} が画面共有を開始しました。',
+  'chat.event.screenStopped': '{name} が画面共有を停止しました。',
+  'chat.event.voiceFallback': '{name} の音声接続を調整しました。',
   'chat.empty': [
     'まだメッセージはありません。ピコッ — 挨拶してみましょう 👋',
     'ログが空です。誰かが最初の 1 行を書かないと 👋',

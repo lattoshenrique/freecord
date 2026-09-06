@@ -945,6 +945,9 @@ export default function RoomView({
     () => new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' }),
     [locale],
   );
+  const eventTimeFormat = useMemo(
+    () => new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit', second: '2-digit' }), [locale],
+  );
   // The date a saved conversation is filed under, written out in full: the
   // separators in the panel say "Today", and a file read next month cannot.
   const dayFormat = useMemo(
@@ -953,7 +956,7 @@ export default function RoomView({
   );
   const roomTitle = room.displayName || t('room.unnamed');
 
-  const chatCount = session.chat.length;
+  const chatCount = session.chat.filter(message => !message.event).length;
   const seenCountRef = useRef(0);
   useEffect(() => {
     // The delta is taken BEFORE the ref moves: a state updater runs at render
@@ -1002,7 +1005,7 @@ export default function RoomView({
       kind: 'text',
       key: `${message.ts}-${index}`,
       ts: message.ts,
-      message,
+      message: message.event ? { ...message, text: t(`chat.event.${message.event}`, { name: message.from.name }) } : message,
     }));
     // A file sent to the whole room is one bubble: every recipient's copy
     // shares the batch. Incoming files are one bubble each already.
@@ -1019,7 +1022,7 @@ export default function RoomView({
       entries.push({ kind: 'file', key: `file-${batch}`, ts: transfers[0]!.ts, transfers });
     }
     return entries.sort((a, b) => a.ts - b.ts);
-  }, [session.chat, session.transfers]);
+  }, [session.chat, session.transfers, t]);
 
   const terms = useMemo(() => queryTerms(search ?? ''), [search]);
 
@@ -1138,7 +1141,7 @@ export default function RoomView({
   useEffect(() => {
     const fresh = chat.slice(soundedCountRef.current);
     soundedCountRef.current = chat.length;
-    if (fresh.some((message) => message.from.id !== selfId)) {
+    if (fresh.some((message) => !message.event && message.from.id !== selfId)) {
       playMessageChime();
     }
   }, [chat, selfId]);
@@ -1794,11 +1797,12 @@ export default function RoomView({
    * on screen at 0% — a reading you can go and check is the point, and one
    * that only appears when things are bad is the interruption we removed.
    */
-  const selfLoss = middleOf(
-    [...session.peerLatency.values()]
-      .map((latency) => latency.lossRate)
-      .filter((rate): rate is number => rate !== null),
-  );
+  // Sparse readings describe complete source paths, not an invented loss
+  // measurement on the last relay edge. Native RTP keeps its interval stats.
+  const sparseSources = session.audioNetwork?.mode === 'sparse' ? session.audioNetwork.sources : null;
+  const selfLoss = middleOf(present(sparseSources
+    ? sparseSources.map(source => source.lossRate)
+    : [...session.peerLatency.values()].map(latency => latency.lossRate)));
   if (selfLoss !== null) {
     hudMetrics.push({ label: 'loss', value: formatLoss(selfLoss) });
   }
@@ -1813,11 +1817,11 @@ export default function RoomView({
   // The wobble in the voice arriving, and what the buffer is holding back to
   // hide it. RTT can sit still while these two go up, and that is the pair
   // that explains a call that sounds late without ever sounding slow.
-  const selfJitter = middleOf(present(links.map((latency) => latency.jitterMs)));
+  const selfJitter = middleOf(present(sparseSources ? sparseSources.map(source => source.jitterMs) : links.map(latency => latency.jitterMs)));
   if (selfJitter !== null) {
     hudMetrics.push({ label: 'jitter', value: `${selfJitter} ms`, detail: true });
   }
-  const selfBuffer = middleOf(present(links.map((latency) => latency.jitterBufferMs)));
+  const selfBuffer = middleOf(present(sparseSources ? sparseSources.map(source => source.playoutDelayMs) : links.map(latency => latency.jitterBufferMs)));
   if (selfBuffer !== null) {
     hudMetrics.push({ label: 'jbuf', value: `${selfBuffer} ms`, detail: true });
   }
@@ -1829,7 +1833,7 @@ export default function RoomView({
   if (worstPath) {
     hudMetrics.push({ label: 'path', value: worstPath, detail: true });
   }
-  const codecs = [...new Set(present(links.map((latency) => latency.codec)))];
+  const codecs = sparseSources?.length ? ['opus'] : [...new Set(present(links.map(latency => latency.codec)))];
   if (codecs.length > 0) {
     hudMetrics.push({ label: 'codec', value: codecs.join('/'), detail: true });
   }
@@ -1939,7 +1943,16 @@ export default function RoomView({
   };
 
   return (
-    <div className="room-layout" ref={layoutRef}>
+    <div className="room-layout" ref={layoutRef}
+      data-audio-network={session.audioNetwork?.mode ?? 'mesh'}
+      data-audio-generation={session.audioNetwork?.generation ?? 0}
+      data-audio-degree={session.audioNetwork?.degree ?? 0}
+      data-audio-pending={session.audioNetwork?.pending ?? 0}
+      data-audio-ready={session.audioNetwork?.ready ?? 0}
+      data-audio-decoded={session.audioNetwork?.decoded ?? 0}
+      data-audio-invalid={session.audioNetwork?.invalid ?? 0}
+      data-audio-duplicates={session.audioNetwork?.duplicates ?? 0}
+      data-audio-fallback={session.audioNetwork?.fallback ?? undefined}>
       {screenAudioStreams.map(({ id, stream }) => (
         <AudioSink
           key={id}
@@ -2214,6 +2227,15 @@ export default function RoomView({
                   );
                 }
                 const { message } = entry;
+                if (message.event) return (
+                  <Fragment key={entry.key}>
+                    {separator}
+                    <p className="chat-event" data-room-event={message.event}>
+                      <time dateTime={new Date(message.ts).toISOString()}>{eventTimeFormat.format(message.ts)}</time>
+                      <span>{message.text}</span>
+                    </p>
+                  </Fragment>
+                );
                 const mine = message.from.id === session.selfId;
                 // Somebody said our name: the bubble keeps a rail so it is
                 // findable while scrolling past, and says so in a word for

@@ -369,6 +369,8 @@ export function allowHiFiOpus(sdp: string): string {
       }
       let params = withFmtpParam(match[2]!, 'stereo', '1');
       params = withFmtpParam(params, 'maxaveragebitrate', String(OPUS_HIFI_MAX_BITRATE));
+      // DTX reduces silent RTP payload without gating speech on a speaker election.
+      params = withFmtpParam(params, 'usedtx', '1');
       return `a=fmtp:${match[1]} ${params}`;
     })
     .join('\r\n');

@@ -43,6 +43,7 @@ import { SOURCE_LIMITS } from '../../server/src/domain/sources.js';
 import { parseClientMessage } from '../../server/src/app/signaling.js';
 import { lookupSource } from '../../server/src/app/source-lookup.js';
 import { TurnCredentialProvider } from '../../server/src/app/turn.js';
+import { advanceAudioNetwork, type AudioEvent, type AudioNetworkState } from '../../server/src/domain/audio-network.js';
 import { fetchDesktopCatalog } from '../../server/src/app/desktop-catalog.js';
 
 export interface Env {
@@ -337,6 +338,7 @@ export class RoomDurableObject {
       tools: projectTools(await this.tools(), Date.now()),
     });
     this.broadcast({ t: 'peer-joined', peer: { id: peerId, name } }, peerId);
+    await this.updateAudioNetwork();
     // Screen share in progress: the newcomer needs a route, and the tree changes.
     await this.broadcastScreenRoutes();
 
@@ -372,6 +374,7 @@ export class RoomDurableObject {
     }
 
     const identity = seat;
+    const wasDetached = seat.disconnectedAt !== undefined;
     // Signals that arrived during the absence: delivered after `welcome`,
     // in order, then forgotten (the key is read before the seat is marked
     // taken again, and cleared whether or not anything was held).
@@ -429,6 +432,14 @@ export class RoomDurableObject {
       // newcomer catches up on a video already playing without asking.
       tools: projectTools(await this.tools(), Date.now()),
     });
+    if (wasDetached) this.broadcast({ t: 'peer-connection', id: identity.peerId, connected: true }, identity.peerId);
+    const audio = await this.ctx.storage.get<AudioNetworkState>('audioNetwork');
+    if (audio && Object.hasOwn(audio.capabilities, identity.peerId)) {
+      // Apply new neighbors before held SDP/ICE from those neighbors, matching
+      // the Node edge. Otherwise the old sparse filter discards their offers.
+      this.send(server, { t: 'audio-plan', plan: audio.plan });
+      if (audio.committed) this.send(server, { t: 'audio-commit', generation: audio.plan.generation });
+    }
     for (const held of pending) {
       this.send(server, held);
     }
@@ -464,6 +475,10 @@ export class RoomDurableObject {
     const { peerId, name } = attachment;
 
     switch (message.t) {
+      case 'audio-capability':
+      case 'audio-ready':
+        await this.updateAudioNetwork(attachment.peerId, message);
+        return;
       case 'ping': {
         // Proof of life + latency measure: the client times the echo.
         ws.serializeAttachment({ ...attachment, lastSeen: Date.now() } satisfies PeerAttachment);
@@ -714,6 +729,7 @@ export class RoomDurableObject {
       return;
     }
     const seats = await this.seats();
+    if (seats[attachment.resumeToken]?.disconnectedAt !== undefined) return;
     seats[attachment.resumeToken] = {
       peerId: attachment.peerId,
       name: attachment.name,
@@ -723,6 +739,7 @@ export class RoomDurableObject {
       disconnectedAt: Date.now(),
     };
     await this.putSeats(seats);
+    this.broadcast({ t: 'peer-connection', id: attachment.peerId, connected: false }, attachment.peerId);
     // The camera slot gets no grace, unlike the screen lock: a slot held
     // through an outage blocks someone else's camera for nothing, while
     // the resumer only pays a re-request (its welcome roster says the
@@ -792,6 +809,7 @@ export class RoomDurableObject {
         this.broadcast({ t: 'peer-left', id: seat.peerId });
       }
       await this.forgetPoorLinks(new Set(expired.map((seat) => seat.peerId)));
+      await this.updateAudioNetwork();
       await this.broadcastScreenRoutes();
     }
 
@@ -873,14 +891,24 @@ export class RoomDurableObject {
     }
     await this.forgetPoorLinks(gone);
     await this.broadcastScreenRoutes(leaving);
+    await this.updateAudioNetwork(undefined, undefined, leaving);
     await this.settleCompany(leaving);
     await this.rescheduleSweep(leaving);
   }
 
-  /**
-   * (Re)distributes the screen-forwarding tree roles — mirror of the Node
-   * server's logic (broadcastScreenRoutes in app/signaling.ts).
-   */
+  /** Persist route generations across hibernation; only shape and public keys. */
+  private async updateAudioNetwork(actor?: string, event?: AudioEvent, excluded: WebSocket[] = []): Promise<void> {
+    const ids = [...this.live(excluded).map(ws => this.attachment(ws).peerId),
+      ...Object.values(await this.detachedPeers()).map(seat => seat.peerId)];
+    const previous = await this.ctx.storage.get<AudioNetworkState>('audioNetwork');
+    const result = advanceAudioNetwork(previous, ids, actor, event);
+    if (result.state === previous) return;
+    await this.ctx.storage.put('audioNetwork', result.state);
+    for (const update of result.updates) for (const ws of this.live(excluded)) {
+      if (Object.hasOwn(result.state.capabilities, this.attachment(ws).peerId)) this.send(ws, update);
+    }
+  }
+
   private async broadcastScreenRoutes(excluded: WebSocket[] = []): Promise<void> {
     const screens = await this.screens();
     if (screens.length === 0) {

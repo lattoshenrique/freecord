@@ -22,6 +22,9 @@ import { FileTransfers, type FileTransfer } from './file-transfer';
 import { heroTransition } from './hero-transition';
 import { LinkHealthTracker } from './link-health';
 import { Mesh, type TrackEncoding } from './mesh';
+import { SparseAudio } from './sparse-audio';
+import { RoomEvents, type RoomEvent, type RoomEventKind } from './room-events';
+import type { AudioPlan } from '../../../server/src/domain/audio-network';
 import { playJoinChime, playLeaveChime } from './notification-sound';
 import { Signaling } from './signaling';
 import { cameraSlotsFor, type PeerInfo, type ServerMessage } from './protocol';
@@ -131,6 +134,7 @@ export interface ToolRoomState {
 }
 
 export interface ChatMessage {
+  event?: RoomEventKind;
   from: PeerInfo;
   text: string;
   ts: number;
@@ -197,6 +201,9 @@ export function useRoomSession(options: JoinOptions) {
   /** Peer-to-peer file transfers, every direction, over the mesh's data channels. */
   const [transfers, setTransfers] = useState<FileTransfer[]>([]);
   const [chat, setChat] = useState<ChatMessage[]>([]);
+  const roomEventsRef = useRef(new RoomEvents());
+  const eventScreensRef = useRef(new Set<string>());
+  const fallbackLoggedRef = useRef(false);
   /**
    * A sealed message arrived and this client has no key: the room is
    * provably encrypted, so sending plaintext into it would be a silent
@@ -279,6 +286,12 @@ export function useRoomSession(options: JoinOptions) {
 
   const signalingRef = useRef<Signaling | null>(null);
   const meshRef = useRef<Mesh | null>(null);
+  const sparseAudioRef = useRef<SparseAudio | null>(null);
+  const audioPlanRef = useRef<AudioPlan | null>(null);
+  const audioCommitRef = useRef(0);
+  const audioCapabilityKnownRef = useRef(false);
+  const filesMeshRef = useRef<Mesh | null>(null);
+  const directFilePeersRef = useRef(new Map<string, number>());
   /** One per mesh: a fresh seat gets fresh channels and a fresh ledger. */
   const transfersRef = useRef<FileTransfers | null>(null);
   /** Text over the mesh's `chat` channels; the server relays when a seat has none (chat-channel.ts). */
@@ -365,6 +378,12 @@ export function useRoomSession(options: JoinOptions) {
         ? { from, ts, text: body.text, quote: body.quote }
         : { from, ts, text: body.text };
     setChat((current) => [...current.slice(-MAX_CHAT_MESSAGES + 1), entry]);
+  }, []);
+  const appendRoomEvent = useCallback((event: RoomEvent | null) => {
+    if (!event) return;
+    setChat(current => [...current.slice(-MAX_CHAT_MESSAGES + 1), {
+      from: event.peer, text: '', ts: event.ts, event: event.kind,
+    }]);
   }, []);
   /**
    * Congestion ladders (adaptive-policy.ts): level 0 = the preset's full
@@ -682,7 +701,10 @@ export function useRoomSession(options: JoinOptions) {
       const signaling = new Signaling(options.slug, options.name, {
         onMessage: handleMessage,
         onClose: () => setStatus({ kind: 'ended', reason: 'closed' }),
-        onReconnecting: () => setReconnecting(true),
+        onReconnecting: () => {
+          setReconnecting(true);
+          if (selfIdRef.current) appendRoomEvent(roomEventsRef.current.connection(selfIdRef.current, false));
+        },
       });
       signalingRef.current = signaling;
       void screenCodecPreferences(presetById(qualityRef.current)).then((codecs) => {
@@ -712,7 +734,27 @@ export function useRoomSession(options: JoinOptions) {
 
     function handleMessage(message: ServerMessage): void {
       switch (message.t) {
+        case 'audio-plan': {
+          audioPlanRef.current = message.plan;
+          const audio = sparseAudioRef.current;
+          if (audio) void audio.prepare(message.plan);
+          else if (audioCapabilityKnownRef.current) {
+            for (const id of message.plan.peers) if (id !== selfIdRef.current) meshRef.current?.ensurePeer(id,
+              selfIdRef.current! < id || !message.plan.aware.includes(id));
+            signalingRef.current?.send({ t: 'audio-ready', generation: message.plan.generation });
+          }
+          return;
+        }
+        case 'audio-commit':
+          audioCommitRef.current = message.generation;
+          sparseAudioRef.current?.commit(message.generation);
+          return;
         case 'welcome': {
+          const ownPeer = { id: message.selfId, name: options.name };
+          appendRoomEvent(roomEventsRef.current.join(ownPeer));
+          appendRoomEvent(roomEventsRef.current.connection(message.selfId, true));
+          roomEventsRef.current.remember([ownPeer, ...message.peers]);
+          eventScreensRef.current = new Set(message.screens.map(screen => screen.id));
           setReconnecting(false);
           signalingRef.current?.setResumeToken(message.resumeToken);
           const resumed = meshRef.current !== null && selfIdRef.current === message.selfId;
@@ -794,7 +836,7 @@ export function useRoomSession(options: JoinOptions) {
             // negotiation absorbs the glare if they offered first.
             const mesh = meshRef.current!;
             for (const peer of message.peers) {
-              mesh.ensurePeer(peer.id);
+              if (sparseAudioRef.current?.metrics.mode !== 'sparse') mesh.ensurePeer(peer.id);
             }
             for (const id of mesh.peerIds()) {
               if (!message.peers.some((peer) => peer.id === id)) {
@@ -818,6 +860,12 @@ export function useRoomSession(options: JoinOptions) {
             // did the congestion ladders' verdicts about its links.
             teardownRelay();
             routesRef.current.clear();
+            sparseAudioRef.current?.close();
+            sparseAudioRef.current = null;
+            audioPlanRef.current = null;
+            audioCommitRef.current = 0;
+            audioCapabilityKnownRef.current = false;
+            fallbackLoggedRef.current = false;
             meshRef.current?.close();
             camLadderRef.current = initialAdaptiveState();
             screenLadderRef.current = initialAdaptiveState();
@@ -833,7 +881,17 @@ export function useRoomSession(options: JoinOptions) {
             transfersRef.current?.close();
             const fileTransfers = new FileTransfers();
             fileTransfers.subscribe(() => setTransfers(fileTransfers.list()));
-            mesh.onDataChannel = (peerId, channel) => fileTransfers.attach(peerId, channel);
+            filesMeshRef.current?.close();
+            directFilePeersRef.current.clear();
+            const filesMesh = new Mesh(message.selfId,
+              (to, data) => signalingRef.current?.send({ t: 'signal', to, data: { ...data, bulk: true } }), message.ice);
+            filesMesh.onDataChannel = (peerId, channel) => {
+              directFilePeersRef.current.set(peerId, Date.now()); fileTransfers.attach(peerId, channel);
+            };
+            filesMeshRef.current = filesMesh;
+            mesh.onDataChannel = (peerId, channel) => {
+              if (!directFilePeersRef.current.has(peerId)) fileTransfers.attach(peerId, channel);
+            };
             transfersRef.current = fileTransfers;
             setTransfers([]);
             chatChannelsRef.current?.close();
@@ -849,6 +907,8 @@ export function useRoomSession(options: JoinOptions) {
             meshRef.current = mesh;
             const media = localMediaRef.current;
             if (media) {
+              const voice = media.getAudioTracks()[0];
+              if (voice) mesh.setVoiceTrack(voice);
               for (const track of media.getTracks()) {
                 // Video is the camera: the adaptive split composed with the
                 // user's ceiling. Audio gets the profile's Opus cap; its
@@ -862,10 +922,30 @@ export function useRoomSession(options: JoinOptions) {
                 );
               }
             }
-            // The newcomer initiates the connection with everyone already in.
-            for (const peer of message.peers) {
-              mesh.ensurePeer(peer.id);
-            }
+            // Updated clients choose one initial offerer per pair in the room
+            // plan. Older edges never send one, so retain their bootstrap after
+            // a bounded capability wait without breaking legacy rooms.
+            setTimeout(() => {
+              if (meshRef.current === mesh && audioPlanRef.current === null) {
+                for (const peer of message.peers) mesh.ensurePeer(peer.id);
+              }
+            }, 1000);
+            void SparseAudio.create(message.selfId, mesh, media, event => signalingRef.current?.send(event),
+              mediaSettingsRef.current.mic.profile === 'voice').then(audio => {
+              if (cancelled || meshRef.current !== mesh) { audio?.close(); return; }
+              sparseAudioRef.current = audio;
+              audioCapabilityKnownRef.current = true;
+              const plan = audioPlanRef.current;
+              if (plan && audio) void audio.prepare(plan).then(() => {
+                if (audioCommitRef.current === plan.generation) audio.commit(plan.generation);
+              });
+              else if (plan) {
+                for (const id of plan.peers) if (id !== message.selfId) mesh.ensurePeer(id,
+                  message.selfId < id || !plan.aware.includes(id));
+                signalingRef.current?.send({ t: 'audio-ready', generation: plan.generation });
+              }
+              bumpVersion();
+            });
             const sharing = localScreenRef.current;
             if (sharing) {
               // A capture that outlived its seat: the lock belonged to
@@ -914,6 +994,7 @@ export function useRoomSession(options: JoinOptions) {
           return;
         }
         case 'peer-joined': {
+          appendRoomEvent(roomEventsRef.current.join(message.peer));
           // Presence cue. Not on a diff of the roster — a resume replays
           // the whole roster in `welcome` and must stay silent — but on
           // this event actually changing it: a seat announced twice is one
@@ -927,6 +1008,9 @@ export function useRoomSession(options: JoinOptions) {
           return;
         }
         case 'peer-left': {
+          appendRoomEvent(roomEventsRef.current.leave(message.id));
+          filesMeshRef.current?.removePeer(message.id);
+          directFilePeersRef.current.delete(message.id);
           meshRef.current?.removePeer(message.id);
           transfersRef.current?.detach(message.id);
           chatChannelsRef.current?.detach(message.id);
@@ -965,7 +1049,14 @@ export function useRoomSession(options: JoinOptions) {
           });
           return;
         }
+        case 'peer-connection':
+          appendRoomEvent(roomEventsRef.current.connection(message.id, message.connected));
+          return;
         case 'signal': {
+          if (message.data && typeof message.data === 'object' && (message.data as { bulk?: unknown }).bulk === true) {
+            filesMeshRef.current?.handleSignal(message.from, message.data);
+            return;
+          }
           // Relay-health notes ride the same opaque envelope as SDP/ICE
           // (the server never inspects `data`): peel ours off, let the
           // mesh no-op anything a newer client may add.
@@ -1007,6 +1098,8 @@ export function useRoomSession(options: JoinOptions) {
           deliverChat(message.from, message.text);
           return;
         case 'screen-started': {
+          if (!eventScreensRef.current.has(message.id)) appendRoomEvent(roomEventsRef.current.event('screenStarted', message.id));
+          eventScreensRef.current.add(message.id);
           setScreens((current) => {
             const share = { id: message.id, streamId: message.streamId };
             return current.some((s) => s.id === share.id)
@@ -1059,6 +1152,7 @@ export function useRoomSession(options: JoinOptions) {
           syncScreenTree();
           return;
         case 'screen-stopped':
+          if (eventScreensRef.current.delete(message.id)) appendRoomEvent(roomEventsRef.current.event('screenStopped', message.id));
           setScreens((current) => current.filter((share) => share.id !== message.id));
           setScreenSources((current) => {
             if (!current.has(message.id)) {
@@ -1205,6 +1299,11 @@ export function useRoomSession(options: JoinOptions) {
       }
       signalingRef.current?.close();
       signalingRef.current = null;
+      sparseAudioRef.current?.close();
+      sparseAudioRef.current = null;
+      filesMeshRef.current?.close();
+      filesMeshRef.current = null;
+      directFilePeersRef.current.clear();
       meshRef.current?.close();
       meshRef.current = null;
       transfersRef.current?.close();
@@ -1259,6 +1358,29 @@ export function useRoomSession(options: JoinOptions) {
     return () => window.removeEventListener('pagehide', onPageHide);
   }, []);
 
+  // Bulk connections exist only while an offer/transfer needs them. They never
+  // share the voice SCTP association or its retransmission/congestion queues.
+  useEffect(() => {
+    const timer = setInterval(() => {
+      for (const [id, created] of directFilePeersRef.current) {
+        const busy = transfersRef.current?.list().some(transfer => transfer.peerId === id &&
+          (transfer.status === 'active' || transfer.status === 'pending'));
+        if (!busy && Date.now() - created > 5000) {
+          filesMeshRef.current?.removePeer(id); directFilePeersRef.current.delete(id);
+          const native = meshRef.current?.getFileChannel(id); if (native) transfersRef.current?.attach(id, native);
+        }
+      }
+    }, 2000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Video retains its current routes. Audio-only rooms keep just overlay edges.
+  useEffect(() => {
+    const ids = peers.map(peer => peer.id);
+    meshRef.current?.setMediaPeers(screens.length || (selfId !== null && cameras.has(selfId))
+      ? ids : ids.filter(id => cameras.has(id)));
+  }, [peers, cameras, screens, selfId]);
+
   // Periodic getStats() sampling: per-peer latency and the screen's real
   // quality. A single sampler, so bitrate has a delta between readings.
   useEffect(() => {
@@ -1277,6 +1399,10 @@ export function useRoomSession(options: JoinOptions) {
       if (!mesh || stopped) {
         return;
       }
+      if (sparseAudioRef.current?.metrics.fallback && !fallbackLoggedRef.current && selfIdRef.current) {
+        fallbackLoggedRef.current = true;
+        appendRoomEvent(roomEventsRef.current.event('voiceFallback', selfIdRef.current));
+      }
       const latencies = await sampler.peerLatencies(mesh);
       if (stopped) {
         return;
@@ -1290,6 +1416,8 @@ export function useRoomSession(options: JoinOptions) {
       // claims to be connected (the NAT-rebind zombie the screen's watch
       // already hunts): one ICE restart per episode, per peer. ICE that
       // reports itself down is the mesh's own watchdog's job, not this one.
+      // Sparse voice has its own authenticated-packet/playout watchdog. Its
+      // intentionally stopped RTP counter must never restart healthy ICE.
       const audioStalls = audioStallRef.current;
       for (const id of [...audioStalls.keys()]) {
         if (!latencies.has(id)) {
@@ -1303,7 +1431,7 @@ export function useRoomSession(options: JoinOptions) {
           audioStalls.set(id, stall);
         }
         const action =
-          latency.state === 'connected'
+          latency.state === 'connected' && sparseAudioRef.current?.metrics.mode !== 'sparse'
             ? advanceAudioStall(stall, latency.audioPackets)
             : advanceAudioStall(stall, null);
         if (action === 'restart-ice') {
@@ -1525,6 +1653,7 @@ export function useRoomSession(options: JoinOptions) {
   const updateMediaSettings = useCallback(
     (next: MediaSettings) => {
       mediaSettingsRef.current = next;
+      if (next.mic.profile === 'music') sparseAudioRef.current?.useMusicProfile();
       setMediaSettings(next);
       saveMediaSettings(next);
       const mic = localMediaRef.current?.getAudioTracks()[0];
@@ -1684,8 +1813,11 @@ export function useRoomSession(options: JoinOptions) {
     let offered = 0;
     // One batch per file: the sender's chat shows one bubble for the room.
     const batch = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    for (const peerId of mesh.peerIds()) {
-      if (ledger.offer(peerId, file, batch) !== null) {
+    for (const { id: peerId } of peersRef.current) {
+      const direct = audioPlanRef.current?.aware?.includes(peerId) === true;
+      if (direct) filesMeshRef.current?.ensurePeer(peerId);
+      else mesh.ensurePeer(peerId);
+      if (ledger.offer(peerId, file, batch, direct) !== null) {
         offered++;
       }
     }
@@ -1937,6 +2069,7 @@ export function useRoomSession(options: JoinOptions) {
     tools,
     toolDenied,
     mesh: meshRef.current,
+    audioNetwork: sparseAudioRef.current?.snapshot() ?? null,
     setScreenQuality,
     updateMediaSettings,
     updateParticipation,

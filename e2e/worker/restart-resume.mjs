@@ -130,6 +130,14 @@ class Client {
       });
     }
   }
+  async expectWhere(predicate, label) {
+    const deadline = Date.now() + 8000;
+    while (Date.now() < deadline) {
+      const message = this.log.find(predicate); if (message) return message;
+      await delay(20);
+    }
+    throw new Error(`${this.name}: ${label} did not arrive`);
+  }
   close() {
     try {
       this.ws.close();
@@ -144,12 +152,21 @@ const run = async () => {
   let slug;
   let ana;
   let bia;
+  let audioPlan;
   try {
     slug = await createRoom('restart-resume');
     ana = await Client.join(slug, 'ana');
     bia = await Client.join(slug, 'bia');
     check(ana.first.t === 'welcome' && bia.first.t === 'welcome', 'both got in');
-    console.log(`  room ${slug}: ana=${ana.first.selfId} bia=${bia.first.selfId}`);
+    for (const client of [ana, bia]) client.ws.send(JSON.stringify({ t: 'audio-capability',
+      capability: { publicKey: 'B'.repeat(87), streamId: client.first.selfId } }));
+    audioPlan = (await ana.expectWhere(m => m.t === 'audio-plan' && m.plan.mode === 'sparse', 'sparse preparation')).plan;
+    ana.ws.send(JSON.stringify({ t: 'audio-ready', generation: audioPlan.generation }));
+    await delay(100);
+    check(!ana.log.some(m => m.t === 'audio-commit' && m.generation === audioPlan.generation), 'Worker waits for all ready seats');
+    bia.ws.send(JSON.stringify({ t: 'audio-ready', generation: audioPlan.generation }));
+    await ana.expectWhere(m => m.t === 'audio-commit' && m.generation === audioPlan.generation, 'sparse commit');
+    check(true, 'Worker activates the authenticated route generation');
   } finally {
     await stopWorker(worker);
   }
@@ -174,6 +191,26 @@ const run = async () => {
       (bia2.first.peers ?? []).some((peer) => peer.id === ana.first.selfId),
       'and each of them still sees the other',
     );
+
+    const restoredPlan = await ana2.expect('audio-plan');
+    check(JSON.stringify(restoredPlan.plan) === JSON.stringify(audioPlan), 'audio routes and ephemeral public keys survive Worker restart');
+    check((await ana2.expect('audio-commit')).generation === audioPlan.generation, 'audio commit generation survives Worker restart');
+    bia2.close();
+    await ana2.expectWhere(m => m.t === 'peer-connection' && m.id === bia.first.selfId && !m.connected, 'connection interruption');
+    const bia3 = await Client.resume(slug, bia.first.resumeToken, 'bia');
+    await ana2.expectWhere(m => m.t === 'peer-connection' && m.id === bia.first.selfId && m.connected, 'connection restoration');
+    check(ana2.log.filter(m => m.t === 'peer-connection' && m.id === bia.first.selfId && !m.connected).length === 1,
+      'Worker emits one interruption and restores the same seat');
+    ana2.close();
+    await bia3.expectWhere(m => m.t === 'peer-connection' && m.id === ana.first.selfId && !m.connected, 'second interruption');
+    bia3.ws.send(JSON.stringify({ t: 'signal', to: ana.first.selfId, data: { candidate: 'held-after-restart' } }));
+    const mark = Date.now(); bia3.ws.send(JSON.stringify({ t: 'ping', ts: mark }));
+    await bia3.expectWhere(m => m.t === 'pong' && m.ts === mark, 'held signal storage barrier');
+    const ana3 = await Client.resume(slug, ana.first.resumeToken, 'ana');
+    await ana3.expect('signal');
+    check(ana3.log.findIndex(m => m.t === 'audio-plan') < ana3.log.findIndex(m => m.t === 'signal'),
+      'restored route generation precedes held SDP/ICE, matching the Node edge');
+    ana3.close(); bia3.close();
 
     const stranger = await Client.resume(slug, 'not-a-token', 'ghost');
     check(
