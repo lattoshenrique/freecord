@@ -1,5 +1,14 @@
 # Sparse audio activation
 
+**Current production status: suspended.** After the first activation, a user
+reported an intermittent perceived lower voice pitch in Brave. A local synthetic
+Brave probe reproduced a frequency change under reordered delivery, although
+not the exact reported real-call symptom. Production was redeployed with
+`VITE_SPARSE_AUDIO=0`; native P2P RTP and timestamped chat events were verified
+with two production browsers. The root `npm run deploy` now enforces that flag
+through `scripts/deploy.mjs` so a later ordinary publication cannot silently
+reopen the quality gate. Local research builds can still exercise the pilot.
+
 The first runtime integration builds on [the measured experiments](p2p-audio.md).
 The selected substrate is a degree-eight participant overlay carrying signed,
 encoded Opus packets on unordered DataChannels with `maxRetransmits: 0`.
@@ -9,6 +18,9 @@ keeps the room admission limit at **20**. It does not certify 50-person
 calls or treat a same-host browser experiment as a WAN capacity result.
 
 ## Effective behavior
+
+The behavior below describes local/research builds. The public deployment
+wrapper currently closes this activation gate with `VITE_SPARSE_AUDIO=0`.
 
 The explicit build flag `VITE_SPARSE_AUDIO_RESEARCH_20=1` permits testing up to
 20 sparse participants; production does not set it. Crossing the validated
@@ -112,6 +124,53 @@ recovery and playout underruns. Add WAN latency/jitter/loss, limited uplinks,
 TURN edges, background tabs and multiple browser engines. Certify fallback and
 relay loss before raising admission. The earlier 50-context research harness
 remains supporting transport evidence, not this admission gate.
+
+## Brave playout quality gate — 2026-09-05
+
+The runtime capture, signing, real loopback DataChannels, decode and logical
+source playout were exercised in a fresh Brave 151 profile. One source emitted
+a continuous 220 Hz synthetic tone; the listener's stream was sampled at 48 kHz.
+Each run recorded eight seconds. A Hann-windowed frequency scan measured the
+dominant tone in 100 ms windows, excluding the first window. This omits physical
+microphones, browser APM, speakers, WAN paths, human speech and perceptual scoring.
+
+| Candidate / condition | Dominant Hz min–max (median) | Observation |
+| --- | --- | --- |
+| Current runtime / clean | 219–221 (220) | Stable tone |
+| Current runtime / delivery delays 0, 60, 10, 30 ms | 220–235 (232) | Failed frequency preservation |
+| Current runtime / 80 ms main-thread stall every 500 ms | 220–220 (220) | Stable in this trace |
+| Monotonic decode, 20 ms reorder / delayed delivery | 214–239 (225) | Failed; 99 packets discarded before decode |
+| Monotonic decode, 60 ms reorder / clean | 220–220 (220) | Stable tone |
+| Monotonic decode, 60 ms reorder / delayed delivery | 220–220 (220) | Stable in this trace, no decoder-order drops |
+| Monotonic decode, 60 ms reorder / main-thread stalls | 219–220 (220) | Stable in this trace |
+
+No scheduled buffer overlap was observed; buffer rates remained 48 kHz and
+playback speed remained 1. The larger reorder window is the winner **for this
+one trace**, not a speech-quality certification. The variants alter the module
+served by the local experiment; neither candidate changes the product runtime.
+The original real-call report concerned a perceived lower voice pitch; the
+baseline delay experiment instead produced a higher dominant tone. This is
+supporting evidence of a quality defect, not an exact reproduction of that call.
+
+The [raw summary](brave-playout-quality.json) retains every exploratory row.
+Reproduce the baseline failure and candidate (a 1% frequency tolerance, no silent
+windows or overlapping buffers, and no native fallback are required):
+
+```sh
+BROWSER=brave QUALITY_VARIANT=baseline QUALITY_CASES=jitter node e2e/research/run-playout-quality.mjs
+BROWSER=brave QUALITY_VARIANT=ordered60 node e2e/research/run-playout-quality.mjs
+```
+
+`BROWSER=chromium` is the portable default. For Brave outside the default macOS
+installation, set `BRAVE_EXECUTABLE`. `OUTPUT` selects the local JSON destination.
+Failed candidates exit nonzero. Before activation resumes, test actual speech,
+independent devices, greater/bursty jitter and packet loss, DTX transitions and
+first-phoneme preservation. A tone that remains in tune is insufficient to
+declare a voice call good.
+
+The published runner was then verified against Brave: the repeated baseline
+jitter case failed again (220–234 Hz, median 231); `ordered60` passed clean,
+jitter and stall cases (3/3). Both verification cohorts are retained in the JSON.
 
 ## Recorded failures and decisions
 

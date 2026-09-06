@@ -1,0 +1,919 @@
+{
+  "sourceCommit": "92c5e9d1d4a8dde4d1384c3f9f751a3c54f6ea7d",
+  "note": "Initial exploratory cohorts, one run per row; synthetic signal, not acoustic speech. Recorded before adding the executable runner pass/fail gate. No raw PCM or participant data.",
+  "records": [
+    {
+      "browser": "151.0.7922.173",
+      "at": "2026-09-06T00:41:55.326Z",
+      "sourceHz": 220,
+      "conditions": "Actual SparseAudio capture/codec/playout, two loopback PeerConnections, one host, synthetic tone, no microphone/APM or hardware speaker. Jitter delays 0/60/10/30ms; stall blocks main thread 80ms every 500ms.",
+      "runs": [
+        {
+          "scenario": "clean",
+          "windows": 79,
+          "silentWindows": 0,
+          "dominantHz": {
+            "min": 219,
+            "max": 221,
+            "median": 220
+          },
+          "overlaps": 0,
+          "largestOverlapMs": 0,
+          "rates": [
+            1
+          ],
+          "sampleRates": [
+            48000
+          ],
+          "metrics": [
+            {
+              "mode": "sparse",
+              "generation": 1,
+              "encoded": 415,
+              "received": 29,
+              "forwarded": 0,
+              "decoded": 29,
+              "dropped": 0,
+              "invalid": 0,
+              "duplicates": 0,
+              "selfReturned": 0,
+              "bytesSent": 89602,
+              "bufferedAmount": 434,
+              "fallback": null,
+              "degree": 1,
+              "pending": 1,
+              "ready": 1,
+              "sources": [
+                {
+                  "id": "b",
+                  "decoded": 29,
+                  "lossRate": 0,
+                  "jitterMs": 142,
+                  "playoutDelayMs": 160,
+                  "underruns": 19,
+                  "jitterLeadMs": 160
+                }
+              ]
+            },
+            {
+              "mode": "sparse",
+              "generation": 1,
+              "encoded": 29,
+              "received": 415,
+              "forwarded": 0,
+              "decoded": 413,
+              "dropped": 0,
+              "invalid": 0,
+              "duplicates": 0,
+              "selfReturned": 0,
+              "bytesSent": 2871,
+              "bufferedAmount": 99,
+              "fallback": null,
+              "degree": 1,
+              "pending": 1,
+              "ready": 1,
+              "sources": [
+                {
+                  "id": "a",
+                  "decoded": 413,
+                  "lossRate": 0,
+                  "jitterMs": 5,
+                  "playoutDelayMs": 115,
+                  "underruns": 1,
+                  "jitterLeadMs": 72.80864874582934
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "scenario": "jitter",
+          "windows": 78,
+          "silentWindows": 0,
+          "dominantHz": {
+            "min": 220,
+            "max": 235,
+            "median": 232
+          },
+          "overlaps": 0,
+          "largestOverlapMs": 0,
+          "rates": [
+            1
+          ],
+          "sampleRates": [
+            48000
+          ],
+          "metrics": [
+            {
+              "mode": "sparse",
+              "generation": 1,
+              "encoded": 413,
+              "received": 29,
+              "forwarded": 0,
+              "decoded": 29,
+              "dropped": 0,
+              "invalid": 0,
+              "duplicates": 0,
+              "selfReturned": 0,
+              "bytesSent": 89227,
+              "bufferedAmount": 434,
+              "fallback": null,
+              "degree": 1,
+              "pending": 1,
+              "ready": 1,
+              "sources": [
+                {
+                  "id": "b",
+                  "decoded": 29,
+                  "lossRate": 0,
+                  "jitterMs": 142,
+                  "playoutDelayMs": 160,
+                  "underruns": 19,
+                  "jitterLeadMs": 160
+                }
+              ]
+            },
+            {
+              "mode": "sparse",
+              "generation": 1,
+              "encoded": 29,
+              "received": 413,
+              "forwarded": 0,
+              "decoded": 410,
+              "dropped": 0,
+              "invalid": 0,
+              "duplicates": 0,
+              "selfReturned": 0,
+              "bytesSent": 2871,
+              "bufferedAmount": 99,
+              "fallback": null,
+              "degree": 1,
+              "pending": 1,
+              "ready": 1,
+              "sources": [
+                {
+                  "id": "a",
+                  "decoded": 410,
+                  "lossRate": 0,
+                  "jitterMs": 12,
+                  "playoutDelayMs": 150,
+                  "underruns": 2,
+                  "jitterLeadMs": 91.20526302773237
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "scenario": "stall",
+          "windows": 79,
+          "silentWindows": 0,
+          "dominantHz": {
+            "min": 220,
+            "max": 220,
+            "median": 220
+          },
+          "overlaps": 0,
+          "largestOverlapMs": 0,
+          "rates": [
+            1
+          ],
+          "sampleRates": [
+            48000
+          ],
+          "metrics": [
+            {
+              "mode": "sparse",
+              "generation": 1,
+              "encoded": 410,
+              "received": 29,
+              "forwarded": 0,
+              "decoded": 28,
+              "dropped": 0,
+              "invalid": 0,
+              "duplicates": 0,
+              "selfReturned": 0,
+              "bytesSent": 88517,
+              "bufferedAmount": 895,
+              "fallback": null,
+              "degree": 1,
+              "pending": 1,
+              "ready": 1,
+              "sources": [
+                {
+                  "id": "b",
+                  "decoded": 28,
+                  "lossRate": 0,
+                  "jitterMs": 142,
+                  "playoutDelayMs": 160,
+                  "underruns": 18,
+                  "jitterLeadMs": 160
+                }
+              ]
+            },
+            {
+              "mode": "sparse",
+              "generation": 1,
+              "encoded": 29,
+              "received": 410,
+              "forwarded": 0,
+              "decoded": 408,
+              "dropped": 0,
+              "invalid": 0,
+              "duplicates": 0,
+              "selfReturned": 0,
+              "bytesSent": 2871,
+              "bufferedAmount": 99,
+              "fallback": null,
+              "degree": 1,
+              "pending": 1,
+              "ready": 1,
+              "sources": [
+                {
+                  "id": "a",
+                  "decoded": 408,
+                  "lossRate": 0,
+                  "jitterMs": 6,
+                  "playoutDelayMs": 143,
+                  "underruns": 1,
+                  "jitterLeadMs": 90.7485111172592
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "variant": "baseline"
+    },
+    {
+      "variant": "ordered20",
+      "browser": "151.0.7922.173",
+      "at": "2026-09-06T00:45:25.151Z",
+      "sourceHz": 220,
+      "conditions": "Actual SparseAudio capture/codec/playout, two loopback PeerConnections, one host, synthetic tone, no microphone/APM or hardware speaker. Jitter delays 0/60/10/30ms; stall blocks main thread 80ms every 500ms.",
+      "runs": [
+        {
+          "scenario": "jitter",
+          "windows": 79,
+          "silentWindows": 0,
+          "dominantHz": {
+            "min": 214,
+            "max": 239,
+            "median": 225
+          },
+          "overlaps": 0,
+          "largestOverlapMs": 0,
+          "rates": [
+            1
+          ],
+          "sampleRates": [
+            48000
+          ],
+          "metrics": [
+            {
+              "mode": "sparse",
+              "generation": 1,
+              "encoded": 407,
+              "received": 28,
+              "forwarded": 0,
+              "decoded": 28,
+              "dropped": 0,
+              "invalid": 0,
+              "duplicates": 0,
+              "selfReturned": 0,
+              "bytesSent": 87876,
+              "bufferedAmount": 337,
+              "fallback": null,
+              "degree": 1,
+              "pending": 1,
+              "ready": 1,
+              "sources": [
+                {
+                  "id": "b",
+                  "decoded": 28,
+                  "lossRate": 0,
+                  "jitterMs": 138,
+                  "playoutDelayMs": 160,
+                  "underruns": 18,
+                  "jitterLeadMs": 160
+                }
+              ]
+            },
+            {
+              "mode": "sparse",
+              "generation": 1,
+              "encoded": 28,
+              "received": 405,
+              "forwarded": 0,
+              "decoded": 306,
+              "dropped": 99,
+              "invalid": 0,
+              "duplicates": 0,
+              "selfReturned": 0,
+              "bytesSent": 2772,
+              "bufferedAmount": 99,
+              "fallback": null,
+              "degree": 1,
+              "pending": 1,
+              "ready": 1,
+              "sources": [
+                {
+                  "id": "a",
+                  "decoded": 306,
+                  "lossRate": 0,
+                  "jitterMs": 9,
+                  "playoutDelayMs": 72,
+                  "underruns": 26,
+                  "jitterLeadMs": 77.30510825443073
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "variant": "ordered60",
+      "browser": "151.0.7922.173",
+      "at": "2026-09-06T00:46:42.585Z",
+      "sourceHz": 220,
+      "conditions": "Actual SparseAudio capture/codec/playout, two loopback PeerConnections, one host, synthetic tone, no microphone/APM or hardware speaker. Jitter delays 0/60/10/30ms; stall blocks main thread 80ms every 500ms.",
+      "runs": [
+        {
+          "scenario": "clean",
+          "windows": 79,
+          "silentWindows": 0,
+          "dominantHz": {
+            "min": 220,
+            "max": 220,
+            "median": 220
+          },
+          "overlaps": 0,
+          "largestOverlapMs": 0,
+          "rates": [
+            1
+          ],
+          "sampleRates": [
+            48000
+          ],
+          "metrics": [
+            {
+              "mode": "sparse",
+              "generation": 1,
+              "encoded": 419,
+              "received": 29,
+              "forwarded": 0,
+              "decoded": 29,
+              "dropped": 0,
+              "invalid": 0,
+              "duplicates": 0,
+              "selfReturned": 0,
+              "bytesSent": 90490,
+              "bufferedAmount": 337,
+              "fallback": null,
+              "degree": 1,
+              "pending": 1,
+              "ready": 1,
+              "sources": [
+                {
+                  "id": "b",
+                  "decoded": 29,
+                  "lossRate": 0,
+                  "jitterMs": 142,
+                  "playoutDelayMs": 160,
+                  "underruns": 20,
+                  "jitterLeadMs": 160
+                }
+              ]
+            },
+            {
+              "mode": "sparse",
+              "generation": 1,
+              "encoded": 29,
+              "received": 419,
+              "forwarded": 0,
+              "decoded": 416,
+              "dropped": 0,
+              "invalid": 0,
+              "duplicates": 0,
+              "selfReturned": 0,
+              "bytesSent": 2871,
+              "bufferedAmount": 99,
+              "fallback": null,
+              "degree": 1,
+              "pending": 1,
+              "ready": 1,
+              "sources": [
+                {
+                  "id": "a",
+                  "decoded": 416,
+                  "lossRate": 0,
+                  "jitterMs": 2,
+                  "playoutDelayMs": 72,
+                  "underruns": 1,
+                  "jitterLeadMs": 60
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "scenario": "jitter",
+          "windows": 79,
+          "silentWindows": 0,
+          "dominantHz": {
+            "min": 220,
+            "max": 220,
+            "median": 220
+          },
+          "overlaps": 0,
+          "largestOverlapMs": 0,
+          "rates": [
+            1
+          ],
+          "sampleRates": [
+            48000
+          ],
+          "metrics": [
+            {
+              "mode": "sparse",
+              "generation": 1,
+              "encoded": 411,
+              "received": 29,
+              "forwarded": 0,
+              "decoded": 29,
+              "dropped": 0,
+              "invalid": 0,
+              "duplicates": 0,
+              "selfReturned": 0,
+              "bytesSent": 88788,
+              "bufferedAmount": 337,
+              "fallback": null,
+              "degree": 1,
+              "pending": 1,
+              "ready": 1,
+              "sources": [
+                {
+                  "id": "b",
+                  "decoded": 29,
+                  "lossRate": 0,
+                  "jitterMs": 142,
+                  "playoutDelayMs": 160,
+                  "underruns": 20,
+                  "jitterLeadMs": 160
+                }
+              ]
+            },
+            {
+              "mode": "sparse",
+              "generation": 1,
+              "encoded": 29,
+              "received": 410,
+              "forwarded": 0,
+              "decoded": 405,
+              "dropped": 0,
+              "invalid": 0,
+              "duplicates": 0,
+              "selfReturned": 0,
+              "bytesSent": 2871,
+              "bufferedAmount": 99,
+              "fallback": null,
+              "degree": 1,
+              "pending": 1,
+              "ready": 1,
+              "sources": [
+                {
+                  "id": "a",
+                  "decoded": 405,
+                  "lossRate": 0.0024330900243309003,
+                  "jitterMs": 9,
+                  "playoutDelayMs": 109,
+                  "underruns": 2,
+                  "jitterLeadMs": 78.19738585438081
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "scenario": "stall",
+          "windows": 79,
+          "silentWindows": 0,
+          "dominantHz": {
+            "min": 219,
+            "max": 220,
+            "median": 220
+          },
+          "overlaps": 0,
+          "largestOverlapMs": 0,
+          "rates": [
+            1
+          ],
+          "sampleRates": [
+            48000
+          ],
+          "metrics": [
+            {
+              "mode": "sparse",
+              "generation": 1,
+              "encoded": 410,
+              "received": 29,
+              "forwarded": 0,
+              "decoded": 28,
+              "dropped": 0,
+              "invalid": 0,
+              "duplicates": 0,
+              "selfReturned": 0,
+              "bytesSent": 88586,
+              "bufferedAmount": 901,
+              "fallback": null,
+              "degree": 1,
+              "pending": 1,
+              "ready": 1,
+              "sources": [
+                {
+                  "id": "b",
+                  "decoded": 28,
+                  "lossRate": 0,
+                  "jitterMs": 142,
+                  "playoutDelayMs": 160,
+                  "underruns": 19,
+                  "jitterLeadMs": 160
+                }
+              ]
+            },
+            {
+              "mode": "sparse",
+              "generation": 1,
+              "encoded": 29,
+              "received": 410,
+              "forwarded": 0,
+              "decoded": 406,
+              "dropped": 0,
+              "invalid": 0,
+              "duplicates": 0,
+              "selfReturned": 0,
+              "bytesSent": 2871,
+              "bufferedAmount": 99,
+              "fallback": null,
+              "degree": 1,
+              "pending": 1,
+              "ready": 1,
+              "sources": [
+                {
+                  "id": "a",
+                  "decoded": 406,
+                  "lossRate": 0,
+                  "jitterMs": 4,
+                  "playoutDelayMs": 139,
+                  "underruns": 2,
+                  "jitterLeadMs": 77.85242150910598
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "runnerVerification": [
+    {
+      "variant": "baseline",
+      "engine": "brave",
+      "sha": "92c5e9d1d4a8dde4d1384c3f9f751a3c54f6ea7d",
+      "browser": "151.0.7922.173",
+      "at": "2026-09-06T00:51:32.534Z",
+      "sourceHz": 220,
+      "conditions": "Actual SparseAudio capture/codec/playout, two loopback PeerConnections, one host, synthetic tone, no microphone/APM or hardware speaker. Jitter delays 0/60/10/30ms; stall blocks main thread 80ms every 500ms.",
+      "runs": [
+        {
+          "scenario": "jitter",
+          "windows": 79,
+          "silentWindows": 0,
+          "dominantHz": {
+            "min": 220,
+            "max": 234,
+            "median": 231
+          },
+          "overlaps": 0,
+          "largestOverlapMs": 0,
+          "rates": [
+            1
+          ],
+          "sampleRates": [
+            48000
+          ],
+          "metrics": [
+            {
+              "mode": "sparse",
+              "generation": 1,
+              "encoded": 408,
+              "received": 28,
+              "forwarded": 0,
+              "decoded": 28,
+              "dropped": 0,
+              "invalid": 0,
+              "duplicates": 0,
+              "selfReturned": 0,
+              "bytesSent": 88155,
+              "bufferedAmount": 337,
+              "fallback": null,
+              "degree": 1,
+              "pending": 1,
+              "ready": 1,
+              "sources": [
+                {
+                  "id": "b",
+                  "decoded": 28,
+                  "lossRate": 0,
+                  "jitterMs": 138,
+                  "playoutDelayMs": 160,
+                  "underruns": 18,
+                  "jitterLeadMs": 160
+                }
+              ]
+            },
+            {
+              "mode": "sparse",
+              "generation": 1,
+              "encoded": 28,
+              "received": 406,
+              "forwarded": 0,
+              "decoded": 405,
+              "dropped": 0,
+              "invalid": 0,
+              "duplicates": 0,
+              "selfReturned": 0,
+              "bytesSent": 2772,
+              "bufferedAmount": 99,
+              "fallback": null,
+              "degree": 1,
+              "pending": 1,
+              "ready": 1,
+              "sources": [
+                {
+                  "id": "a",
+                  "decoded": 405,
+                  "lossRate": 0.002457002457002457,
+                  "jitterMs": 8,
+                  "playoutDelayMs": 100,
+                  "underruns": 1,
+                  "jitterLeadMs": 72.7636596118726
+                }
+              ]
+            }
+          ],
+          "pass": false
+        }
+      ]
+    },
+    {
+      "variant": "ordered60",
+      "engine": "brave",
+      "sha": "92c5e9d1d4a8dde4d1384c3f9f751a3c54f6ea7d",
+      "browser": "151.0.7922.173",
+      "at": "2026-09-06T00:52:36.286Z",
+      "sourceHz": 220,
+      "conditions": "Actual SparseAudio capture/codec/playout, two loopback PeerConnections, one host, synthetic tone, no microphone/APM or hardware speaker. Jitter delays 0/60/10/30ms; stall blocks main thread 80ms every 500ms.",
+      "runs": [
+        {
+          "scenario": "clean",
+          "windows": 79,
+          "silentWindows": 0,
+          "dominantHz": {
+            "min": 220,
+            "max": 220,
+            "median": 220
+          },
+          "overlaps": 0,
+          "largestOverlapMs": 0,
+          "rates": [
+            1
+          ],
+          "sampleRates": [
+            48000
+          ],
+          "metrics": [
+            {
+              "mode": "sparse",
+              "generation": 1,
+              "encoded": 409,
+              "received": 29,
+              "forwarded": 0,
+              "decoded": 28,
+              "dropped": 0,
+              "invalid": 0,
+              "duplicates": 0,
+              "selfReturned": 0,
+              "bytesSent": 88279,
+              "bufferedAmount": 337,
+              "fallback": null,
+              "degree": 1,
+              "pending": 1,
+              "ready": 1,
+              "sources": [
+                {
+                  "id": "b",
+                  "decoded": 28,
+                  "lossRate": 0,
+                  "jitterMs": 142,
+                  "playoutDelayMs": 160,
+                  "underruns": 19,
+                  "jitterLeadMs": 160
+                }
+              ]
+            },
+            {
+              "mode": "sparse",
+              "generation": 1,
+              "encoded": 29,
+              "received": 409,
+              "forwarded": 0,
+              "decoded": 405,
+              "dropped": 0,
+              "invalid": 0,
+              "duplicates": 0,
+              "selfReturned": 0,
+              "bytesSent": 2871,
+              "bufferedAmount": 99,
+              "fallback": null,
+              "degree": 1,
+              "pending": 1,
+              "ready": 1,
+              "sources": [
+                {
+                  "id": "a",
+                  "decoded": 405,
+                  "lossRate": 0,
+                  "jitterMs": 2,
+                  "playoutDelayMs": 60,
+                  "underruns": 1,
+                  "jitterLeadMs": 60
+                }
+              ]
+            }
+          ],
+          "pass": true
+        },
+        {
+          "scenario": "jitter",
+          "windows": 79,
+          "silentWindows": 0,
+          "dominantHz": {
+            "min": 220,
+            "max": 220,
+            "median": 220
+          },
+          "overlaps": 0,
+          "largestOverlapMs": 0,
+          "rates": [
+            1
+          ],
+          "sampleRates": [
+            48000
+          ],
+          "metrics": [
+            {
+              "mode": "sparse",
+              "generation": 1,
+              "encoded": 409,
+              "received": 29,
+              "forwarded": 0,
+              "decoded": 28,
+              "dropped": 0,
+              "invalid": 0,
+              "duplicates": 0,
+              "selfReturned": 0,
+              "bytesSent": 88873,
+              "bufferedAmount": 302,
+              "fallback": null,
+              "degree": 1,
+              "pending": 1,
+              "ready": 1,
+              "sources": [
+                {
+                  "id": "b",
+                  "decoded": 28,
+                  "lossRate": 0,
+                  "jitterMs": 142,
+                  "playoutDelayMs": 160,
+                  "underruns": 19,
+                  "jitterLeadMs": 160
+                }
+              ]
+            },
+            {
+              "mode": "sparse",
+              "generation": 1,
+              "encoded": 29,
+              "received": 409,
+              "forwarded": 0,
+              "decoded": 405,
+              "dropped": 0,
+              "invalid": 0,
+              "duplicates": 0,
+              "selfReturned": 0,
+              "bytesSent": 2871,
+              "bufferedAmount": 99,
+              "fallback": null,
+              "degree": 1,
+              "pending": 1,
+              "ready": 1,
+              "sources": [
+                {
+                  "id": "a",
+                  "decoded": 405,
+                  "lossRate": 0,
+                  "jitterMs": 22,
+                  "playoutDelayMs": 109,
+                  "underruns": 2,
+                  "jitterLeadMs": 127.73416940402929
+                }
+              ]
+            }
+          ],
+          "pass": true
+        },
+        {
+          "scenario": "stall",
+          "windows": 79,
+          "silentWindows": 0,
+          "dominantHz": {
+            "min": 220,
+            "max": 220,
+            "median": 220
+          },
+          "overlaps": 0,
+          "largestOverlapMs": 0,
+          "rates": [
+            1
+          ],
+          "sampleRates": [
+            48000
+          ],
+          "metrics": [
+            {
+              "mode": "sparse",
+              "generation": 1,
+              "encoded": 411,
+              "received": 29,
+              "forwarded": 0,
+              "decoded": 28,
+              "dropped": 0,
+              "invalid": 0,
+              "duplicates": 0,
+              "selfReturned": 0,
+              "bytesSent": 88788,
+              "bufferedAmount": 897,
+              "fallback": null,
+              "degree": 1,
+              "pending": 1,
+              "ready": 1,
+              "sources": [
+                {
+                  "id": "b",
+                  "decoded": 28,
+                  "lossRate": 0,
+                  "jitterMs": 142,
+                  "playoutDelayMs": 160,
+                  "underruns": 19,
+                  "jitterLeadMs": 160
+                }
+              ]
+            },
+            {
+              "mode": "sparse",
+              "generation": 1,
+              "encoded": 29,
+              "received": 411,
+              "forwarded": 0,
+              "decoded": 408,
+              "dropped": 0,
+              "invalid": 0,
+              "duplicates": 0,
+              "selfReturned": 0,
+              "bytesSent": 2871,
+              "bufferedAmount": 99,
+              "fallback": null,
+              "degree": 1,
+              "pending": 1,
+              "ready": 1,
+              "sources": [
+                {
+                  "id": "a",
+                  "decoded": 408,
+                  "lossRate": 0,
+                  "jitterMs": 5,
+                  "playoutDelayMs": 152,
+                  "underruns": 2,
+                  "jitterLeadMs": 82.54221182095793
+                }
+              ]
+            }
+          ],
+          "pass": true
+        }
+      ]
+    }
+  ]
+}

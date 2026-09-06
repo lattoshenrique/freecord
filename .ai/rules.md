@@ -13,9 +13,10 @@ exist because we already paid for breaking them.
 
 Guest-first rooms: anyone creates a room, shares the link, friends join with no
 signup — voice, video, text chat, peer-to-peer files and screen sharing (up to
-three screens at once). Media stays on participant WebRTC connections. Compatible
-voice rooms converge to a sparse Opus/DataChannel overlay; native RTP remains the
-fallback and serves the stereo music profile. The server owns room state,
+three screens at once). Media stays on participant WebRTC connections. Production
+uses native P2P RTP while the sparse Opus/DataChannel quality gate is closed.
+Compatible local research rooms can exercise the degree-eight overlay.
+The server owns room state,
 presence, signaling and route coordination, never media. No media vendor, no
 third-party SDK, no external credentials.
 
@@ -133,10 +134,12 @@ and its installers are built by GitHub Actions on a `desktop-v*` tag.
 
 - Room dies alone: 15 min empty. Max **20 participants** remains the admission
   envelope; do not raise it using only graph/same-host transport results. In
-  compatible audio-only rooms of up to ten participants, sparse activation
+  compatible local research audio-only rooms of up to ten participants, sparse activation
   converges to degree <= 8 with
   every logical source retained. Bootstrap/native fallback and existing video
-  legs may have more connections. Stereo music retains native RTP. See
+  legs may have more connections. Public deployments force native RTP after
+  a reported voice distortion and a reproduced Brave jitter/pitch failure.
+  Stereo music retains native RTP. See
   `docs/research/audio-activation.md` for gates and limitations. **Camera slots**
   shrink as the room grows (≤6:
   everyone; 7–9: four; 10–16: three; 17–20: two, server-granted) and camera

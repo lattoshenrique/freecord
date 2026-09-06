@@ -16,10 +16,12 @@ browser A ◄──── WebRTC P2P (voice/video/screen, chat + files on data c
                                screen and camera slots, chat fallback)
 ```
 
-**Fully self-owned.** Media flows between participants. Compatible audio-only
-rooms of up to ten participants converge to a degree-eight overlay, with separate
-per-source Opus routes. Native fallback and existing video legs can retain more
-connections; see the activation document for the exact envelope. The server never touches
+**Fully self-owned.** Media flows between participants. Production currently uses
+native P2P RTP: a reported voice distortion and a reproduced Brave jitter/pitch
+failure closed the sparse audio quality gate. Compatible local research rooms
+of up to ten participants can converge to a degree-eight overlay with separate
+per-source Opus routes. See the activation document for the exact envelope.
+The server never touches
 media: it owns room state, carries signaling envelopes, and — on request,
 once per paste, and only for a link the browser could not read itself —
 fetches the one page handed to the watch tool and reads its markup for what
